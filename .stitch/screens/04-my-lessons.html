@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumen - Уроки</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#eae6f4",
+                        "surface-container": "#f0ecf9",
+                        "error-container": "#ffdad6",
+                        "primary": "#3525cd",
+                        "on-error": "#ffffff",
+                        "slate-500": "#64748B",
+                        "on-primary": "#ffffff",
+                        "surface-bright": "#fcf8ff",
+                        "secondary-fixed": "#dfe3e7",
+                        "on-surface": "#1b1b24",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#7e3000",
+                        "inverse-primary": "#c3c0ff",
+                        "outline": "#777587",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#4f46e5",
+                        "secondary": "#5a5f62",
+                        "on-tertiary-container": "#ffd2be",
+                        "on-primary-container": "#dad7ff",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "outline-variant": "#c7c4d8",
+                        "tertiary-fixed": "#ffdbcc",
+                        "inverse-surface": "#302f39",
+                        "on-surface-variant": "#464555",
+                        "on-tertiary-fixed": "#351000",
+                        "slate-900": "#0F172A",
+                        "surface-tint": "#4d44e3",
+                        "tertiary-fixed-dim": "#ffb695",
+                        "warning": "#F59E0B",
+                        "primary-fixed": "#e2dfff",
+                        "surface-container-highest": "#e4e1ee",
+                        "on-background": "#1b1b24",
+                        "inverse-on-surface": "#f3effc",
+                        "on-primary-fixed": "#0f0069",
+                        "surface-variant": "#e4e1ee",
+                        "slate-200": "#E2E8F0",
+                        "slate-50": "#F8FAFC",
+                        "on-secondary-fixed": "#171c1f",
+                        "on-secondary-fixed-variant": "#43474b",
+                        "secondary-fixed-dim": "#c3c7cb",
+                        "background": "#fcf8ff",
+                        "success": "#10B981",
+                        "surface-container-low": "#f5f2ff",
+                        "secondary-container": "#dce0e4",
+                        "destructive": "#EF4444",
+                        "tertiary-container": "#a44100",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "on-secondary-container": "#5e6367",
+                        "error": "#ba1a1a",
+                        "surface": "#fcf8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#7b2f00",
+                        "surface-dim": "#dcd8e5",
+                        "indigo-tint": "#F5F7FF"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "max-width": "1200px",
+                        "gutter": "24px",
+                        "base": "4px",
+                        "margin": "24px",
+                        "container-max": "1200px"
+                    },
+                    "fontFamily": {
+                        "display": ["Inter"],
+                        "h1": ["Inter"],
+                        "h2": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "h1-mobile": ["Inter"],
+                        "ui": ["Inter"],
+                        "code": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "display": ["30px", { "lineHeight": "38px", "fontWeight": "700" }],
+                        "h1": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "h2": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "h1-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "ui": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "code": ["28px", { "lineHeight": "36px", "letterSpacing": "0.15em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+        body {
+            background-color: #F8FAFC; /* slate-50 */
+        }
+    </style>
+</head>
+<body class="text-on-surface font-body min-h-screen pb-safe md:pb-0 pt-16 md:pt-16">
+<!-- TopNavBar (Web) -->
+<nav class="hidden md:flex bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-slate-200 dark:border-outline-variant fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 max-w-container-max mx-auto transition-all duration-200 ease-in-out">
+<div class="flex items-center gap-8">
+<div class="text-h2 font-h2 text-primary dark:text-primary-fixed">Lumen</div>
+<div class="flex gap-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant font-ui text-ui hover:text-primary dark:hover:text-primary-fixed transition-colors h-16 flex items-center" href="#">Dashboard</a>
+<a class="text-primary dark:text-primary-fixed font-semibold border-b-2 border-primary font-ui text-ui h-16 flex items-center" href="#">Courses</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-ui text-ui hover:text-primary dark:hover:text-primary-fixed transition-colors h-16 flex items-center" href="#">Workbook</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant font-ui text-ui hover:text-primary dark:hover:text-primary-fixed transition-colors h-16 flex items-center" href="#">Resources</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary hover:bg-primary-container text-on-primary font-ui text-ui px-4 py-2 rounded-lg transition-colors">Create Lesson</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden ml-2 border border-slate-200">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A minimalist professional avatar portrait in a bright studio. High-key lighting, soft shadows, wearing a simple dark gray turtleneck against a pure white background. Minimalist corporate aesthetic, focusing on clarity and approachability." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxOH4-F-4n-h9qxb1_365UPx4BRqGgq_hBNBdsFIlVgwoRzhtPNlwhDT2O17N-yf4bccRZZw90Ogc61TeLlKo0muIQqJbnY5Bij0X8mv12Qvn09Yr6qTGokn8LX9SlPBYNoMOYzDMQLURXOLoHNdD0jtUfCcO8NZrckrgAF5W0rP1Hla8XqZbgOw0dtay-Lq4t-CCcckSj2P4QTma8UefHAw3-1Selow8jgL0Q-tDc2nS86UWtAh9D"/>
+</div>
+</div>
+</nav>
+<!-- Top Mobile App Bar (Mobile) -->
+<nav class="md:hidden bg-surface-container-lowest fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-16 border-b border-slate-200">
+<div class="text-h1-mobile font-h1-mobile text-primary">Lumen</div>
+<div class="flex gap-2">
+<button class="text-on-surface-variant flex items-center justify-center w-10 h-10">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</div>
+</nav>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden bg-surface-container-lowest dark:bg-surface-container-low border-t border-slate-200 dark:border-outline-variant fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 pb-safe tap-highlight-none transition-all rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed font-bold w-full h-full active:bg-slate-50 dark:active:bg-surface-container-high rounded-tl-xl" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="school" data-weight="fill">school</span>
+<span class="font-label text-label">Lessons</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant w-full h-full active:bg-slate-50 dark:active:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="edit_note">edit_note</span>
+<span class="font-label text-label">Workbook</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant w-full h-full active:bg-slate-50 dark:active:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="smart_toy">smart_toy</span>
+<span class="font-label text-label">Chat</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant w-full h-full active:bg-slate-50 dark:active:bg-surface-container-high rounded-tr-xl" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="account_circle">account_circle</span>
+<span class="font-label text-label">Profile</span>
+</a>
+</nav>
+<!-- Main Content -->
+<main class="max-w-container-max mx-auto px-4 md:px-gutter py-8 md:py-12">
+<!-- Header -->
+<header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+<div>
+<h1 class="text-h1-mobile md:text-h1 font-h1-mobile md:font-h1 text-slate-900">Уроки</h1>
+<p class="text-ui font-ui text-slate-500 mt-1">Управление материалами курса "Основы UI/UX"</p>
+</div>
+<button class="bg-primary hover:bg-primary-container text-on-primary font-ui text-ui px-5 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm w-full md:w-auto">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+                Новый урок
+            </button>
+</header>
+<!-- Lessons Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Lesson Card 1 -->
+<div class="bg-surface-container-lowest border border-slate-200 rounded-[12px] p-6 hover:border-primary/30 transition-all hover:bg-indigo-tint/30 flex flex-col h-full group">
+<div class="flex justify-between items-start mb-4">
+<span class="bg-surface-container text-primary font-label text-label px-2.5 py-1 rounded-[4px] uppercase tracking-wide flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]" data-icon="play_circle">play_circle</span>
+                        Видео
+                    </span>
+<button class="text-slate-400 hover:text-slate-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<h3 class="text-h2 font-h2 text-slate-900 mb-2">1. Введение в дизайн-системы</h3>
+<p class="text-ui font-ui text-slate-500 mb-6 flex-grow">Основные принципы построения масштабируемых UI-библиотек.</p>
+<div class="flex flex-col sm:flex-row gap-3 mt-auto">
+<button class="border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50 font-ui text-ui px-4 py-2 rounded-lg transition-colors flex-1 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+                        Открыть редактор
+                    </button>
+<button class="bg-primary hover:bg-primary-container text-on-primary font-ui text-ui px-4 py-2 rounded-lg transition-colors flex-1 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="record_voice_over">record_voice_over</span>
+                        Запустить live
+                    </button>
+</div>
+</div>
+<!-- Lesson Card 2 -->
+<div class="bg-surface-container-lowest border border-slate-200 rounded-[12px] p-6 hover:border-primary/30 transition-all hover:bg-indigo-tint/30 flex flex-col h-full group">
+<div class="flex justify-between items-start mb-4">
+<span class="bg-slate-100 text-slate-700 font-label text-label px-2.5 py-1 rounded-[4px] uppercase tracking-wide flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]" data-icon="subject">subject</span>
+                        Текст
+                    </span>
+<button class="text-slate-400 hover:text-slate-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<h3 class="text-h2 font-h2 text-slate-900 mb-2">2. Типографика в вебе</h3>
+<p class="text-ui font-ui text-slate-500 mb-6 flex-grow">Как выбирать шрифтовые пары и настраивать вертикальный ритм.</p>
+<div class="flex flex-col sm:flex-row gap-3 mt-auto">
+<button class="border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50 font-ui text-ui px-4 py-2 rounded-lg transition-colors flex-1 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+                        Открыть редактор
+                    </button>
+<button class="bg-primary hover:bg-primary-container text-on-primary font-ui text-ui px-4 py-2 rounded-lg transition-colors flex-1 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="record_voice_over">record_voice_over</span>
+                        Запустить live
+                    </button>
+</div>
+</div>
+<!-- Lesson Card 3 -->
+<div class="bg-surface-container-lowest border border-slate-200 rounded-[12px] p-6 hover:border-primary/30 transition-all hover:bg-indigo-tint/30 flex flex-col h-full group">
+<div class="flex justify-between items-start mb-4">
+<span class="bg-surface-container-highest text-slate-800 font-label text-label px-2.5 py-1 rounded-[4px] uppercase tracking-wide flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]" data-icon="quiz">quiz</span>
+                        Тест
+                    </span>
+<button class="text-slate-400 hover:text-slate-900 transition-colors">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<h3 class="text-h2 font-h2 text-slate-900 mb-2">3. Проверка знаний: Компоненты</h3>
+<p class="text-ui font-ui text-slate-500 mb-6 flex-grow">Тест на понимание атомарного дизайна и структуры компонентов.</p>
+<div class="flex flex-col sm:flex-row gap-3 mt-auto">
+<button class="border border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50 font-ui text-ui px-4 py-2 rounded-lg transition-colors flex-1 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="edit">edit</span>
+                        Открыть редактор
+                    </button>
+<button class="bg-primary hover:bg-primary-container text-on-primary font-ui text-ui px-4 py-2 rounded-lg transition-colors flex-1 flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled="">
+<span class="material-symbols-outlined text-[18px]" data-icon="record_voice_over">record_voice_over</span>
+                        Запустить live
+                    </button>
+</div>
+</div>
+</div>
+<!-- Empty State (Hidden by default, shown here for completeness) -->
+<div class="hidden mt-12 bg-surface-container-lowest border border-slate-200 border-dashed rounded-[12px] p-12 flex flex-col items-center justify-center text-center">
+<div class="w-16 h-16 bg-surface-container-low rounded-full flex items-center justify-center mb-4 text-primary">
+<span class="material-symbols-outlined text-display" data-icon="inventory_2">inventory_2</span>
+</div>
+<h3 class="text-h2 font-h2 text-slate-900 mb-2">Нет созданных уроков</h3>
+<p class="text-ui font-ui text-slate-500 max-w-md mb-6">Создайте свой первый урок, чтобы начать наполнение курса материалами для студентов.</p>
+<button class="bg-primary hover:bg-primary-container text-on-primary font-ui text-ui px-5 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+                Новый урок
+            </button>
+</div>
+</main>
+</body></html>

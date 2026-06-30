@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumen - Присоединиться к сессии</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#eae6f4",
+                        "surface-container": "#f0ecf9",
+                        "error-container": "#ffdad6",
+                        "primary": "#3525cd",
+                        "on-error": "#ffffff",
+                        "slate-500": "#64748B",
+                        "on-primary": "#ffffff",
+                        "surface-bright": "#fcf8ff",
+                        "secondary-fixed": "#dfe3e7",
+                        "on-surface": "#1b1b24",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#7e3000",
+                        "inverse-primary": "#c3c0ff",
+                        "outline": "#777587",
+                        "on-secondary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#4f46e5",
+                        "secondary": "#5a5f62",
+                        "on-tertiary-container": "#ffd2be",
+                        "on-primary-container": "#dad7ff",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "outline-variant": "#c7c4d8",
+                        "tertiary-fixed": "#ffdbcc",
+                        "inverse-surface": "#302f39",
+                        "on-surface-variant": "#464555",
+                        "on-tertiary-fixed": "#351000",
+                        "slate-900": "#0F172A",
+                        "surface-tint": "#4d44e3",
+                        "tertiary-fixed-dim": "#ffb695",
+                        "warning": "#F59E0B",
+                        "primary-fixed": "#e2dfff",
+                        "surface-container-highest": "#e4e1ee",
+                        "on-background": "#1b1b24",
+                        "inverse-on-surface": "#f3effc",
+                        "on-primary-fixed": "#0f0069",
+                        "surface-variant": "#e4e1ee",
+                        "slate-200": "#E2E8F0",
+                        "slate-50": "#F8FAFC",
+                        "on-secondary-fixed": "#171c1f",
+                        "on-secondary-fixed-variant": "#43474b",
+                        "secondary-fixed-dim": "#c3c7cb",
+                        "background": "#fcf8ff",
+                        "success": "#10B981",
+                        "surface-container-low": "#f5f2ff",
+                        "secondary-container": "#dce0e4",
+                        "destructive": "#EF4444",
+                        "tertiary-container": "#a44100",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "on-secondary-container": "#5e6367",
+                        "error": "#ba1a1a",
+                        "surface": "#fcf8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#7b2f00",
+                        "surface-dim": "#dcd8e5",
+                        "indigo-tint": "#F5F7FF"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "max-width": "1200px",
+                        "gutter": "24px",
+                        "base": "4px",
+                        "margin": "24px",
+                        "container-max": "1200px"
+                    },
+                    "fontFamily": {
+                        "display": ["Inter"],
+                        "h1": ["Inter"],
+                        "h2": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "h1-mobile": ["Inter"],
+                        "ui": ["Inter"],
+                        "code": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "display": ["30px", { "lineHeight": "38px", "fontWeight": "700" }],
+                        "h1": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "h2": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "h1-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "ui": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "code": ["28px", { "lineHeight": "36px", "letterSpacing": "0.15em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #3525cd;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50 min-h-screen flex flex-col items-center justify-center font-body text-on-surface px-margin">
+<main class="w-full max-w-sm bg-surface-container-lowest border border-slate-200 rounded-xl p-6 flex flex-col gap-6 relative shadow-sm">
+<header class="flex flex-col items-center text-center gap-2">
+<div class="h-12 w-12 bg-indigo-tint rounded-lg flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-primary text-3xl">school</span>
+</div>
+<h1 class="font-h1-mobile text-h1-mobile text-on-surface">Lumen</h1>
+<p class="font-ui text-ui text-on-surface-variant">Введите код сессии, чтобы присоединиться</p>
+</header>
+<form action="#" class="flex flex-col gap-5 w-full" method="POST">
+<div class="flex flex-col gap-1.5">
+<label class="sr-only" for="session-code">Код сессии</label>
+<input autocomplete="off" class="w-full text-center font-code text-code tracking-[0.25em] py-4 rounded-lg border border-slate-200 bg-surface-container-lowest text-on-surface placeholder:text-outline-variant uppercase transition-shadow" id="session-code" maxlength="6" name="session-code" placeholder="000000" required="" type="text"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label text-label text-on-surface-variant uppercase" for="student-name">Ваше имя</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant">person</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 bg-surface-container-lowest font-ui text-ui text-on-surface placeholder:text-outline-variant transition-shadow" id="student-name" name="student-name" placeholder="Иван Иванов" required="" type="text"/>
+</div>
+</div>
+<button class="mt-2 w-full bg-primary hover:bg-primary-container text-on-primary font-ui text-ui font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2" type="submit">
+                Войти
+                <span aria-hidden="true" class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+</form>
+<footer class="text-center mt-2">
+<a class="font-label text-label text-primary hover:text-primary-container transition-colors" href="#">Нужна помощь?</a>
+</footer>
+</main>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const codeInput = document.getElementById('session-code');
+            
+            codeInput.addEventListener('input', (e) => {
+                let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                if (value.length > 6) {
+                    value = value.slice(0, 6);
+                }
+                e.target.value = value;
+            });
+        });
+    </script>
+</body></html>

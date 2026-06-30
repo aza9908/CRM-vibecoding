@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumen - Teacher Live Control</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#b9c8de",
+                        "primary-container": "#8083ff",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-container": "#a7b6cc",
+                        "tertiary-container": "#d97721",
+                        "secondary-container": "#39485a",
+                        "outline": "#908fa0",
+                        "on-secondary": "#233143",
+                        "outline-variant": "#464554",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "surface-container-lowest": "#0d0d15",
+                        "on-primary-container": "#0d0096",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#452000",
+                        "surface": "#13131b",
+                        "tertiary-fixed": "#ffdcc5",
+                        "on-tertiary-fixed-variant": "#703700",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-tertiary-fixed": "#301400",
+                        "inverse-surface": "#e4e1ed",
+                        "surface-dim": "#13131b",
+                        "tertiary-fixed-dim": "#ffb783",
+                        "surface-container-high": "#292932",
+                        "surface-tint": "#c0c1ff",
+                        "inverse-on-surface": "#303038",
+                        "error-container": "#93000a",
+                        "on-primary-fixed": "#07006c",
+                        "surface-variant": "#34343d",
+                        "on-background": "#e4e1ed",
+                        "surface-container-highest": "#34343d",
+                        "surface-container": "#1f1f27",
+                        "primary-fixed": "#e1e0ff",
+                        "secondary-fixed": "#d4e4fa",
+                        "surface-bright": "#393841",
+                        "on-secondary-fixed-variant": "#39485a",
+                        "secondary-fixed-dim": "#b9c8de",
+                        "background": "#13131b",
+                        "on-primary": "#1000a9",
+                        "on-secondary-fixed": "#0d1c2d",
+                        "primary": "#c0c1ff",
+                        "on-error": "#690005",
+                        "inverse-primary": "#494bd6",
+                        "surface-container-low": "#1b1b23",
+                        "tertiary": "#ffb783",
+                        "on-surface": "#e4e1ed",
+                        "on-tertiary": "#4f2500"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "base": "4px",
+                        "md": "16px",
+                        "max-width": "1280px",
+                        "margin-mobile": "16px",
+                        "xl": "40px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "gutter": "24px",
+                        "margin-desktop": "48px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "body-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-md": ["JetBrains Mono"],
+                        "headline-xl": ["Hanken Grotesk"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #0F172A; color: #F8FAFC; }
+        .card-bg { background-color: #1E293B; border: 1px solid #334155; }
+        .popover-bg { background-color: #263345; border: 1px solid #475569; box-shadow: 0px 10px 30px rgba(0,0,0,0.5); }
+        .focused-block { border: 2px solid #6366F1; box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+        
+        /* Specific request overrides */
+        .header-bg { background-color: #1E293B; border-bottom: 1px solid #334155; }
+        .text-emerald { color: #10B981; }
+        .bg-emerald { background-color: #10B981; }
+        .bg-red-btn { background-color: #EF4444; color: white; }
+        .bg-red-btn:hover { background-color: #DC2626; }
+        .indigo-primary { background-color: #6366F1; color: white; }
+        
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="font-body-md text-body-md min-h-screen flex flex-col">
+<!-- Top Navigation / Header -->
+<header class="header-bg w-full z-50 flex justify-between items-center px-gutter h-16 sticky top-0">
+<div class="flex items-center gap-6">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed tracking-tight">Lumen</h1>
+<div class="flex items-center gap-3 bg-[#0F172A] px-4 py-1.5 rounded-full border border-[#334155]">
+<div class="w-2.5 h-2.5 rounded-full bg-emerald animate-pulse"></div>
+<span class="font-label-md text-label-md text-on-surface">В эфире</span>
+<span class="font-label-md text-label-md text-primary ml-2 tracking-widest">UX-102-LIVE</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 mr-4">
+<span class="material-symbols-outlined text-on-surface-variant">group</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">24/25 Учеников</span>
+</div>
+<button class="bg-red-btn px-4 py-2 rounded-lg font-body-sm text-body-sm font-medium transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">stop_circle</span>
+                Завершить урок
+            </button>
+</div>
+</header>
+<!-- Main Content Layout -->
+<main class="flex-grow p-gutter flex gap-gutter max-w-[1920px] mx-auto w-full h-[calc(100vh-4rem)]">
+<!-- Left Column: Workbook Preview -->
+<section class="w-1/2 flex flex-col gap-4">
+<div class="flex justify-between items-center mb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Материалы урока</h2>
+<div class="flex gap-2">
+<button class="p-2 rounded card-bg hover:bg-[#263345] transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<span class="font-label-md text-label-md self-center text-on-surface-variant">Слайд 4 / 12</span>
+<button class="p-2 rounded card-bg hover:bg-[#263345] transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Focused Content Block -->
+<div class="card-bg rounded-xl p-8 flex-grow flex flex-col focused-block relative overflow-hidden">
+<div class="absolute top-4 right-4 bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-label-sm text-label-sm border border-indigo-500/30 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+                    Активный экран
+                </div>
+<div class="max-w-2xl mx-auto w-full mt-10">
+<h3 class="font-headline-lg text-headline-lg text-on-surface mb-6">Задание 3: Проектирование архитектуры</h3>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-8 leading-relaxed">
+                        Опираясь на пользовательские интервью из предыдущего модуля, составьте информационную архитектуру для раздела "Настройки профиля". Какие элементы являются критичными для первого уровня вложенности?
+                    </p>
+<div class="bg-[#0F172A] p-6 rounded-lg border border-[#334155]">
+<div class="flex items-center gap-3 mb-4 text-on-surface-variant">
+<span class="material-symbols-outlined">timer</span>
+<span class="font-label-md text-label-md">Осталось времени: 04:32</span>
+</div>
+<div class="w-full bg-[#334155] rounded-full h-2 mb-2">
+<div class="bg-indigo-500 h-2 rounded-full" style="width: 45%"></div>
+</div>
+</div>
+</div>
+<div class="mt-auto flex justify-between pt-6 border-t border-[#334155]">
+<button class="px-4 py-2 rounded-lg border border-[#334155] text-on-surface-variant hover:bg-[#263345] transition-colors flex items-center gap-2 font-body-sm">
+<span class="material-symbols-outlined">edit</span>
+                        Добавить заметку
+                    </button>
+<button class="indigo-primary px-6 py-2 rounded-lg font-body-sm font-medium transition-colors hover:bg-indigo-400">
+                        Показать правильный ответ
+                    </button>
+</div>
+</div>
+</section>
+<!-- Right Column: Participant Answers -->
+<section class="w-1/2 flex flex-col gap-4">
+<div class="flex justify-between items-center mb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+                    Ответы участников
+                    <span class="bg-[#1E293B] text-primary px-2 py-0.5 rounded-full font-label-sm text-label-sm border border-[#334155]">18/24</span>
+</h2>
+<div class="flex gap-2">
+<select class="bg-[#0F172A] border border-[#334155] text-on-surface-variant rounded-lg px-3 py-1.5 font-body-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none">
+<option>По времени сдачи</option>
+<option>По статусу проверки</option>
+<option>По алфавиту</option>
+</select>
+</div>
+</div>
+<div class="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+<!-- Answer Card 1 (Checked) -->
+<div class="card-bg rounded-lg p-5 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-indigo-900 flex items-center justify-center text-primary font-bold">
+                                АС
+                            </div>
+<div>
+<h4 class="font-body-md text-on-surface font-medium">Анна Смирнова</h4>
+<p class="font-label-sm text-on-surface-variant">Сдано 2 мин назад</p>
+</div>
+</div>
+<div class="text-emerald flex items-center gap-1 font-label-sm border border-emerald/30 bg-emerald/10 px-2 py-1 rounded">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Проверено
+                        </div>
+</div>
+<div class="bg-[#0F172A] p-4 rounded border border-[#334155] font-body-sm text-on-surface-variant">
+                        "Я вынесла 'Безопасность', 'Уведомления' и 'Платежные данные' на первый уровень. 'Внешний вид' и 'Язык' спрятала под 'Общие настройки', так как по статистике их меняют реже."
+                    </div>
+<div class="flex gap-2 mt-2">
+<button class="text-primary hover:text-indigo-400 font-body-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[18px]">reply</span> Комментировать
+                        </button>
+</div>
+</div>
+<!-- Answer Card 2 (Unchecked, needs review) -->
+<div class="card-bg rounded-lg p-5 flex flex-col gap-3 border-l-4 border-l-amber-500">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-on-surface font-bold">
+                                ИИ
+                            </div>
+<div>
+<h4 class="font-body-md text-on-surface font-medium">Иван Иванов</h4>
+<p class="font-label-sm text-on-surface-variant">Сдано только что</p>
+</div>
+</div>
+<div class="text-amber-500 flex items-center gap-1 font-label-sm border border-amber-500/30 bg-amber-500/10 px-2 py-1 rounded">
+<span class="material-symbols-outlined text-[16px]">pending</span>
+                            Ожидает проверки
+                        </div>
+</div>
+<div class="bg-[#0F172A] p-4 rounded border border-[#334155] font-body-sm text-on-surface-variant">
+                        "Предлагаю сделать плоскую структуру. Все настройки на одном экране с якорными ссылками слева."
+                    </div>
+<div class="flex gap-3 mt-2">
+<button class="bg-[#334155] hover:bg-[#475569] text-on-surface px-4 py-1.5 rounded font-body-sm transition-colors">
+                            Принять
+                        </button>
+<button class="border border-[#334155] hover:bg-[#263345] text-on-surface-variant px-4 py-1.5 rounded font-body-sm transition-colors">
+                            Вернуть на доработку
+                        </button>
+</div>
+</div>
+<!-- Answer Card 3 -->
+<div class="card-bg rounded-lg p-5 flex flex-col gap-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-teal-900 flex items-center justify-center text-teal-300 font-bold">
+                                МП
+                            </div>
+<div>
+<h4 class="font-body-md text-on-surface font-medium">Мария Петрова</h4>
+<p class="font-label-sm text-on-surface-variant">Пишет ответ...</p>
+</div>
+</div>
+<div class="flex gap-1 items-center">
+<div class="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+<div class="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+<div class="w-1.5 h-1.5 bg-on-surface-variant rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<style>
+        /* Custom Scrollbar for dark mode */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0F172A; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4</style></body></html>

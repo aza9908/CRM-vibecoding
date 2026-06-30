@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Lumen - Live Control</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#eae6f4",
+                      "surface-container": "#f0ecf9",
+                      "error-container": "#ffdad6",
+                      "primary": "#3525cd",
+                      "on-error": "#ffffff",
+                      "slate-500": "#64748B",
+                      "on-primary": "#ffffff",
+                      "surface-bright": "#fcf8ff",
+                      "secondary-fixed": "#dfe3e7",
+                      "on-surface": "#1b1b24",
+                      "on-tertiary": "#ffffff",
+                      "tertiary": "#7e3000",
+                      "inverse-primary": "#c3c0ff",
+                      "outline": "#777587",
+                      "on-secondary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "primary-container": "#4f46e5",
+                      "secondary": "#5a5f62",
+                      "on-tertiary-container": "#ffd2be",
+                      "on-primary-container": "#dad7ff",
+                      "primary-fixed-dim": "#c3c0ff",
+                      "outline-variant": "#c7c4d8",
+                      "tertiary-fixed": "#ffdbcc",
+                      "inverse-surface": "#302f39",
+                      "on-surface-variant": "#464555",
+                      "on-tertiary-fixed": "#351000",
+                      "slate-900": "#0F172A",
+                      "surface-tint": "#4d44e3",
+                      "tertiary-fixed-dim": "#ffb695",
+                      "warning": "#F59E0B",
+                      "primary-fixed": "#e2dfff",
+                      "surface-container-highest": "#e4e1ee",
+                      "on-background": "#1b1b24",
+                      "inverse-on-surface": "#f3effc",
+                      "on-primary-fixed": "#0f0069",
+                      "surface-variant": "#e4e1ee",
+                      "slate-200": "#E2E8F0",
+                      "slate-50": "#F8FAFC",
+                      "on-secondary-fixed": "#171c1f",
+                      "on-secondary-fixed-variant": "#43474b",
+                      "secondary-fixed-dim": "#c3c7cb",
+                      "background": "#fcf8ff",
+                      "success": "#10B981",
+                      "surface-container-low": "#f5f2ff",
+                      "secondary-container": "#dce0e4",
+                      "destructive": "#EF4444",
+                      "tertiary-container": "#a44100",
+                      "on-primary-fixed-variant": "#3323cc",
+                      "on-secondary-container": "#5e6367",
+                      "error": "#ba1a1a",
+                      "surface": "#fcf8ff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed-variant": "#7b2f00",
+                      "surface-dim": "#dcd8e5",
+                      "indigo-tint": "#F5F7FF"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "max-width": "1200px",
+                      "gutter": "24px",
+                      "base": "4px",
+                      "margin": "24px",
+                      "container-max": "1200px"
+              },
+              "fontFamily": {
+                      "display": ["Inter"],
+                      "h1": ["Inter"],
+                      "h2": ["Inter"],
+                      "body": ["Inter"],
+                      "label": ["Inter"],
+                      "h1-mobile": ["Inter"],
+                      "ui": ["Inter"],
+                      "code": ["JetBrains Mono"]
+              },
+              "fontSize": {
+                      "display": ["30px", {"lineHeight": "38px", "fontWeight": "700"}],
+                      "h1": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "h2": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "h1-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "ui": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "code": ["28px", {"lineHeight": "36px", "letterSpacing": "0.15em", "fontWeight": "700"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Custom scrollbar for minimalist look */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #E2E8F0;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748B;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-on-surface h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation (Shell suppressed based on instructions, but a custom header is needed for the live control) -->
+<header class="bg-surface-container-lowest border-b border-slate-200 h-16 flex items-center px-gutter shrink-0 z-50">
+<div class="flex items-center space-x-2">
+<span class="text-h2 font-h2 text-primary">Lumen</span>
+<span class="text-on-surface-variant font-ui text-ui border-l border-slate-200 pl-2 ml-2 hidden md:inline">Live Session</span>
+</div>
+<div class="mx-auto flex items-center space-x-4">
+<div class="flex items-center bg-slate-50 px-4 py-1.5 rounded-lg border border-slate-200">
+<span class="font-code text-code text-slate-900 tracking-[0.15em] mr-2">94B-X7K</span>
+<button class="text-slate-500 hover:text-primary transition-colors flex items-center justify-center p-1 rounded hover:bg-slate-200" title="Копировать код">
+<span class="material-symbols-outlined text-[18px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+<div class="flex items-center space-x-1.5 bg-indigo-tint px-3 py-1.5 rounded-full border border-primary/20">
+<div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+<span class="font-label text-label uppercase text-primary">Подключено</span>
+</div>
+</div>
+<div class="flex items-center space-x-3">
+<span class="font-ui text-ui text-slate-500 hidden md:inline">12 Участников</span>
+<button class="bg-destructive hover:bg-red-600 text-white font-ui text-ui px-4 py-2 rounded-lg transition-colors flex items-center shadow-sm">
+<span class="material-symbols-outlined text-[18px] mr-1" data-icon="stop_circle">stop_circle</span>
+                Завершить урок
+            </button>
+</div>
+</header>
+<!-- Main Content Area: Two Columns -->
+<main class="flex-1 flex overflow-hidden max-w-container-max mx-auto w-full">
+<!-- Left Column: Workbook Preview -->
+<section class="w-full md:w-1/2 flex flex-col border-r border-slate-200 bg-surface-container-lowest overflow-y-auto">
+<div class="p-gutter pb-6 border-b border-slate-200 sticky top-0 bg-surface-container-lowest z-10 flex justify-between items-center">
+<div>
+<h1 class="font-h1 text-h1 text-slate-900">Урок 4: Основы Python</h1>
+<p class="font-ui text-ui text-slate-500 mt-1">Предпросмотр рабочей тетради</p>
+</div>
+</div>
+<div class="p-gutter space-y-6">
+<!-- Workbook Block 1 (Active/Focused) -->
+<div class="bg-indigo-tint rounded-xl p-6 border border-slate-200 border-l-2 border-l-primary cursor-pointer transition-colors relative" onclick="focusBlock(this)">
+<div class="absolute -left-3 top-6 bg-primary text-white w-6 h-6 rounded-full flex items-center justify-center font-label text-[10px] shadow-sm ring-4 ring-white">1</div>
+<div class="flex items-center justify-between mb-4">
+<span class="bg-surface-container-lowest border border-slate-200 text-slate-500 font-label text-label px-2 py-1 rounded">ТЕОРИЯ</span>
+</div>
+<h2 class="font-h2 text-h2 text-slate-900 mb-2">Переменные и типы данных</h2>
+<p class="font-body text-body text-slate-700">В Python переменные создаются автоматически при присвоении им значения. Тип данных определяется динамически.</p>
+</div>
+<!-- Workbook Block 2 (Inactive) -->
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors relative" onclick="focusBlock(this)">
+<div class="absolute -left-3 top-6 bg-slate-200 text-slate-500 w-6 h-6 rounded-full flex items-center justify-center font-label text-[10px] shadow-sm ring-4 ring-white">2</div>
+<div class="flex items-center justify-between mb-4">
+<span class="bg-surface-container-lowest border border-slate-200 text-slate-500 font-label text-label px-2 py-1 rounded">ЗАДАНИЕ</span>
+</div>
+<h2 class="font-h2 text-h2 text-slate-900 mb-2">Объявление переменных</h2>
+<p class="font-body text-body text-slate-700 mb-4">Создайте переменную `age` и присвойте ей значение 25.</p>
+<div class="bg-slate-50 p-4 rounded-lg border border-slate-200 font-code text-ui text-slate-800">
+                        age = 25
+                    </div>
+</div>
+<!-- Workbook Block 3 (Inactive) -->
+<div class="bg-surface-container-lowest rounded-xl p-6 border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors relative" onclick="focusBlock(this)">
+<div class="absolute -left-3 top-6 bg-slate-200 text-slate-500 w-6 h-6 rounded-full flex items-center justify-center font-label text-[10px] shadow-sm ring-4 ring-white">3</div>
+<div class="flex items-center justify-between mb-4">
+<span class="bg-surface-container-lowest border border-slate-200 text-slate-500 font-label text-label px-2 py-1 rounded">ОПРОС</span>
+</div>
+<h2 class="font-h2 text-h2 text-slate-900 mb-2">Понимание типов</h2>
+<p class="font-body text-body text-slate-700 mb-4">Какой тип данных будет у переменной `x = "Hello"`?</p>
+<div class="space-y-2">
+<div class="flex items-center p-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-400 opacity-70">
+<span class="material-symbols-outlined mr-3 text-slate-300" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="font-ui text-ui">int</span>
+</div>
+<div class="flex items-center p-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-400 opacity-70">
+<span class="material-symbols-outlined mr-3 text-slate-300" data-icon="radio_button_unchecked">radio_button_unchecked</span>
+<span class="font-ui text-ui">float</span>
+</div>
+<div class="flex items-center p-3 border border-primary bg-indigo-tint rounded-lg text-slate-900 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+<span class="material-symbols-outlined mr-3 text-primary filled" data-icon="radio_button_checked">radio_button_checked</span>
+<span class="font-ui text-ui font-medium">str</span>
+<span class="ml-auto material-symbols-outlined text-success" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Column: Participant Answers -->
+<section class="w-full md:w-1/2 flex flex-col bg-slate-50 overflow-y-auto">
+<div class="p-gutter pb-6 border-b border-slate-200 sticky top-0 bg-slate-50 z-10 flex justify-between items-center">
+<div>
+<h2 class="font-h2 text-h2 text-slate-900">Активность учеников</h2>
+<p class="font-ui text-ui text-slate-500 mt-1">Блок 1: Переменные и типы данных (Фокус)</p>
+</div>
+<div class="flex space-x-2">
+<button class="p-2 bg-surface-container-lowest border border-slate-200 rounded-lg text-slate-600 hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="filter_list">filter_list</span>
+</button>
+<button class="p-2 bg-surface-container-lowest border border-slate-200 rounded-lg text-slate-600 hover:text-primary transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+</div>
+</div>
+<div class="p-gutter space-y-4">
+<!-- Status Header -->
+<div class="flex items-center justify-between mb-2">
+<span class="font-ui text-ui text-slate-500">Читают теорию (12/12)</span>
+<div class="flex space-x-1">
+<div class="w-8 h-1 bg-success rounded-full"></div>
+<div class="w-8 h-1 bg-success rounded-full"></div>
+<div class="w-8 h-1 bg-success rounded-full"></div>
+</div>
+</div>
+<!-- Student List (Grid for better use of space) -->
+<div class="grid grid-cols-1 gap-4">
+<!-- Student Card -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-indigo-tint border border-primary-container flex items-center justify-center text-primary font-h2 text-h2">
+                                А
+                            </div>
+<div>
+<p class="font-ui text-ui font-medium text-slate-900">Анна Смирнова</p>
+<p class="font-label text-label text-slate-500 flex items-center">
+<span class="w-2 h-2 rounded-full bg-success mr-1.5 inline-block"></span>
+                                    На текущем блоке
+                                </p>
+</div>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<!-- Student Card -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-h2 text-h2">
+                                И
+                            </div>
+<div>
+<p class="font-ui text-ui font-medium text-slate-900">Иван Петров</p>
+<p class="font-label text-label text-slate-500 flex items-center">
+<span class="w-2 h-2 rounded-full bg-success mr-1.5 inline-block"></span>
+                                    На текущем блоке
+                                </p>
+</div>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<!-- Student Card (Slightly behind) -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-h2 text-h2">
+                                М
+                            </div>
+<div>
+<p class="font-ui text-ui font-medium text-slate-900">Мария Иванова</p>
+<p class="font-label text-label text-warning flex items-center">
+<span class="w-2 h-2 rounded-full bg-warning mr-1.5 inline-block"></span>
+                                    Отстает (Блок 0)
+                                </p>
+</div>
+</div>
+<button class="font-label text-label text-primary hover:bg-indigo-tint px-3 py-1.5 rounded transition-colors border border-transparent hover:border-primary/20">
+                            Подтолкнуть
+                        </button>
+</div>
+<!-- Student Card -->
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-h2 text-h2">
+                                Д
+                            </div>
+<div>
+<p class="font-ui text-ui font-medium text-slate-900">Дмитрий Соколов</p>
+<p class="font-label text-label text-slate-500 flex items-center">
+<span class="w-2 h-2 rounded-full bg-success mr-1.5 inline-block"></span>
+                                    На текущем блоке
+                                </p>
+</div>
+</div>
+<button class="text-slate-400 hover:text-primary transition-colors p-2">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- AI Insight Card -->
+<div class="mt-8 bg-surface-bright border border-primary/20 rounded-xl p-5 shadow-sm relative overflow-hidden">
+<div class="absolute right-0 top-0 w-32 h-32 bg-primary/5 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+<div class="flex items-start space-x-3 relative z-10">
+<div class="bg-primary-container text-white p-2 rounded-lg shrink-0">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+</div>
+<div>
+<h3 class="font-ui text-ui font-semibold text-slate-900 mb-1">Аналитика AI</h3>
+<p class="font-ui text-ui text-slate-700">Все ученики успешно освоили предыдущий материал. Можно переходить к следующему практическому заданию.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<script>
+        function focusBlock(element) {
+            // Remove active state from all blocks
+            const allBlocks = document.querySelectorAll('.bg-indigo-tint.border-l-primary');
+            allBlocks.forEach(block => {
+                block.classList.remove('bg-indigo-tint', 'border-l-primary', 'border-l-2');
+                block.classList.add('bg-surface-container-lowest', 'hover:border-slate-300');
+                
+                // Reset numbering indicator color
+                const indicator = block.querySelector('div.bg-primary');
+                if(indicator) {
+                    indicator.classList.remove('bg-primary', 'text-white');
+                    indicator.classList.add('bg-slate-200', 'text-slate-500');
+                }
+            });
+
+            // Add active state to clicked block
+            element.classList.remove('bg-surface-container-lowest', 'hover:border-slate-300');
+            element.classList.add('bg-indigo-tint', 'border-l-primary', 'border-l-2');
+            
+            // Set active numbering indicator
+            const indicator = element.querySelector('div.bg-slate-200, div.bg-primary');
+            if(indicator) {
+                indicator.classList.remove('bg-slate-200', 'text-slate-500');
+                indicator.classList.add('bg-primary', 'text-white');
+            }
+        }
+    </script>
+</body></html>

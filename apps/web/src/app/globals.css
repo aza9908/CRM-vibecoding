@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Lumen design system — tokens mirror DESIGN.md / .stitch (indigo brand on a
+ * slate canvas, emerald = "live", amber = attention). shadcn components read
+ * these HSL custom properties, so the whole UI re-themes from here.
+ */
+@layer base {
+  :root {
+    --background: 210 40% 98%;        /* #F8FAFC slate-50 app canvas */
+    --foreground: 222.2 47.4% 11.2%;  /* #0F172A slate-900 */
+
+    --card: 0 0% 100%;                /* #FFFFFF */
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    --primary: 243 75% 59%;           /* #4F46E5 indigo-600 — brand */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;       /* #F1F5F9 slate-100 */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;  /* #64748B slate-500 */
+
+    --accent: 226 100% 97%;           /* #F5F7FF indigo-tint — hover/focus surfaces */
+    --accent-foreground: 243 75% 59%;
+
+    --destructive: 0 84.2% 60.2%;     /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 84% 39%;           /* #10B981 emerald-500 — live/connected/done */
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;            /* #F59E0B amber-500 — ratings/attention */
+    --warning-foreground: 222.2 47.4% 11.2%;
+
+    --border: 214.3 31.8% 91.4%;      /* #E2E8F0 slate-200 */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 243 75% 59%;              /* indigo focus ring */
+
+    --radius: 0.625rem;               /* 10px base → cards 10px, buttons 8px */
+  }
+
+  .dark {
+    --background: 222 47% 9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 44% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 44% 12%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 239 84% 67%;           /* #6366F1 indigo-500 — brighter on dark */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217.2 32.6% 17.5%;   /* slate-800 */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;  /* slate-400 */
+
+    --accent: 239 60% 22%;            /* indigo-tinted dark */
+    --accent-foreground: 226 100% 90%;
+
+    --destructive: 0 62.8% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 158 64% 52%;           /* emerald-400 */
+    --success-foreground: 222 47% 11%;
+    --warning: 43 96% 56%;            /* amber-400 */
+    --warning-foreground: 222 47% 11%;
+
+    --border: 217.2 32.6% 22%;
+    --input: 217.2 32.6% 22%;
+    --ring: 239 84% 67%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+  }
+}

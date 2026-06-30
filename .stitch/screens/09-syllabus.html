@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+
+<html lang="ru"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Syllabus - Lumen LMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#eae6f4",
+                      "surface-container": "#f0ecf9",
+                      "error-container": "#ffdad6",
+                      "primary": "#3525cd",
+                      "on-error": "#ffffff",
+                      "slate-500": "#64748B",
+                      "on-primary": "#ffffff",
+                      "surface-bright": "#fcf8ff",
+                      "secondary-fixed": "#dfe3e7",
+                      "on-surface": "#1b1b24",
+                      "on-tertiary": "#ffffff",
+                      "tertiary": "#7e3000",
+                      "inverse-primary": "#c3c0ff",
+                      "outline": "#777587",
+                      "on-secondary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "primary-container": "#4f46e5",
+                      "secondary": "#5a5f62",
+                      "on-tertiary-container": "#ffd2be",
+                      "on-primary-container": "#dad7ff",
+                      "primary-fixed-dim": "#c3c0ff",
+                      "outline-variant": "#c7c4d8",
+                      "tertiary-fixed": "#ffdbcc",
+                      "inverse-surface": "#302f39",
+                      "on-surface-variant": "#464555",
+                      "on-tertiary-fixed": "#351000",
+                      "slate-900": "#0F172A",
+                      "surface-tint": "#4d44e3",
+                      "tertiary-fixed-dim": "#ffb695",
+                      "warning": "#F59E0B",
+                      "primary-fixed": "#e2dfff",
+                      "surface-container-highest": "#e4e1ee",
+                      "on-background": "#1b1b24",
+                      "inverse-on-surface": "#f3effc",
+                      "on-primary-fixed": "#0f0069",
+                      "surface-variant": "#e4e1ee",
+                      "slate-200": "#E2E8F0",
+                      "slate-50": "#F8FAFC",
+                      "on-secondary-fixed": "#171c1f",
+                      "on-secondary-fixed-variant": "#43474b",
+                      "secondary-fixed-dim": "#c3c7cb",
+                      "background": "#fcf8ff",
+                      "success": "#10B981",
+                      "surface-container-low": "#f5f2ff",
+                      "secondary-container": "#dce0e4",
+                      "destructive": "#EF4444",
+                      "tertiary-container": "#a44100",
+                      "on-primary-fixed-variant": "#3323cc",
+                      "on-secondary-container": "#5e6367",
+                      "error": "#ba1a1a",
+                      "surface": "#fcf8ff",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-fixed-variant": "#7b2f00",
+                      "surface-dim": "#dcd8e5",
+                      "indigo-tint": "#F5F7FF"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "max-width": "1200px",
+                      "gutter": "24px",
+                      "base": "4px",
+                      "margin": "24px",
+                      "container-max": "1200px"
+              },
+              "fontFamily": {
+                      "display": [
+                              "Inter"
+                      ],
+                      "h1": [
+                              "Inter"
+                      ],
+                      "h2": [
+                              "Inter"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "Inter"
+                      ],
+                      "h1-mobile": [
+                              "Inter"
+                      ],
+                      "ui": [
+                              "Inter"
+                      ],
+                      "code": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {
+                      "display": [
+                              "30px",
+                              {
+                                      "lineHeight": "38px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "h1": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "h2": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "h1-mobile": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "ui": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "code": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "letterSpacing": "0.15em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+            },
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Timeline styling */
+        .timeline-container {
+            position: relative;
+        }
+        .timeline-container::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            bottom: 24px;
+            left: 20px;
+            width: 2px;
+            background-color: #E2E8F0; /* slate-200 */
+            z-index: 0;
+        }
+        @media (min-width: 768px) {
+            .timeline-container::before {
+                left: 28px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-on-surface font-body min-h-screen pb-20 md:pb-0">
+<!-- Top Navigation Web -->
+<nav class="hidden md:flex bg-surface-container-lowest fixed top-0 left-0 w-full z-50 flex justify-between items-center px-gutter h-16 max-w-container-max mx-auto shadow-sm">
+<div class="flex items-center gap-6">
+<div class="text-h2 font-h2 text-primary font-bold tracking-tight">Lumen</div>
+<div class="flex items-center h-16">
+<a class="h-full flex items-center px-4 text-on-surface-variant hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="h-full flex items-center px-4 text-primary font-semibold border-b-2 border-primary pb-1" href="#">Courses</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant hover:text-primary transition-colors" href="#">Workbook</a>
+<a class="h-full flex items-center px-4 text-on-surface-variant hover:text-primary transition-colors" href="#">Resources</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors w-10 h-10 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors w-10 h-10 flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-slate-200 overflow-hidden ml-2">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A minimalist professional avatar portrait of a user in a clean white corporate setting, well lit." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg4LmmbfSoxlJMy2MWOn2fgOMUNyEe0oe13iok7Y7eMEscq6rGU7vdYtENzG2IXt2ouoHz6ZLa6W1sCYdhKykRxc8-7KOH1uJ584ImS1ucXpOgASyj9Bjk9xWUpkH8DUPVatWSeUHEnynlzH2l0FUMyXMZQU4wDpqfk4rLqoGJFBQEMucgwU5G9HTW_ILQ55KPEktOB3xoqaC6RSSm7sYQZpnnSIvhvV2j3uFXxunBKpxioWEZ8fEj"/>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-container-max mx-auto px-gutter pt-8 md:pt-28 pb-12">
+<!-- Header Section -->
+<div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<a class="inline-flex items-center text-slate-500 hover:text-primary font-ui text-ui mb-4 transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px] mr-1">arrow_back</span>
+                    Вернуться к курсу
+                </a>
+<h1 class="font-display text-display text-slate-900 mb-2">Программа курса</h1>
+<p class="font-body text-body text-slate-500 max-w-2xl">Основы UI/UX дизайна: От идеи до интерактивного прототипа. Следуйте программе для последовательного освоения материала.</p>
+</div>
+<div class="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+<div class="flex-1">
+<div class="flex justify-between font-label text-label mb-2">
+<span class="text-slate-500 uppercase tracking-wide">Прогресс</span>
+<span class="text-primary font-bold">35%</span>
+</div>
+<div class="w-48 h-2 bg-slate-100 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 35%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Syllabus Timeline -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 md:p-8">
+<div class="timeline-container">
+<!-- Module 1: Completed -->
+<div class="relative z-10 mb-12">
+<div class="flex items-start">
+<!-- Timeline Node -->
+<div class="flex-shrink-0 w-10 h-10 md:w-14 md:h-14 rounded-full bg-success flex items-center justify-center border-4 border-white shadow-sm mt-1 z-10">
+<span class="material-symbols-outlined text-white filled">check</span>
+</div>
+<!-- Module Content -->
+<div class="ml-4 md:ml-6 flex-1">
+<div class="mb-4">
+<span class="font-label text-label text-success uppercase tracking-wider mb-1 block">Модуль 1 • Завершен</span>
+<h2 class="font-h1 text-h1 text-slate-900">Введение в профессию</h2>
+</div>
+<!-- Lessons List -->
+<div class="space-y-3">
+<!-- Lesson Item -->
+<a class="block p-4 rounded-lg border border-slate-200 bg-slate-50 hover:border-slate-300 transition-colors group" href="#">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-success filled">check_circle</span>
+<span class="font-ui text-ui text-slate-700 group-hover:text-slate-900 font-medium">1.1 Роль дизайнера в продуктовой команде</span>
+</div>
+<span class="font-label text-label text-slate-400">15 мин</span>
+</div>
+</a>
+<!-- Lesson Item -->
+<a class="block p-4 rounded-lg border border-slate-200 bg-slate-50 hover:border-slate-300 transition-colors group" href="#">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-success filled">check_circle</span>
+<span class="font-ui text-ui text-slate-700 group-hover:text-slate-900 font-medium">1.2 Дизайн-процесс: Double Diamond</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container-high font-label text-label text-slate-600">
+<span class="material-symbols-outlined text-[14px] mr-1">edit_document</span> Тест
+                                            </span>
+<span class="font-label text-label text-slate-400">20 мин</span>
+</div>
+</div>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Module 2: Active -->
+<div class="relative z-10 mb-12">
+<div class="flex items-start">
+<!-- Timeline Node -->
+<div class="flex-shrink-0 w-10 h-10 md:w-14 md:h-14 rounded-full bg-primary-container flex items-center justify-center border-4 border-white shadow-sm mt-1 z-10">
+<span class="material-symbols-outlined text-on-primary-container">play_arrow</span>
+</div>
+<!-- Module Content -->
+<div class="ml-4 md:ml-6 flex-1">
+<div class="mb-4">
+<span class="font-label text-label text-primary uppercase tracking-wider mb-1 block">Модуль 2 • В процессе</span>
+<h2 class="font-h1 text-h1 text-slate-900">Исследования и анализ</h2>
+</div>
+<!-- Lessons List -->
+<div class="space-y-3">
+<!-- Lesson Item (Completed in Active Module) -->
+<a class="block p-4 rounded-lg border border-slate-200 bg-slate-50 hover:border-slate-300 transition-colors group" href="#">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-success filled">check_circle</span>
+<span class="font-ui text-ui text-slate-700 group-hover:text-slate-900 font-medium">2.1 Интервью с пользователями</span>
+</div>
+<span class="font-label text-label text-slate-400">25 мин</span>
+</div>
+</a>
+<!-- Lesson Item (Active) -->
+<a class="block p-4 rounded-lg border-2 border-primary bg-indigo-tint shadow-sm relative overflow-hidden group" href="#">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="flex items-center justify-between pl-2">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">play_circle</span>
+<div>
+<span class="font-ui text-ui text-slate-900 font-semibold block">2.2 Создание персон (CJM)</span>
+<span class="font-label text-label text-primary mt-1 block">Текущий урок</span>
+</div>
+</div>
+<button class="bg-primary text-white font-ui text-ui px-4 py-2 rounded-lg hover:bg-primary-container transition-colors hidden sm:block">Продолжить</button>
+</div>
+</a>
+<!-- Lesson Item (Locked) -->
+<div class="block p-4 rounded-lg border border-slate-200 bg-white opacity-70">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-300">lock</span>
+<span class="font-ui text-ui text-slate-500">2.3 Анализ конкурентов</span>
+</div>
+<span class="font-label text-label text-slate-400">Практика • 40 мин</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Module 3: Locked -->
+<div class="relative z-10 mb-4">
+<div class="flex items-start">
+<!-- Timeline Node -->
+<div class="flex-shrink-0 w-10 h-10 md:w-14 md:h-14 rounded-full bg-slate-100 flex items-center justify-center border-4 border-white shadow-sm mt-1 z-10">
+<span class="material-symbols-outlined text-slate-400">lock</span>
+</div>
+<!-- Module Content -->
+<div class="ml-4 md:ml-6 flex-1">
+<div class="mb-4">
+<span class="font-label text-label text-slate-400 uppercase tracking-wider mb-1 block">Модуль 3 • Заблокирован</span>
+<h2 class="font-h1 text-h1 text-slate-400">Основы визуального дизайна</h2>
+</div>
+<!-- Locked Module Preview -->
+<div class="p-6 rounded-lg border border-slate-200 border-dashed bg-slate-50 flex flex-col items-center justify-center text-center">
+<span class="material-symbols-outlined text-slate-300 text-4xl mb-2">school</span>
+<p class="font-ui text-ui text-slate-500 mb-1">Завершите предыдущий модуль, чтобы открыть доступ.</p>
+<p class="font-label text-label text-slate-400">4 урока • 2 практических задания</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Mobile -->
+<nav class="md:hidden bg-surface-container-lowest fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 pb-safe border-t border-slate-200 rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant w-full h-full active:bg-slate-50 tap-highlight-none transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">dashboard</span>
+<span class="font-label text-[10px]">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary font-bold w-full h-full active:bg-slate-50 tap-highlight-none transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px] filled">school</span>
+<span class="font-label text-[10px]">Courses</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant w-full h-full active:bg-slate-50 tap-highlight-none transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">edit_note</span>
+<span class="font-label text-[10px]">Workbook</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant w-full h-full active:bg-slate-50 tap-highlight-none transition-all" href="#">
+<span class="material-symbols-outlined mb-1 text-[20px]">account_circle</span>
+<span class="font-label text-[10px]">Profile</span>
+</a>
+</nav>
+</body></html>
