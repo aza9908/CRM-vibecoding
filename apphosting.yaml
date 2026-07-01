@@ -1,0 +1,30 @@
+# Firebase App Hosting configuration for the NestJS API (apps/api).
+# App Hosting builds with buildpacks (pnpm is detected from the lockfile)
+# and injects PORT=8080 at runtime; main.ts already reads process.env.PORT.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0
+  # Keep a single instance while REDIS_URL is unset: the Socket.IO adapter
+  # falls back to in-memory, so rooms/broadcasts only work within one instance.
+  # Raise this only after wiring a managed Redis and setting REDIS_URL.
+  maxInstances: 1
+  concurrency: 80
+
+scripts:
+  # Build the shared workspace package first, then the API.
+  buildCommand: pnpm --filter @lms/shared build && pnpm --filter @lms/api build
+  runCommand: node apps/api/dist/main.js
+
+env:
+  - variable: NODE_ENV
+    value: production
+    availability:
+      - BUILD
+      - RUNTIME
+# Add the rest of the environment variables (DATABASE_URL, JWT secrets, S3_*,
+# WEB_ORIGIN, GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
+# references here, e.g.:
+#  - variable: DATABASE_URL
+#    secret: DATABASE_URL

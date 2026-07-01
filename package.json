@@ -8,6 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "start": "node apps/api/dist/main.js",
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @lms/web dev",
     "dev:api": "pnpm --filter @lms/api dev",
