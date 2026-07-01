@@ -22,6 +22,7 @@ export function AppHeader() {
   const clear = useAuthStore((s) => s.clear);
 
   const nav = [
+    { href: '/cabinet', label: t('cabinet') },
     { href: '/teacher/lessons', label: t('lessons') },
     { href: '/teacher/materials', label: t('materials') },
     { href: '/syllabus', label: t('syllabus') },

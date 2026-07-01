@@ -33,7 +33,8 @@
     "register": "Регистрация",
     "logout": "Выйти",
     "profile": "Профиль",
-    "dashboard": "Аналитика"
+    "dashboard": "Аналитика",
+    "cabinet": "Кабинет"
   },
   "home": {
     "title": "B2B LMS — live-уроки и рабочая тетрадь",
@@ -246,5 +247,23 @@
     "inactive": "Неактивные",
     "students": "студентов",
     "activeShare": "Доля активных"
+  },
+  "cabinet": {
+    "signInPrompt": "Войдите, чтобы увидеть личный кабинет и прогресс обучения.",
+    "signIn": "Войти",
+    "currentCourse": "Текущий курс",
+    "overallProgress": "Общий прогресс",
+    "lessonsCompleted": "Уроков пройдено",
+    "lessonsInProgress": "В процессе",
+    "modules": "Модули",
+    "continueLearning": "Продолжить обучение",
+    "openSyllabus": "Открыть программу",
+    "moduleProgress": "Прогресс по модулям",
+    "noModules": "Модули пока не назначены.",
+    "loadError": "Не удалось загрузить прогресс. Попробуйте ещё раз.",
+    "role_student": "Студент",
+    "role_teacher": "Преподаватель",
+    "role_admin": "Администратор",
+    "role_team_lead": "Тимлид"
   }
 }
