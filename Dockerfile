@@ -1,32 +1,25 @@
 # syntax=docker/dockerfile:1
-# Place this file at the REPO ROOT (next to pnpm-workspace.yaml)
+# Standalone image for the API (plan C: direct Cloud Run deploy).
 
-# ---------- build stage ----------
 FROM node:22-slim AS build
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /repo
-
-# Install deps first (better layer caching)
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
-RUN pnpm install --frozen-lockfile --filter "@lms/api..."
-
-# Build shared package, then the API
+COPY apps/web/package.json apps/web/
+RUN npm ci
 COPY packages/shared packages/shared
 COPY apps/api apps/api
-RUN pnpm --filter @lms/shared build \
- && pnpm --filter @lms/api build
+RUN npm run build:backend \
+ && npm prune --omit=dev
 
-# Produce a standalone bundle with production-only node_modules
-RUN pnpm --filter @lms/api --prod deploy /out
-
-# ---------- runtime stage ----------
 FROM node:22-slim
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=build /out .
-
-# Cloud Run injects PORT=8080; main.ts already reads it
+COPY --from=build /repo/node_modules node_modules
+COPY --from=build /repo/packages/shared packages/shared
+COPY --from=build /repo/apps/api/dist apps/api/dist
+COPY --from=build /repo/apps/api/package.json apps/api/package.json
+COPY --from=build /repo/package.json package.json
 EXPOSE 8080
-CMD ["node", "dist/main.js"]
+CMD ["node", "apps/api/dist/main.js"]

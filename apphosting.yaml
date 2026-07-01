@@ -14,7 +14,7 @@ runConfig:
 
 scripts:
   # Build the shared workspace package first, then the API.
-  buildCommand: pnpm --filter @lms/shared build && pnpm --filter @lms/api build
+  buildCommand: npm run build:backend
   runCommand: node apps/api/dist/main.js
 
 env:
