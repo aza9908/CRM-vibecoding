@@ -21,7 +21,6 @@ env:
   - variable: NODE_ENV
     value: production
     availability:
-      - BUILD
       - RUNTIME
 # Add the rest of the environment variables (DATABASE_URL, JWT secrets, S3_*,
 # WEB_ORIGIN, GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
