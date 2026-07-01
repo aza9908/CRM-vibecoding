@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
@@ -23,7 +23,8 @@ const PRESIGN_TTL_SECONDS = 60;
  */
 @Injectable()
 export class StorageService implements OnModuleInit {
-  private client!: S3Client;
+  private readonly logger = new Logger(StorageService.name);
+  private client?: S3Client;
   private endpoint!: string;
   private bucket!: string;
 
@@ -37,9 +38,11 @@ export class StorageService implements OnModuleInit {
     const region = this.config.get<string>('S3_REGION') ?? 'auto';
 
     if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
-      throw new Error(
-        'Storage misconfigured: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY are required',
+      this.logger.warn(
+        'Storage not configured (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY missing). ' +
+          'The API will start, but file upload endpoints will fail until these are set.',
       );
+      return;
     }
 
     this.endpoint = endpoint.replace(/\/+$/, '');
@@ -52,6 +55,16 @@ export class StorageService implements OnModuleInit {
     });
   }
 
+  /** Returns the configured client or throws a clear error on first use. */
+  private requireClient(): S3Client {
+    if (!this.client) {
+      throw new Error(
+        'Storage misconfigured: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY are required',
+      );
+    }
+    return this.client;
+  }
+
   /** Presigned `PUT` URL (valid ~60s) for uploading `key` with `contentType`. */
   async getSignedPutUrl(key: string, contentType: string): Promise<string> {
     const command = new PutObjectCommand({
@@ -59,7 +72,7 @@ export class StorageService implements OnModuleInit {
       Key: key,
       ContentType: contentType,
     });
-    return getSignedUrl(this.client, command, {
+    return getSignedUrl(this.requireClient(), command, {
       expiresIn: PRESIGN_TTL_SECONDS,
     });
   }
@@ -74,12 +87,12 @@ export class StorageService implements OnModuleInit {
       Bucket: this.bucket,
       Key: key,
     });
-    return getSignedUrl(this.client, command, { expiresIn: ttlSeconds });
+    return getSignedUrl(this.requireClient(), command, { expiresIn: ttlSeconds });
   }
 
   /** Hard-delete an object (e.g. when a material file is removed). */
   async deleteObject(key: string): Promise<void> {
-    await this.client.send(
+    await this.requireClient().send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
     );
   }
