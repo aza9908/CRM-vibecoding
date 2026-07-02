@@ -14,7 +14,11 @@ async function bootstrap(): Promise<void> {
 
   const config = app.get(ConfigService);
   const port = Number(config.get<string>('PORT') ?? 3001);
-  const webOrigin = config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000';
+  // WEB_ORIGIN supports a comma-separated list, e.g. custom domain + hosted.app URL.
+  const webOrigin = (config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   const redisUrl = config.get<string>('REDIS_URL') ?? 'redis://localhost:6379';
 
   // Validation is zod-based: each handler binds a ZodValidationPipe with the

@@ -30,9 +30,9 @@ env:
     secret: DATABASE_URL
     availability:
       - RUNTIME
-  # CORS/WS origin of the deployed frontend (custom domain).
+  # CORS/WS origins of the deployed frontend (comma-separated).
   - variable: WEB_ORIGIN
-    value: https://lms.magauin.kz
+    value: https://lms.magauin.kz,https://lms-web--lms-ai-a2fd7.europe-west4.hosted.app
     availability:
       - RUNTIME
 # Add the rest of the environment variables (JWT secrets, S3_*, WEB_ORIGIN,
