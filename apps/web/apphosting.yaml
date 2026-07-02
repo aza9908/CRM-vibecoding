@@ -1,0 +1,25 @@
+# Firebase App Hosting configuration for the Next.js frontend (apps/web).
+# The backend for this app must have its root directory set to apps/web.
+# Note: no scripts.buildCommand here on purpose — the Next.js adapter builds
+# the app, and setting buildCommand triggers the buildpack bug that strips
+# "workspaces" from package.json.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0
+  maxInstances: 4
+  concurrency: 80
+
+env:
+  # NEXT_PUBLIC_* values are inlined at build time, so BUILD availability is required.
+  - variable: NEXT_PUBLIC_API_URL
+    value: https://lms-ai--lms-ai-a2fd7.europe-west4.hosted.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_WS_URL
+    value: wss://lms-ai--lms-ai-a2fd7.europe-west4.hosted.app/live
+    availability:
+      - BUILD
+      - RUNTIME

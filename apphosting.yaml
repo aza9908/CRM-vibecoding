@@ -30,6 +30,11 @@ env:
     secret: DATABASE_URL
     availability:
       - RUNTIME
+  # CORS/WS origin of the deployed frontend (custom domain).
+  - variable: WEB_ORIGIN
+    value: https://lms.magauin.kz
+    availability:
+      - RUNTIME
 # Add the rest of the environment variables (JWT secrets, S3_*, WEB_ORIGIN,
 # GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
 # references here, following the DATABASE_URL example above.
