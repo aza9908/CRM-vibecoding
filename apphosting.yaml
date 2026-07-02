@@ -26,8 +26,10 @@ env:
     value: production
     availability:
       - RUNTIME
-# Add the rest of the environment variables (DATABASE_URL, JWT secrets, S3_*,
-# WEB_ORIGIN, GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
-# references here, e.g.:
-#  - variable: DATABASE_URL
-#    secret: DATABASE_URL
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+    availability:
+      - RUNTIME
+# Add the rest of the environment variables (JWT secrets, S3_*, WEB_ORIGIN,
+# GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
+# references here, following the DATABASE_URL example above.
