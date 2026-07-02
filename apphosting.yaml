@@ -13,8 +13,12 @@ runConfig:
   concurrency: 80
 
 scripts:
-  # Build the shared workspace package first, then the API.
-  buildCommand: npm run build:backend
+  # IMPORTANT: do NOT set buildCommand here. The App Hosting buildpack rewrites
+  # package.json when buildCommand is present and silently drops the
+  # "workspaces" field, breaking the npm-workspaces monorepo install
+  # (https://github.com/GoogleCloudPlatform/buildpacks/issues/621).
+  # The build is defined instead as the "apphosting:build" script in the root
+  # package.json, which the buildpack picks up without rewriting the file.
   runCommand: node apps/api/dist/main.js
 
 env:
