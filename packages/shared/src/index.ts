@@ -14,4 +14,7 @@ export * from './dto/material.dto.js';
 export * from './dto/progress.dto.js';
 export * from './dto/notes.dto.js';
 export * from './dto/analytics.dto.js';
+export * from './dto/program.dto.js';
+export * from './dto/admin.dto.js';
+export * from './dto/task.dto.js';
 export * from './ws-events.js';

@@ -1,5 +1,5 @@
 import { setRequestLocale } from 'next-intl/server';
-import { AppHeader } from '@/components/app-header';
+import { AppShell } from '@/components/app-shell';
 import { SyllabusView } from '@/components/lessons/syllabus-view';
 
 export default async function SyllabusPage({
@@ -10,9 +10,8 @@ export default async function SyllabusPage({
   const { locale } = await params;
   setRequestLocale(locale);
   return (
-    <>
-      <AppHeader />
+    <AppShell>
       <SyllabusView />
-    </>
+    </AppShell>
   );
 }

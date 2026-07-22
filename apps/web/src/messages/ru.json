@@ -19,7 +19,8 @@
     "empty": "Пусто",
     "yes": "Да",
     "no": "Нет",
-    "language": "Язык"
+    "language": "Язык",
+    "you": "вы"
   },
   "nav": {
     "home": "Главная",
@@ -33,7 +34,10 @@
     "register": "Регистрация",
     "logout": "Выйти",
     "profile": "Профиль",
-    "dashboard": "Аналитика"
+    "dashboard": "Аналитика",
+    "cabinet": "Кабинет",
+    "admin": "Админ",
+    "tasks": "Задачи"
   },
   "home": {
     "title": "B2B LMS — live-уроки и рабочая тетрадь",
@@ -246,5 +250,66 @@
     "inactive": "Неактивные",
     "students": "студентов",
     "activeShare": "Доля активных"
+  },
+  "cabinet": {
+    "title": "Кабинет",
+    "overallProgress": "Общий прогресс",
+    "lessonsCompleted": "Уроков пройдено",
+    "inProgress": "В процессе",
+    "modulesCount": "Модули",
+    "moduleProgress": "Прогресс по модулям",
+    "noModules": "Модули пока не назначены."
+  },
+  "admin": {
+    "title": "Пользователи",
+    "subtitle": "Управление пользователями и ролями организации",
+    "colName": "Имя",
+    "colEmail": "Email",
+    "colRole": "Роль",
+    "colCreated": "Создан",
+    "colActions": "Действия",
+    "changeRole": "Изменить роль",
+    "resetPassword": "Сбросить пароль",
+    "resetPasswordTitle": "Новый пароль",
+    "resetPasswordHint": "Скопируйте и передайте пользователю — этот пароль больше не будет показан.",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "cannotChangeOwnRole": "Нельзя изменить собственную роль — попросите другого администратора",
+    "confirmResetPassword": "Сгенерировать новый пароль для {name}?",
+    "close": "Закрыть"
+  },
+  "tasks": {
+    "title": "Задачи",
+    "subtitle": "Внутренние задачи команды",
+    "columnTodo": "Сделать",
+    "columnDoing": "В работе",
+    "columnDone": "Готово",
+    "newTaskTitle": "Новая задача",
+    "titlePlaceholder": "Название задачи",
+    "description": "Описание",
+    "descriptionPlaceholder": "Необязательно",
+    "assignee": "Исполнитель",
+    "noAssignee": "Не назначен",
+    "deadline": "Дедлайн",
+    "add": "Добавить",
+    "edit": "Редактировать",
+    "delete": "Удалить",
+    "deleteConfirm": "Удалить задачу «{title}»?",
+    "empty": "— пусто —",
+    "telegramOn": "☁ уведомления в Telegram включены",
+    "telegramOff": "⚠ бот Telegram не настроен (TELEGRAM_CHAT_ID)",
+    "status": "Статус"
+  },
+  "program": {
+    "manageTitle": "Управление программой",
+    "courseTitle": "Название курса",
+    "addModule": "Добавить модуль",
+    "moduleTitlePlaceholder": "Название модуля",
+    "moduleCodePlaceholder": "Код (например, M1)",
+    "editModule": "Редактировать модуль",
+    "deleteModule": "Удалить модуль",
+    "deleteModuleConfirm": "Удалить модуль «{title}»? Уроки внутри него не удалятся, но станут неприкреплёнными.",
+    "save": "Сохранить",
+    "manageHint": "Видно только преподавателям и администраторам."
   }
 }

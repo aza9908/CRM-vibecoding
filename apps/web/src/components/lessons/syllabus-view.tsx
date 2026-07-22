@@ -8,6 +8,8 @@ import type {
   ProgressStatus,
 } from '@lms/shared';
 import { useCurriculum } from '@/lib/api/hooks';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { ProgramEditor } from '@/components/program/program-editor';
 import {
   Card,
   CardContent,
@@ -163,6 +165,8 @@ export function SyllabusView() {
   const t = useTranslations('syllabus');
   const tc = useTranslations('common');
   const { data, isLoading, isError, refetch } = useCurriculum();
+  const user = useAuthStore((s) => s.user);
+  const canManage = user?.role === 'teacher' || user?.role === 'admin';
 
   return (
     <main className="container py-8">
@@ -185,13 +189,16 @@ export function SyllabusView() {
             {tc('retry')}
           </Button>
         </div>
-      ) : !data || data.modules.length === 0 ? (
-        <p className="text-muted-foreground">{tc('empty')}</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {data.modules.map((module) => (
-            <ModuleCard key={module.id} module={module} />
-          ))}
+          {canManage ? <ProgramEditor curriculum={data} /> : null}
+          {!data || data.modules.length === 0 ? (
+            <p className="text-muted-foreground">{tc('empty')}</p>
+          ) : (
+            data.modules.map((module) => (
+              <ModuleCard key={module.id} module={module} />
+            ))
+          )}
         </div>
       )}
     </main>

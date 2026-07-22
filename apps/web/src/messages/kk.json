@@ -19,7 +19,8 @@
     "empty": "Бос",
     "yes": "Иә",
     "no": "Жоқ",
-    "language": "Тіл"
+    "language": "Тіл",
+    "you": "сіз"
   },
   "nav": {
     "home": "Басты бет",
@@ -33,7 +34,10 @@
     "register": "Тіркелу",
     "logout": "Шығу",
     "profile": "Профиль",
-    "dashboard": "Аналитика"
+    "dashboard": "Аналитика",
+    "cabinet": "Кабинет",
+    "admin": "Админ",
+    "tasks": "Тапсырмалар"
   },
   "home": {
     "title": "B2B LMS — live-сабақтар және жұмыс дәптері",
@@ -246,5 +250,66 @@
     "inactive": "Белсенді емес",
     "students": "студент",
     "activeShare": "Белсенділер үлесі"
+  },
+  "cabinet": {
+    "title": "Кабинет",
+    "overallProgress": "Жалпы прогресс",
+    "lessonsCompleted": "Өтілген сабақтар",
+    "inProgress": "Орындалуда",
+    "modulesCount": "Модульдер",
+    "moduleProgress": "Модульдер бойынша прогресс",
+    "noModules": "Модульдер әлі тағайындалмаған."
+  },
+  "admin": {
+    "title": "Пайдаланушылар",
+    "subtitle": "Ұйым пайдаланушылары мен рөлдерін басқару",
+    "colName": "Аты",
+    "colEmail": "Email",
+    "colRole": "Рөл",
+    "colCreated": "Құрылды",
+    "colActions": "Әрекеттер",
+    "changeRole": "Рөлді өзгерту",
+    "resetPassword": "Құпия сөзді қалпына келтіру",
+    "resetPasswordTitle": "Жаңа құпия сөз",
+    "resetPasswordHint": "Көшіріп алып, пайдаланушыға беріңіз — бұл құпия сөз қайта көрсетілмейді.",
+    "copy": "Көшіру",
+    "copied": "Көшірілді",
+    "cannotChangeOwnRole": "Өз рөліңізді өзгерту мүмкін емес — басқа әкімшіден сұраңыз",
+    "confirmResetPassword": "{name} үшін жаңа құпия сөз жасау керек пе?",
+    "close": "Жабу"
+  },
+  "tasks": {
+    "title": "Тапсырмалар",
+    "subtitle": "Команданың ішкі тапсырмалары",
+    "columnTodo": "Жасау керек",
+    "columnDoing": "Орындалуда",
+    "columnDone": "Дайын",
+    "newTaskTitle": "Жаңа тапсырма",
+    "titlePlaceholder": "Тапсырма атауы",
+    "description": "Сипаттама",
+    "descriptionPlaceholder": "Міндетті емес",
+    "assignee": "Орындаушы",
+    "noAssignee": "Тағайындалмаған",
+    "deadline": "Мерзімі",
+    "add": "Қосу",
+    "edit": "Өңдеу",
+    "delete": "Жою",
+    "deleteConfirm": "«{title}» тапсырмасын жою керек пе?",
+    "empty": "— бос —",
+    "telegramOn": "☁ Telegram хабарламалары қосулы",
+    "telegramOff": "⚠ Telegram боты бапталмаған (TELEGRAM_CHAT_ID)",
+    "status": "Мәртебе"
+  },
+  "program": {
+    "manageTitle": "Бағдарламаны басқару",
+    "courseTitle": "Курс атауы",
+    "addModule": "Модуль қосу",
+    "moduleTitlePlaceholder": "Модуль атауы",
+    "moduleCodePlaceholder": "Код (мысалы, M1)",
+    "editModule": "Модульді өңдеу",
+    "deleteModule": "Модульді жою",
+    "deleteModuleConfirm": "«{title}» модулін жою керек пе? Ішіндегі сабақтар жойылмайды, бірақ бекітілмеген болады.",
+    "save": "Сақтау",
+    "manageHint": "Тек оқытушылар мен әкімшілерге көрінеді."
   }
 }

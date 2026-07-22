@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { ArrowRight, Lock, Mail, User } from 'lucide-react';
 import {
   registerSchema,
-  userRoleEnum,
+  selfRegisterRoleEnum,
   type RegisterDto,
   type UserRole,
 } from '@lms/shared';
@@ -160,7 +160,7 @@ export function RegisterForm() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {userRoleEnum.options.map((r) => (
+              {selfRegisterRoleEnum.options.map((r) => (
                 <SelectItem key={r} value={r}>
                   {t(ROLE_LABEL_KEY[r])}
                 </SelectItem>

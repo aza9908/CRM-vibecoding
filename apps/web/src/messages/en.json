@@ -19,7 +19,8 @@
     "empty": "Empty",
     "yes": "Yes",
     "no": "No",
-    "language": "Language"
+    "language": "Language",
+    "you": "you"
   },
   "nav": {
     "home": "Home",
@@ -33,7 +34,10 @@
     "register": "Sign up",
     "logout": "Log out",
     "profile": "Profile",
-    "dashboard": "Analytics"
+    "dashboard": "Analytics",
+    "cabinet": "Cabinet",
+    "admin": "Admin",
+    "tasks": "Tasks"
   },
   "home": {
     "title": "B2B LMS — live lessons & workbook",
@@ -246,5 +250,66 @@
     "inactive": "Inactive",
     "students": "students",
     "activeShare": "Active share"
+  },
+  "cabinet": {
+    "title": "Cabinet",
+    "overallProgress": "Overall progress",
+    "lessonsCompleted": "Lessons completed",
+    "inProgress": "In progress",
+    "modulesCount": "Modules",
+    "moduleProgress": "Progress by module",
+    "noModules": "No modules assigned yet."
+  },
+  "admin": {
+    "title": "Users",
+    "subtitle": "Manage your organization's users and roles",
+    "colName": "Name",
+    "colEmail": "Email",
+    "colRole": "Role",
+    "colCreated": "Created",
+    "colActions": "Actions",
+    "changeRole": "Change role",
+    "resetPassword": "Reset password",
+    "resetPasswordTitle": "New password",
+    "resetPasswordHint": "Copy and relay it to the user — it won't be shown again.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "cannotChangeOwnRole": "You can't change your own role — ask another admin",
+    "confirmResetPassword": "Generate a new password for {name}?",
+    "close": "Close"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "subtitle": "The team's internal task board",
+    "columnTodo": "To do",
+    "columnDoing": "Doing",
+    "columnDone": "Done",
+    "newTaskTitle": "New task",
+    "titlePlaceholder": "Task title",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional",
+    "assignee": "Assignee",
+    "noAssignee": "Unassigned",
+    "deadline": "Deadline",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete task “{title}”?",
+    "empty": "— empty —",
+    "telegramOn": "☁ Telegram notifications on",
+    "telegramOff": "⚠ Telegram bot not configured (TELEGRAM_CHAT_ID)",
+    "status": "Status"
+  },
+  "program": {
+    "manageTitle": "Manage program",
+    "courseTitle": "Course title",
+    "addModule": "Add module",
+    "moduleTitlePlaceholder": "Module title",
+    "moduleCodePlaceholder": "Code (e.g. M1)",
+    "editModule": "Edit module",
+    "deleteModule": "Delete module",
+    "deleteModuleConfirm": "Delete module “{title}”? Its lessons won't be deleted, just unassigned.",
+    "save": "Save",
+    "manageHint": "Only visible to teachers and admins."
   }
 }

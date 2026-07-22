@@ -1,8 +1,8 @@
 import { setRequestLocale } from 'next-intl/server';
 import { AppShell } from '@/components/app-shell';
-import { CompanyDashboardView } from '@/components/reports/company-dashboard-view';
+import { TasksBoardView } from '@/components/tasks/tasks-board-view';
 
-export default async function CompanyDashboardPage({
+export default async function AdminTasksPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -11,9 +11,7 @@ export default async function CompanyDashboardPage({
   setRequestLocale(locale);
   return (
     <AppShell>
-      <main className="container py-8">
-        <CompanyDashboardView />
-      </main>
+      <TasksBoardView />
     </AppShell>
   );
 }

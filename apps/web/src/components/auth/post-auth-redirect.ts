@@ -1,18 +1,10 @@
 import type { UserRole } from '@lms/shared';
 
 /**
- * Where to land a user after login / register, based on role.
- * Teachers/admins manage lessons; students see the syllabus.
+ * Where to land a user after login / register: everyone goes to their
+ * Кабинет (personal dashboard) first — role-specific work (lessons,
+ * syllabus, admin) lives one click away in the nav rail.
  */
-export function postAuthPath(role: UserRole): string {
-  switch (role) {
-    case 'teacher':
-    case 'admin':
-    case 'team_lead':
-      return '/teacher/lessons';
-    case 'student':
-      return '/syllabus';
-    default:
-      return '/teacher/lessons';
-  }
+export function postAuthPath(_role: UserRole): string {
+  return '/dashboard';
 }

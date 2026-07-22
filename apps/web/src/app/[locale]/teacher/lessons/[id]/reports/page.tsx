@@ -1,5 +1,5 @@
 import { setRequestLocale } from 'next-intl/server';
-import { AppHeader } from '@/components/app-header';
+import { AppShell } from '@/components/app-shell';
 import { ReportsListView } from '@/components/reports/reports-list-view';
 
 export default async function LessonReportsPage({
@@ -10,11 +10,10 @@ export default async function LessonReportsPage({
   const { locale, id } = await params;
   setRequestLocale(locale);
   return (
-    <>
-      <AppHeader />
+    <AppShell>
       <main className="container py-8">
         <ReportsListView lessonId={id} />
       </main>
-    </>
+    </AppShell>
   );
 }

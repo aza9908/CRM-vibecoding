@@ -8,3 +8,6 @@ export * from './use-notes';
 export * from './use-progress';
 export * from './use-reports';
 export * from './use-analytics';
+export * from './use-program';
+export * from './use-admin';
+export * from './use-tasks';

@@ -1,5 +1,5 @@
 import { setRequestLocale } from 'next-intl/server';
-import { AppHeader } from '@/components/app-header';
+import { AppShell } from '@/components/app-shell';
 import { EditorView } from '@/components/editor/editor-view';
 
 export default async function EditorPage({
@@ -10,9 +10,8 @@ export default async function EditorPage({
   const { locale, lessonId } = await params;
   setRequestLocale(locale);
   return (
-    <>
-      <AppHeader />
+    <AppShell>
       <EditorView lessonId={lessonId} />
-    </>
+    </AppShell>
   );
 }

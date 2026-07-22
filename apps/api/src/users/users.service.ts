@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { PublicUser, UserRole } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
@@ -99,5 +99,45 @@ export class UsersService {
   async getPublicById(id: string): Promise<PublicUser | null> {
     const user = await this.findById(id);
     return user ? this.toPublicUser(user) : null;
+  }
+
+  /** List every user in an organization (admin panel). */
+  async listByOrg(orgId: string): Promise<UserRecord[]> {
+    return this.db.query.users.findMany({
+      where: eq(users.organizationId, orgId),
+      orderBy: asc(users.createdAt),
+    }) as Promise<UserRecord[]>;
+  }
+
+  /**
+   * Change a user's role, scoped to `orgId`. Returns null if the user doesn't
+   * belong to that org (caller should treat this as 404, not 403 — see
+   * `LessonsService.assertLessonInOrg` for the same tenant-isolation pattern).
+   */
+  async updateRole(
+    id: string,
+    orgId: string,
+    role: UserRole,
+  ): Promise<UserRecord | null> {
+    const [row] = await this.db
+      .update(users)
+      .set({ role })
+      .where(and(eq(users.id, id), eq(users.organizationId, orgId)))
+      .returning();
+    return (row as UserRecord | undefined) ?? null;
+  }
+
+  /** Overwrite a user's password hash, scoped to `orgId`. */
+  async updatePasswordHash(
+    id: string,
+    orgId: string,
+    passwordHash: string,
+  ): Promise<UserRecord | null> {
+    const [row] = await this.db
+      .update(users)
+      .set({ passwordHash })
+      .where(and(eq(users.id, id), eq(users.organizationId, orgId)))
+      .returning();
+    return (row as UserRecord | undefined) ?? null;
   }
 }

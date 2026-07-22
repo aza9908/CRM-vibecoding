@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { userRoleEnum, type UserRole } from '../enums.js';
+import { selfRegisterRoleEnum, type UserRole } from '../enums.js';
 
 /**
  * Auth DTOs and the JWT payload shapes shared between web and api.
@@ -9,12 +9,17 @@ import { userRoleEnum, type UserRole } from '../enums.js';
  *  - `ParticipantPayload`  — a session guest joined by code (aud=participant).
  */
 
-/** Body for `POST /auth/register`. Creates an organization + user. */
+/**
+ * Body for `POST /auth/register`. Creates an organization + user.
+ * `role` is restricted to `selfRegisterRoleEnum` (student/teacher) — `admin`
+ * and `team_lead` can never be self-assigned; they're granted by an existing
+ * admin via `PATCH /admin/users/:id/role`.
+ */
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(1),
-  role: userRoleEnum.optional(),
+  role: selfRegisterRoleEnum.optional(),
 });
 export type RegisterDto = z.infer<typeof registerSchema>;
 

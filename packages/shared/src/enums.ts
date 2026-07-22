@@ -13,6 +13,15 @@ import { z } from 'zod';
 export const userRoleEnum = z.enum(['student', 'teacher', 'admin', 'team_lead']);
 export type UserRole = z.infer<typeof userRoleEnum>;
 
+/**
+ * Roles a caller may pick for THEMSELVES on public self-registration.
+ * `admin` / `team_lead` are deliberately excluded — those are elevated roles
+ * and must only ever be granted by an existing admin (see `admin.controller`
+ * `PATCH /admin/users/:id/role`), never chosen by an anonymous registrant.
+ */
+export const selfRegisterRoleEnum = z.enum(['student', 'teacher']);
+export type SelfRegisterRole = z.infer<typeof selfRegisterRoleEnum>;
+
 /** How a lesson is delivered. */
 export const lessonTypeEnum = z.enum(['video', 'stream', 'text']);
 export type LessonType = z.infer<typeof lessonTypeEnum>;
@@ -41,6 +50,10 @@ export type ProgressStatus = z.infer<typeof progressStatusEnum>;
 /** Kind of attachable lesson material. */
 export const materialTypeEnum = z.enum(['file', 'link']);
 export type MaterialType = z.infer<typeof materialTypeEnum>;
+
+/** Column/status of an internal task on the Задачи board (Trello-style). */
+export const taskStatusEnum = z.enum(['todo', 'doing', 'done']);
+export type TaskStatus = z.infer<typeof taskStatusEnum>;
 
 /**
  * Lesson progress as exposed to the UI. The DB only stores 2 states

@@ -1,5 +1,5 @@
 import { setRequestLocale } from 'next-intl/server';
-import { AppHeader } from '@/components/app-header';
+import { AppShell } from '@/components/app-shell';
 import { ReportDetailView } from '@/components/reports/report-detail-view';
 
 export default async function SessionReportPage({
@@ -10,11 +10,10 @@ export default async function SessionReportPage({
   const { locale, id, sessionId } = await params;
   setRequestLocale(locale);
   return (
-    <>
-      <AppHeader />
+    <AppShell>
       <main className="container py-8">
         <ReportDetailView lessonId={id} sessionId={sessionId} />
       </main>
-    </>
+    </AppShell>
   );
 }

@@ -12,6 +12,9 @@ import { AiModule } from './ai/ai.module';
 import { MaterialsModule } from './materials/materials.module';
 import { ProgressModule } from './progress/progress.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { ProgramModule } from './program/program.module';
+import { AdminModule } from './admin/admin.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -27,6 +30,9 @@ import { AnalyticsModule } from './analytics/analytics.module';
     MaterialsModule,
     ProgressModule,
     AnalyticsModule,
+    ProgramModule,
+    AdminModule,
+    TasksModule,
   ],
 })
 export class AppModule {}
