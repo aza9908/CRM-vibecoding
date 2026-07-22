@@ -6,5 +6,5 @@ import type { UserRole } from '@lms/shared';
  * syllabus, admin) lives one click away in the nav rail.
  */
 export function postAuthPath(_role: UserRole): string {
-  return '/dashboard';
+  return '/cabinet';
 }

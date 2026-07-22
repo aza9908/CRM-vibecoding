@@ -2,19 +2,26 @@
   "name": "lms",
   "version": "0.1.0",
   "private": true,
-  "description": "B2B LMS — live lessons + workbook + AI assistant (monorepo)",
-  "packageManager": "pnpm@9.15.0",
+  "description": "B2B LMS \u2014 live lessons + workbook + AI assistant (monorepo)",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
-    "dev:web": "pnpm --filter @lms/web dev",
-    "dev:api": "pnpm --filter @lms/api dev",
-    "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
-    "db:generate": "pnpm --filter @lms/api drizzle:generate",
-    "db:migrate": "pnpm --filter @lms/api drizzle:migrate"
-  }
+    "start": "node apps/api/dist/main.js",
+    "dev:web": "npm run dev --workspace=@lms/web",
+    "dev:api": "npm run dev --workspace=@lms/api",
+    "build": "npm run build --workspace=@lms/shared && npm run build --workspace=@lms/api && npm run build --workspace=@lms/web",
+    "build:backend": "npm run build --workspace=@lms/shared && npm run build --workspace=@lms/api",
+    "build:web": "npm run build --workspace=@lms/shared && npm run build --workspace=@lms/web",
+    "apphosting:build": "npm run build:${APPHOSTING_TARGET:-backend}",
+    "start:web": "npm run start --workspace=@lms/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:generate": "npm run drizzle:generate --workspace=@lms/api",
+    "db:migrate": "npm run drizzle:migrate --workspace=@lms/api"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }

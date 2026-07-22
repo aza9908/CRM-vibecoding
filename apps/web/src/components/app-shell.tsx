@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAdminOrLead = user?.role === 'admin' || user?.role === 'team_lead';
 
   const nav = [
-    { href: '/dashboard', label: t('cabinet'), icon: LayoutDashboard },
+    { href: '/cabinet', label: t('cabinet'), icon: LayoutDashboard },
     { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
     { href: '/teacher/materials', label: t('materials'), icon: FolderOpen },
     { href: '/syllabus', label: t('syllabus'), icon: ListChecks },

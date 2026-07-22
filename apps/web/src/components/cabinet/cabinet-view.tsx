@@ -1,142 +1,261 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { BookMarked, Layers, TrendingUp, Wrench } from 'lucide-react';
+import {
+  BookOpenCheck,
+  CircleDot,
+  GraduationCap,
+  LibraryBig,
+  LogIn,
+  TrendingUp,
+} from 'lucide-react';
+import type { CurriculumLesson, UserRole } from '@lms/shared';
+import { Link } from '@/i18n/routing';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useCurriculum } from '@/lib/api/hooks';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { KpiCard } from '@/components/reports/kpi-card';
 
-const ROLE_LABEL_KEY = {
-  teacher: 'roleTeacher',
-  student: 'roleStudent',
-  admin: 'roleAdmin',
-  team_lead: 'roleTeamLead',
-} as const;
+/** Thin horizontal progress bar (0–100). */
+function ProgressBar({ value }: { value: number }) {
+  const clamped = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div
+      className="h-2 w-full overflow-hidden rounded-full bg-muted"
+      role="progressbar"
+      aria-valuenow={clamped}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div
+        className="h-full rounded-full bg-primary transition-all"
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-4 py-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-2xl font-semibold tabular-nums">
+            {value}
+          </div>
+          <div className="truncate text-sm text-muted-foreground">{label}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 /**
- * Кабинет — the personal landing page after login. Profile card up top,
- * then progress KPIs and a per-module breakdown derived from `/curriculum`.
- * Students get real per-lesson progress merged server-side; teachers/admins
- * see zeros (they don't have personal lesson progress) — same tree, same
- * component, no separate endpoint needed.
+ * Личный кабинет — the student's personal room (docs: personal monitoring).
+ *
+ * Reads the curriculum tree (which carries per-lesson progress for students)
+ * and renders: profile summary, headline stats, per-module progress, and a
+ * "continue learning" list of lessons that are started but unfinished.
  */
 export function CabinetView() {
   const t = useTranslations('cabinet');
-  const ta = useTranslations('auth');
-  const tc = useTranslations('common');
   const user = useAuthStore((s) => s.user);
   const { data, isLoading, isError } = useCurriculum();
 
-  const modules = data?.modules ?? [];
-  const allLessons = modules.flatMap((m) => m.lessons);
-  const lessonsTotal = allLessons.length;
-  const lessonsCompleted = allLessons.filter(
-    (l) => l.progressStatus === 'completed',
-  ).length;
-  const inProgress = allLessons.filter(
-    (l) => l.progressStatus === 'started',
-  ).length;
-  const overallPercent =
-    modules.length > 0
-      ? Math.round(
-          modules.reduce((sum, m) => sum + m.progressPercent, 0) /
-            modules.length,
-        )
-      : 0;
+  const stats = useMemo(() => {
+    const modules = data?.modules ?? [];
+    const lessons = modules.flatMap((m) => m.lessons);
+    const completed = lessons.filter(
+      (l) => l.progressStatus === 'completed' || l.progressPercent === 100,
+    );
+    const inProgress = lessons.filter(
+      (l) =>
+        l.progressStatus !== 'completed' &&
+        (l.progressPercent ?? 0) > 0 &&
+        (l.progressPercent ?? 0) < 100,
+    );
+    const overall =
+      lessons.length === 0
+        ? 0
+        : lessons.reduce((sum, l) => sum + (l.progressPercent ?? 0), 0) /
+          lessons.length;
+    return { modules, lessons, completed, inProgress, overall };
+  }, [data]);
 
+  if (!user) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-4 py-24 text-center">
+        <GraduationCap className="h-10 w-10 text-muted-foreground" />
+        <p className="text-muted-foreground">{t('signInPrompt')}</p>
+        <Button asChild>
+          <Link href="/login">
+            <LogIn className="mr-2 h-4 w-4" />
+            {t('signIn')}
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const roleKey = `role_${user.role satisfies UserRole}` as const;
   const initial =
-    user?.fullName?.trim()?.[0]?.toUpperCase() ??
-    user?.email?.[0]?.toUpperCase() ??
+    user.fullName?.trim()?.[0]?.toUpperCase() ??
+    user.email[0]?.toUpperCase() ??
     '?';
 
   return (
-    <main className="container flex flex-col gap-6 py-8">
-      <Card className="p-6">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">
+    <div className="space-y-8">
+      {/* Profile */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-4 py-6">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-xl font-semibold text-primary-foreground">
             {initial}
-          </span>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold">
-                {user?.fullName ?? user?.email}
-              </span>
-              {user ? (
-                <Badge variant="secondary">
-                  {ta(ROLE_LABEL_KEY[user.role])}
-                </Badge>
-              ) : null}
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {user?.email}
-            </span>
           </div>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate text-xl font-semibold">
+                {user.fullName ?? user.email}
+              </h1>
+              <Badge variant="secondary">{t(roleKey)}</Badge>
+            </div>
+            <p className="truncate text-sm text-muted-foreground">
+              {user.email}
+            </p>
+          </div>
+          {data?.course && (
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">
+                {t('currentCourse')}
+              </div>
+              <div className="max-w-[16rem] truncate font-medium">
+                {data.course.title}
+              </div>
+            </div>
+          )}
+        </CardContent>
       </Card>
 
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground">
+      {isLoading && (
+        <div className="flex justify-center py-16">
           <Spinner />
-          {tc('loading')}
         </div>
-      ) : isError ? (
-        <p className="text-destructive">{tc('error')}</p>
-      ) : (
+      )}
+      {isError && (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          {t('loadError')}
+        </p>
+      )}
+
+      {!isLoading && !isError && (
         <>
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiCard
+          {/* Headline stats */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              icon={<TrendingUp className="h-5 w-5" />}
               label={t('overallProgress')}
-              value={`${overallPercent}%`}
-              icon={TrendingUp}
+              value={`${Math.round(stats.overall)}%`}
             />
-            <KpiCard
+            <StatCard
+              icon={<BookOpenCheck className="h-5 w-5" />}
               label={t('lessonsCompleted')}
-              value={`${lessonsCompleted} / ${lessonsTotal}`}
-              icon={BookMarked}
+              value={`${stats.completed.length} / ${stats.lessons.length}`}
             />
-            <KpiCard label={t('inProgress')} value={inProgress} icon={Wrench} />
-            <KpiCard
-              label={t('modulesCount')}
-              value={modules.length}
-              icon={Layers}
+            <StatCard
+              icon={<CircleDot className="h-5 w-5" />}
+              label={t('lessonsInProgress')}
+              value={String(stats.inProgress.length)}
+            />
+            <StatCard
+              icon={<LibraryBig className="h-5 w-5" />}
+              label={t('modules')}
+              value={String(stats.modules.length)}
             />
           </div>
 
+          {/* Continue learning */}
+          {stats.inProgress.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('continueLearning')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[...stats.inProgress]
+                  .sort(
+                    (a: CurriculumLesson, b: CurriculumLesson) =>
+                      (b.progressPercent ?? 0) - (a.progressPercent ?? 0),
+                  )
+                  .slice(0, 5)
+                  .map((lesson) => (
+                    <div
+                      key={lesson.id}
+                      className="flex items-center gap-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">
+                          {lesson.title}
+                        </div>
+                        <ProgressBar value={lesson.progressPercent ?? 0} />
+                      </div>
+                      <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                        {Math.round(lesson.progressPercent ?? 0)}%
+                      </span>
+                    </div>
+                  ))}
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/syllabus">{t('openSyllabus')}</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Per-module progress */}
           <Card>
             <CardHeader>
               <CardTitle>{t('moduleProgress')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              {modules.length === 0 ? (
-                <p className="text-muted-foreground">{t('noModules')}</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {modules.map((m) => (
-                    <li key={m.id} className="flex items-center gap-3">
-                      <span className="w-40 shrink-0 truncate text-sm font-medium">
-                        {m.code ? `${m.code} · ` : ''}
-                        {m.title}
-                      </span>
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary transition-[width]"
-                          style={{ width: `${m.progressPercent}%` }}
-                        />
-                      </div>
-                      <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                        {m.progressPercent}%
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+            <CardContent className="space-y-5">
+              {stats.modules.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {t('noModules')}
+                </p>
               )}
+              {stats.modules.map((m) => (
+                <div key={m.id} className="space-y-1.5">
+                  <div className="flex items-baseline justify-between gap-4">
+                    <div className="min-w-0 truncate text-sm font-medium">
+                      {m.code ? `${m.code} · ` : ''}
+                      {m.title}
+                    </div>
+                    <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                      {Math.round(m.progressPercent)}%
+                    </span>
+                  </div>
+                  <ProgressBar value={m.progressPercent} />
+                </div>
+              ))}
             </CardContent>
           </Card>
         </>
       )}
-    </main>
+    </div>
   );
 }

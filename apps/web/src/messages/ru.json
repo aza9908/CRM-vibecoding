@@ -252,13 +252,22 @@
     "activeShare": "Доля активных"
   },
   "cabinet": {
-    "title": "Кабинет",
+    "signInPrompt": "Войдите, чтобы увидеть личный кабинет и прогресс обучения.",
+    "signIn": "Войти",
+    "currentCourse": "Текущий курс",
     "overallProgress": "Общий прогресс",
     "lessonsCompleted": "Уроков пройдено",
-    "inProgress": "В процессе",
-    "modulesCount": "Модули",
+    "lessonsInProgress": "В процессе",
+    "modules": "Модули",
+    "continueLearning": "Продолжить обучение",
+    "openSyllabus": "Открыть программу",
     "moduleProgress": "Прогресс по модулям",
-    "noModules": "Модули пока не назначены."
+    "noModules": "Модули пока не назначены.",
+    "loadError": "Не удалось загрузить прогресс. Попробуйте ещё раз.",
+    "role_student": "Студент",
+    "role_teacher": "Преподаватель",
+    "role_admin": "Администратор",
+    "role_team_lead": "Тимлид"
   },
   "admin": {
     "title": "Пользователи",

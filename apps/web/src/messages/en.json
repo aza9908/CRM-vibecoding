@@ -35,7 +35,7 @@
     "logout": "Log out",
     "profile": "Profile",
     "dashboard": "Analytics",
-    "cabinet": "Cabinet",
+    "cabinet": "My room",
     "admin": "Admin",
     "tasks": "Tasks"
   },
@@ -252,13 +252,22 @@
     "activeShare": "Active share"
   },
   "cabinet": {
-    "title": "Cabinet",
+    "signInPrompt": "Sign in to see your personal room and learning progress.",
+    "signIn": "Sign in",
+    "currentCourse": "Current course",
     "overallProgress": "Overall progress",
     "lessonsCompleted": "Lessons completed",
-    "inProgress": "In progress",
-    "modulesCount": "Modules",
+    "lessonsInProgress": "In progress",
+    "modules": "Modules",
+    "continueLearning": "Continue learning",
+    "openSyllabus": "Open syllabus",
     "moduleProgress": "Progress by module",
-    "noModules": "No modules assigned yet."
+    "noModules": "No modules assigned yet.",
+    "loadError": "Could not load your progress. Please try again.",
+    "role_student": "Student",
+    "role_teacher": "Teacher",
+    "role_admin": "Admin",
+    "role_team_lead": "Team lead"
   },
   "admin": {
     "title": "Users",

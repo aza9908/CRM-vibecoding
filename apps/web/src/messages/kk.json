@@ -252,13 +252,22 @@
     "activeShare": "Белсенділер үлесі"
   },
   "cabinet": {
-    "title": "Кабинет",
+    "signInPrompt": "Жеке кабинет пен оқу прогресін көру үшін кіріңіз.",
+    "signIn": "Кіру",
+    "currentCourse": "Ағымдағы курс",
     "overallProgress": "Жалпы прогресс",
-    "lessonsCompleted": "Өтілген сабақтар",
-    "inProgress": "Орындалуда",
-    "modulesCount": "Модульдер",
+    "lessonsCompleted": "Аяқталған сабақтар",
+    "lessonsInProgress": "Орындалуда",
+    "modules": "Модульдер",
+    "continueLearning": "Оқуды жалғастыру",
+    "openSyllabus": "Бағдарламаны ашу",
     "moduleProgress": "Модульдер бойынша прогресс",
-    "noModules": "Модульдер әлі тағайындалмаған."
+    "noModules": "Модульдер әлі тағайындалмаған.",
+    "loadError": "Прогресті жүктеу мүмкін болмады. Қайталап көріңіз.",
+    "role_student": "Студент",
+    "role_teacher": "Оқытушы",
+    "role_admin": "Әкімші",
+    "role_team_lead": "Тимлид"
   },
   "admin": {
     "title": "Пайдаланушылар",

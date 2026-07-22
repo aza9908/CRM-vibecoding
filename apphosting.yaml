@@ -1,0 +1,40 @@
+# Firebase App Hosting configuration for the NestJS API (apps/api).
+# App Hosting builds with buildpacks (pnpm is detected from the lockfile)
+# and injects PORT=8080 at runtime; main.ts already reads process.env.PORT.
+
+runConfig:
+  cpu: 1
+  memoryMiB: 1024
+  minInstances: 0
+  # Keep a single instance while REDIS_URL is unset: the Socket.IO adapter
+  # falls back to in-memory, so rooms/broadcasts only work within one instance.
+  # Raise this only after wiring a managed Redis and setting REDIS_URL.
+  maxInstances: 1
+  concurrency: 80
+
+scripts:
+  # IMPORTANT: do NOT set buildCommand here. The App Hosting buildpack rewrites
+  # package.json when buildCommand is present and silently drops the
+  # "workspaces" field, breaking the npm-workspaces monorepo install
+  # (https://github.com/GoogleCloudPlatform/buildpacks/issues/621).
+  # The build is defined instead as the "apphosting:build" script in the root
+  # package.json, which the buildpack picks up without rewriting the file.
+  runCommand: node apps/api/dist/main.js
+
+env:
+  - variable: NODE_ENV
+    value: production
+    availability:
+      - RUNTIME
+  - variable: DATABASE_URL
+    secret: DATABASE_URL
+    availability:
+      - RUNTIME
+  # CORS/WS origins of the deployed frontend (comma-separated).
+  - variable: WEB_ORIGIN
+    value: https://lms.magauin.kz,https://lms-web--lms-ai-a2fd7.europe-west4.hosted.app
+    availability:
+      - RUNTIME
+# Add the rest of the environment variables (JWT secrets, S3_*, WEB_ORIGIN,
+# GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
+# references here, following the DATABASE_URL example above.

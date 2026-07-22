@@ -2,7 +2,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { AppShell } from '@/components/app-shell';
 import { CabinetView } from '@/components/cabinet/cabinet-view';
 
-export default async function DashboardPage({
+export default async function CabinetPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -11,7 +11,9 @@ export default async function DashboardPage({
   setRequestLocale(locale);
   return (
     <AppShell>
-      <CabinetView />
+      <main className="container py-8">
+        <CabinetView />
+      </main>
     </AppShell>
   );
 }
