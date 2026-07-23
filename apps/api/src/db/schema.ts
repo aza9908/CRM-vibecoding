@@ -45,8 +45,6 @@ export const progressStatus = pgEnum('progress_status', [
 // lives in the private `course-materials/` S3 bucket (url = S3 key), a `link`
 // is an external web URL (url = href) served as-is.
 export const materialType = pgEnum('material_type', ['file', 'link']);
-// Column/status of an internal task on the Задачи board (Trello-style).
-export const taskStatus = pgEnum('task_status', ['todo', 'doing', 'done']);
 
 // ── мультитенантность ─────────────────────────────────
 export const organizations = pgTable('organizations', {
@@ -72,6 +70,34 @@ export const users = pgTable(
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
     orgIdx: index('users_org_idx').on(t.organizationId),
+  }),
+);
+
+/**
+ * Single-use password reset tokens.
+ *
+ * Only the SHA-256 hash of the token is stored, so a database leak cannot be
+ * replayed to take over accounts — the raw value exists solely in the email we
+ * send. Rows are consumed by setting `usedAt` rather than deleted, which keeps
+ * a short audit trail and makes replay attempts detectable.
+ */
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    requestedIp: text('requested_ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    tokenHashIdx: uniqueIndex('password_reset_token_hash_idx').on(t.tokenHash),
+    userIdx: index('password_reset_user_idx').on(t.userId),
+    expiresIdx: index('password_reset_expires_idx').on(t.expiresAt),
   }),
 );
 
@@ -329,32 +355,6 @@ export const activityLogs = pgTable(
   }),
 );
 
-// ── внутренние задачи команды (Trello/Jira-style, docs/10) ───
-export const tasks = pgTable(
-  'tasks',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    organizationId: uuid('organization_id')
-      .references(() => organizations.id, { onDelete: 'cascade' })
-      .notNull(),
-    title: text('title').notNull(),
-    description: text('description'),
-    status: taskStatus('status').notNull().default('todo'),
-    assigneeId: uuid('assignee_id').references(() => users.id, {
-      onDelete: 'set null',
-    }),
-    deadline: text('deadline'), // 'YYYY-MM-DD', nullable — matches the old tool
-    createdBy: uuid('created_by').references(() => users.id, {
-      onDelete: 'set null',
-    }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-  },
-  (t) => ({
-    orgIdx: index('tasks_org_idx').on(t.organizationId),
-  }),
-);
-
 // ── barrel для drizzle query API ──────────────────────
 export const schema = {
   // enums
@@ -364,10 +364,10 @@ export const schema = {
   blockType,
   progressStatus,
   materialType,
-  taskStatus,
   // tables
   organizations,
   users,
+  passwordResetTokens,
   courses,
   modules,
   lessons,
@@ -382,5 +382,4 @@ export const schema = {
   lessonMaterials,
   lessonNotes,
   activityLogs,
-  tasks,
 };

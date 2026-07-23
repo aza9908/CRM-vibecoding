@@ -6,8 +6,12 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import type {
+  ForgotPasswordDto,
   LoginDto,
+  MessageResult,
   RegisterDto,
+  ResetPasswordDto,
+  ResetTokenStatus,
   AuthResult,
   PublicUser,
 } from '@lms/shared';
@@ -42,6 +46,46 @@ export function useRegister() {
       setAuth(data.accessToken, data.user);
       qc.setQueryData(queryKeys.me, data.user);
     },
+  });
+}
+
+/**
+ * POST /auth/forgot-password — always resolves, even for unknown addresses.
+ * The API deliberately returns the same 202 either way so the UI cannot be
+ * used to discover which emails are registered; the success screen is shown
+ * unconditionally.
+ */
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (dto: ForgotPasswordDto) =>
+      api.post<MessageResult>('/auth/forgot-password', dto),
+  });
+}
+
+/**
+ * GET /auth/reset-password/validate — checks a link before showing the form
+ * so an expired token surfaces immediately instead of after typing.
+ */
+export function useValidateResetToken(token: string | null) {
+  return useQuery({
+    queryKey: ['auth', 'reset-token', token],
+    queryFn: () =>
+      api.get<ResetTokenStatus>(
+        `/auth/reset-password/validate?token=${encodeURIComponent(token ?? '')}`,
+        { auth: false },
+      ),
+    enabled: !!token,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+/** POST /auth/reset-password — consumes the token and sets the new password. */
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (dto: ResetPasswordDto) =>
+      api.post<MessageResult>('/auth/reset-password', dto),
   });
 }
 

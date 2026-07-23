@@ -1,24 +1,31 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import type {
   AuthResult,
   AuthUserPayload,
+  ForgotPasswordDto,
   LoginDto,
   ParticipantPayload,
   PublicUser,
   RegisterDto,
+  ResetPasswordDto,
 } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { organizations, users } from '../db/schema';
+import { organizations, passwordResetTokens, users } from '../db/schema';
 import { UsersService, type UserRecord } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 
 /** Access token lifetime (short-lived; refreshed via the rotation flow). */
 const ACCESS_TTL = '15m';
@@ -26,6 +33,11 @@ const ACCESS_TTL = '15m';
 const REFRESH_TTL = '30d';
 /** Participant token lifetime (covers a live session sitting). */
 const PARTICIPANT_TTL = '12h';
+/** How long a password reset link stays usable. */
+const RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+/** Max reset requests honoured per account inside the throttle window. */
+const RESET_MAX_PER_WINDOW = 3;
+const RESET_WINDOW_MS = 15 * 60 * 1000;
 
 /** Claims carried by a refresh token (rotated on every use). */
 interface RefreshClaims {
@@ -38,13 +50,16 @@ interface RefreshClaims {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly accessSecret: string;
   private readonly refreshSecret: string;
+  private readonly webOrigin: string;
 
   constructor(
     @Inject(DRIZZLE) private readonly db: Db,
     private readonly users: UsersService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
     config: ConfigService,
   ) {
     const access = config.get<string>('JWT_ACCESS_SECRET');
@@ -53,6 +68,8 @@ export class AuthService {
     if (!refresh) throw new Error('JWT_REFRESH_SECRET is not set');
     this.accessSecret = access;
     this.refreshSecret = refresh;
+    this.webOrigin =
+      config.get<string>('WEB_ORIGIN') ?? 'http://localhost:3000';
   }
 
   // ── public flows ────────────────────────────────────────────────────────
@@ -129,6 +146,196 @@ export class AuthService {
       throw new UnauthorizedException('user_not_found');
     }
     return this.issueTokens(user);
+  }
+
+  // ── password recovery ───────────────────────────────────────────────────
+
+  /**
+   * Begin a password reset.
+   *
+   * Always resolves successfully, whatever the outcome. Returning 404 for
+   * unknown addresses would turn this endpoint into an account-enumeration
+   * oracle, so the caller gets the same acknowledgement either way and the real
+   * branching happens silently here.
+   */
+  async requestPasswordReset(
+    dto: ForgotPasswordDto,
+    ip?: string,
+  ): Promise<void> {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.users.findByEmail(email);
+
+    // Unknown address, or an OAuth-only account with no password to reset.
+    if (!user) {
+      this.logger.debug(`reset requested for unknown address`);
+      return;
+    }
+
+    // Per-account throttle: cheap defence against using the endpoint as a
+    // mail bomb against a known address.
+    const since = new Date(Date.now() - RESET_WINDOW_MS);
+    const [{ count } = { count: 0 }] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.userId, user.id),
+          gt(passwordResetTokens.createdAt, since),
+        ),
+      );
+
+    if (count >= RESET_MAX_PER_WINDOW) {
+      this.logger.warn(`reset throttled for user ${user.id}`);
+      return;
+    }
+
+    // Invalidate any outstanding links so only the newest one works.
+    await this.db
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(passwordResetTokens.userId, user.id),
+          isNull(passwordResetTokens.usedAt),
+        ),
+      );
+
+    const rawToken = randomBytes(32).toString('base64url');
+    const tokenHash = this.hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + RESET_TTL_MS);
+
+    await this.db.insert(passwordResetTokens).values({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+      requestedIp: ip ?? null,
+    });
+
+    const resetUrl = `${this.webOrigin.replace(/\/+$/, '')}/reset-password?token=${rawToken}`;
+
+    const sent = await this.mail.sendPasswordReset(
+      user.email,
+      resetUrl,
+      Math.round(RESET_TTL_MS / 60000),
+    );
+
+    // Without a mail provider the link would be unreachable, so surface it in
+    // the server log. Never do this once MAIL_API_URL is configured.
+    if (!sent) {
+      this.logger.warn(`PASSWORD RESET LINK (mail disabled): ${resetUrl}`);
+    }
+  }
+
+  /**
+   * Check a reset token without consuming it, so the reset page can show a
+   * clear "link expired" state instead of failing only on submit.
+   */
+  async validateResetToken(token: string): Promise<boolean> {
+    if (!token) return false;
+    const row = await this.findLiveResetToken(token);
+    return row !== null;
+  }
+
+  /**
+   * Complete a password reset: verify the token, write the new hash, and burn
+   * the token. Both writes happen in one transaction so a crash can never leave
+   * a consumed token with an unchanged password (or the reverse).
+   */
+  async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    const row = await this.findLiveResetToken(dto.token);
+    if (!row) {
+      throw new BadRequestException('invalid_or_expired_token');
+    }
+
+    const user = await this.users.findById(row.userId);
+    if (!user) {
+      throw new BadRequestException('invalid_or_expired_token');
+    }
+
+    // Refuse a no-op reset — it usually means the user misread the email and
+    // it would silently consume their only valid link.
+    if (
+      user.passwordHash &&
+      (await argon2.verify(user.passwordHash, dto.password).catch(() => false))
+    ) {
+      throw new BadRequestException('password_unchanged');
+    }
+
+    const passwordHash = await argon2.hash(dto.password, {
+      type: argon2.argon2id,
+    });
+
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set({ passwordHash })
+        .where(eq(users.id, row.userId));
+
+      await tx
+        .update(passwordResetTokens)
+        .set({ usedAt: new Date() })
+        .where(eq(passwordResetTokens.id, row.id));
+
+      // Any other outstanding link for this account is now stale too.
+      await tx
+        .update(passwordResetTokens)
+        .set({ usedAt: new Date() })
+        .where(
+          and(
+            eq(passwordResetTokens.userId, row.userId),
+            isNull(passwordResetTokens.usedAt),
+          ),
+        );
+    });
+
+    this.logger.log(`password reset completed for user ${row.userId}`);
+  }
+
+  /**
+   * Housekeeping: drop tokens that are long dead. Safe to call from a cron.
+   */
+  async purgeExpiredResetTokens(): Promise<number> {
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const deleted = await this.db
+      .delete(passwordResetTokens)
+      .where(
+        or(
+          lt(passwordResetTokens.expiresAt, cutoff),
+          lt(passwordResetTokens.usedAt, cutoff),
+        ),
+      )
+      .returning({ id: passwordResetTokens.id });
+    return deleted.length;
+  }
+
+  /** SHA-256 of the raw token — what we actually persist. */
+  private hashToken(raw: string): string {
+    return createHash('sha256').update(raw).digest('hex');
+  }
+
+  /**
+   * Look up an unused, unexpired token by its raw value.
+   *
+   * The hash lookup is indexed, and the extra `timingSafeEqual` guards against
+   * leaking information through comparison timing on the returned row.
+   */
+  private async findLiveResetToken(
+    raw: string,
+  ): Promise<{ id: string; userId: string; tokenHash: string } | null> {
+    const tokenHash = this.hashToken(raw);
+
+    const row = await this.db.query.passwordResetTokens.findFirst({
+      where: (t, { and: a, eq: e, gt: g, isNull: n }) =>
+        a(e(t.tokenHash, tokenHash), n(t.usedAt), g(t.expiresAt, new Date())),
+    });
+
+    if (!row) return null;
+
+    const a = Buffer.from(row.tokenHash, 'utf8');
+    const b = Buffer.from(tokenHash, 'utf8');
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+
+    return { id: row.id, userId: row.userId, tokenHash: row.tokenHash };
   }
 
   /** Return the client-safe profile for an authenticated user id. */

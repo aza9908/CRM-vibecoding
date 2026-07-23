@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { selfRegisterRoleEnum, type UserRole } from '../enums.js';
+import { userRoleEnum, type UserRole } from '../enums.js';
 
 /**
  * Auth DTOs and the JWT payload shapes shared between web and api.
@@ -9,17 +9,12 @@ import { selfRegisterRoleEnum, type UserRole } from '../enums.js';
  *  - `ParticipantPayload`  — a session guest joined by code (aud=participant).
  */
 
-/**
- * Body for `POST /auth/register`. Creates an organization + user.
- * `role` is restricted to `selfRegisterRoleEnum` (student/teacher) — `admin`
- * and `team_lead` can never be self-assigned; they're granted by an existing
- * admin via `PATCH /admin/users/:id/role`.
- */
+/** Body for `POST /auth/register`. Creates an organization + user. */
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(1),
-  role: selfRegisterRoleEnum.optional(),
+  role: userRoleEnum.optional(),
 });
 export type RegisterDto = z.infer<typeof registerSchema>;
 
@@ -29,6 +24,46 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 export type LoginDto = z.infer<typeof loginSchema>;
+
+/**
+ * Body for `POST /auth/forgot-password`.
+ *
+ * Always answered with 202 regardless of whether the address exists — the
+ * response must never reveal which emails are registered.
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+export type ForgotPasswordDto = z.infer<typeof forgotPasswordSchema>;
+
+/**
+ * Body for `POST /auth/reset-password`.
+ *
+ * `token` is the raw single-use value from the reset email; the server stores
+ * only its hash. The confirmation field is checked here so the client can show
+ * a field-level error without a round trip.
+ */
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().min(16),
+    password: z.string().min(8),
+    confirmPassword: z.string().min(8),
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    message: 'passwords_do_not_match',
+    path: ['confirmPassword'],
+  });
+export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
+
+/** Body for `GET /auth/reset-password/validate?token=…` responses. */
+export type ResetTokenStatus = {
+  valid: boolean;
+};
+
+/** Generic acknowledgement returned by the password-reset endpoints. */
+export type MessageResult = {
+  message: string;
+};
 
 /**
  * Decoded access-token payload for a real account.

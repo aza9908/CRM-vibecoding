@@ -93,7 +93,15 @@ export function LoginForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="password">{t('password')}</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="password">{t('password')}</Label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
+            >
+              {t('forgotLink')}
+            </Link>
+          </div>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

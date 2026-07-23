@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -13,13 +14,19 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import {
+  forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   type AuthResult,
   type AuthUserPayload,
+  type ForgotPasswordDto,
   type LoginDto,
+  type MessageResult,
   type PublicUser,
   type RegisterDto,
+  type ResetPasswordDto,
+  type ResetTokenStatus,
 } from '@lms/shared';
 
 import { ZodValidationPipe } from '../common/zod-validation.pipe';
@@ -91,6 +98,55 @@ export class AuthController {
     const result = await this.auth.refresh(token);
     this.setRefreshCookie(res, result.refreshToken);
     return result;
+  }
+
+  /**
+   * Start a password reset.
+   *
+   * Always 202, never 404 — the response must be identical for registered and
+   * unregistered addresses so it cannot be used to enumerate accounts.
+   */
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) dto: ForgotPasswordDto,
+    @Req() req: Request,
+  ): Promise<MessageResult> {
+    const ip =
+      (req.headers['x-forwarded-for'] as string | undefined)
+        ?.split(',')[0]
+        ?.trim() ?? req.socket?.remoteAddress;
+
+    await this.auth.requestPasswordReset(dto, ip);
+
+    return { message: 'reset_email_sent' };
+  }
+
+  /**
+   * Check a reset link before rendering the form, so an expired link shows a
+   * proper message rather than failing after the user types a new password.
+   */
+  @Get('reset-password/validate')
+  @HttpCode(HttpStatus.OK)
+  async validateResetToken(
+    @Query('token') token?: string,
+  ): Promise<ResetTokenStatus> {
+    return { valid: await this.auth.validateResetToken(token ?? '') };
+  }
+
+  /** Complete a password reset with a single-use token. */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) dto: ResetPasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<MessageResult> {
+    await this.auth.resetPassword(dto);
+
+    // A completed reset should not leave an old session alive on this device.
+    res.clearCookie(REFRESH_COOKIE, { path: '/' });
+
+    return { message: 'password_reset_ok' };
   }
 
   /** Return the current user's public profile. */
