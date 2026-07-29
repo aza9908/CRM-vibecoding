@@ -19,7 +19,7 @@ import { WorkbookSeedService } from '../db/workbook-seed.service';
  */
 @Controller('admin/workbook')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('admin', 'teacher')
 export class AdminWorkbookController {
   constructor(private readonly seed: WorkbookSeedService) {}
 
