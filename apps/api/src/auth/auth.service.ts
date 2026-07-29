@@ -80,6 +80,12 @@ export class AuthService {
    * both by the unique index and an upfront check for a friendlier error.
    */
   async register(dto: RegisterDto): Promise<AuthResult> {
+    // Prod DBs that predate migration 0004 lack `occupation` — ensure it
+    // before the insert so signup never 500s on a missing column.
+    await this.db.execute(
+      sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "occupation" text`,
+    );
+
     const existing = await this.users.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('email_taken');
@@ -101,7 +107,7 @@ export class AuthService {
           passwordHash,
           fullName: dto.fullName,
           occupation: dto.occupation,
-          role: dto.role ?? 'teacher',
+          role: dto.role ?? 'student',
           organizationId: org.id,
         })
         .returning();

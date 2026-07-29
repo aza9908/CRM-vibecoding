@@ -1,26 +1,30 @@
 {
-  "apphosting": {
-    "backends": [
-      {
-        "backendId": "lms-ai",
-        "rootDir": "/",
-        "ignore": [
-          "node_modules",
-          ".git",
-          "firebase-debug.log",
-          "firebase-debug.*.log"
-        ]
-      },
-      {
-        "backendId": "lms-web",
-        "rootDir": "/",
-        "ignore": [
-          "node_modules",
-          ".git",
-          "firebase-debug.log",
-          "firebase-debug.*.log"
-        ]
-      }
-    ]
-  }
+  "apphosting": [
+    {
+      "backendId": "lms-web",
+      "rootDir": "/",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "apps/web/.next",
+        "apps/api/dist",
+        "packages/shared/dist"
+      ]
+    },
+    {
+      "backendId": "lms-ai",
+      "rootDir": "/",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "apps/web/.next",
+        "apps/api/dist",
+        "packages/shared/dist"
+      ]
+    }
+  ]
 }
