@@ -8,7 +8,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import {
   useAdminUsers,
   useChangeUserRole,
-  useResetPassword,
+  useAdminResetPassword,
 } from '@/lib/api/hooks';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,7 @@ export function AdminUsersView() {
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { data, isLoading, isError } = useAdminUsers();
   const changeRole = useChangeUserRole();
-  const resetPassword = useResetPassword();
+  const resetPassword = useAdminResetPassword();
 
   const [resetTarget, setResetTarget] = useState<AdminUserDto | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);

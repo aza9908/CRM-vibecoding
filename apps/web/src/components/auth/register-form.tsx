@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowRight, Lock, Mail, User } from 'lucide-react';
+import { ArrowRight, Briefcase, Building2, Lock, Mail, User } from 'lucide-react';
 import {
   registerSchema,
   selfRegisterRoleEnum,
@@ -41,9 +41,11 @@ export function RegisterForm() {
   const register = useRegister();
 
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [occupation, setOccupation] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('teacher');
+  const [role, setRole] = useState<UserRole>('student');
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<keyof RegisterDto, string>>
   >({});
@@ -55,6 +57,8 @@ export function RegisterForm() {
 
     const parsed = registerSchema.safeParse({
       fullName,
+      companyName,
+      occupation,
       email,
       password,
       role,
@@ -66,6 +70,10 @@ export function RegisterForm() {
         if (key === 'email') errs.email = t('validationEmail');
         else if (key === 'password') errs.password = t('validationPassword');
         else if (key === 'fullName') errs.fullName = t('validationName');
+        else if (key === 'companyName')
+          errs.companyName = t('validationCompany');
+        else if (key === 'occupation')
+          errs.occupation = t('validationOccupation');
       }
       setFieldErrors(errs);
       return;
@@ -114,6 +122,38 @@ export function RegisterForm() {
             />
           </div>
           <FieldError message={fieldErrors.fullName} />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="companyName">{t('companyName')}</Label>
+          <div className="relative">
+            <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="companyName"
+              autoComplete="organization"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              aria-invalid={!!fieldErrors.companyName}
+              className="pl-9"
+            />
+          </div>
+          <FieldError message={fieldErrors.companyName} />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="occupation">{t('occupation')}</Label>
+          <div className="relative">
+            <Briefcase className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              id="occupation"
+              autoComplete="organization-title"
+              value={occupation}
+              onChange={(e) => setOccupation(e.target.value)}
+              aria-invalid={!!fieldErrors.occupation}
+              className="pl-9"
+            />
+          </div>
+          <FieldError message={fieldErrors.occupation} />
         </div>
 
         <div className="flex flex-col gap-1.5">

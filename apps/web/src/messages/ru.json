@@ -50,7 +50,7 @@
     "registerTitle": "Регистрация",
     "email": "Email",
     "password": "Пароль",
-    "fullName": "Полное имя",
+    "fullName": "ФИО",
     "role": "Роль",
     "roleTeacher": "Учитель",
     "roleStudent": "Ученик",
@@ -93,7 +93,11 @@
     "strengthWeak": "Слишком короткий",
     "strengthFair": "Приемлемый",
     "strengthGood": "Хороший",
-    "strengthStrong": "Надёжный"
+    "strengthStrong": "Надёжный",
+    "companyName": "Название компании",
+    "occupation": "Должность",
+    "validationCompany": "Укажите название компании",
+    "validationOccupation": "Укажите должность"
   },
   "lessons": {
     "title": "Уроки",
@@ -135,7 +139,9 @@
     "options": "Варианты",
     "dragToReorder": "Перетащите, чтобы изменить порядок",
     "uploadImage": "Загрузить изображение",
-    "uploading": "Загрузка…"
+    "uploading": "Загрузка…",
+    "uploadFailed": "Не удалось загрузить изображение",
+    "uploadStorageMissing": "Хранилище файлов не настроено на сервере (S3). Обратитесь к администратору — это не ошибка 500."
   },
   "syllabus": {
     "title": "Программа обучения",
@@ -250,6 +256,9 @@
     "kpiParticipants": "Участников",
     "kpiResponses": "Ответов",
     "kpiAvgProgress": "Средний прогресс",
+    "kpiCompletion": "Завершённость",
+    "kpiAttendance": "Посещаемость",
+    "kpiClarity": "Понятность",
     "completionByStudent": "Прогресс по студентам",
     "answeredCount": "Отвечено {answered} из {total}",
     "completionMix": "Распределение по завершённости",

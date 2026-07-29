@@ -31,8 +31,11 @@ export function useChangeUserRole() {
  * POST /admin/users/:id/reset-password — generates a new password and
  * returns it in plaintext exactly once (shown to the admin, never persisted
  * client-side beyond the mutation result).
+ *
+ * Named distinctly from auth's `useResetPassword` (token-based self-service)
+ * so the hooks barrel doesn't collide.
  */
-export function useResetPassword() {
+export function useAdminResetPassword() {
   return useMutation({
     mutationFn: (id: string) =>
       api.post<ResetPasswordResult>(`/admin/users/${id}/reset-password`),

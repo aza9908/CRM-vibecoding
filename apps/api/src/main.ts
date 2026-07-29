@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './common/redis-io.adapter';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
@@ -26,6 +27,10 @@ async function bootstrap(): Promise<void> {
   // class-validator pipe is needed.
 
   app.use(cookieParser());
+
+  // Catch-all filter: turns unexpected errors into a clean, logged 500 instead
+  // of leaking stacks (and makes storage/config faults return a real message).
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
     origin: webOrigin,

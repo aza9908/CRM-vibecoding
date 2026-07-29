@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadGatewayException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   DeleteObjectCommand,
@@ -55,11 +61,19 @@ export class StorageService implements OnModuleInit {
     });
   }
 
-  /** Returns the configured client or throws a clear error on first use. */
+  /**
+   * Returns the configured client, or throws a `503` with an actionable
+   * message. This surfaces as a proper JSON error on `POST /uploads/presign`
+   * instead of a bare `500 Internal Server Error` — the previous behaviour when
+   * S3/R2 env vars were missing in the deployed environment.
+   */
   private requireClient(): S3Client {
     if (!this.client) {
-      throw new Error(
-        'Storage misconfigured: S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY are required',
+      this.logger.error(
+        'Upload requested but storage is not configured (S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY).',
+      );
+      throw new ServiceUnavailableException(
+        'storage_not_configured: set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY on the API service',
       );
     }
     return this.client;
@@ -67,14 +81,22 @@ export class StorageService implements OnModuleInit {
 
   /** Presigned `PUT` URL (valid ~60s) for uploading `key` with `contentType`. */
   async getSignedPutUrl(key: string, contentType: string): Promise<string> {
+    const client = this.requireClient();
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       ContentType: contentType,
     });
-    return getSignedUrl(this.requireClient(), command, {
-      expiresIn: PRESIGN_TTL_SECONDS,
-    });
+    try {
+      return await getSignedUrl(client, command, {
+        expiresIn: PRESIGN_TTL_SECONDS,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to presign PUT for key=${key}: ${(err as Error).message}`,
+      );
+      throw new BadGatewayException('presign_failed');
+    }
   }
 
   /**

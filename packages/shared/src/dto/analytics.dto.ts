@@ -66,6 +66,17 @@ export type SessionReport = {
     participants: number;
     responses: number;
     avgProgress: number;
+    /**
+     * Share of participants who submitted ≥1 interactive answer (0–100).
+     * Uses the `participants.attendance` flag when set, otherwise falls back
+     * to “has any completed response”.
+     */
+    attendanceScore: number;
+    /**
+     * Clarity score (0–100) derived from `input_rating` averages
+     * (rating / 5 × 100), averaged across rating blocks that have answers.
+     */
+    clarityScore: number | null;
   };
   byParticipant: SessionReportParticipant[];
   byBlock: SessionReportBlock[];

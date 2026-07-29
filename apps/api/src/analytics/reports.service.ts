@@ -174,10 +174,13 @@ export class ReportsService {
       await this.loadSessionGraph(sessionId);
 
     const report = this.buildReport(session, blocks, parts, resp);
+    const ratings = this.ratingMetrics(blocks, resp);
+    const clarityScore = this.clarityFromRatings(ratings);
 
     return {
       ...report,
-      ratings: this.ratingMetrics(blocks, resp),
+      totals: { ...report.totals, clarityScore },
+      ratings,
       tests: this.testMetrics(blocks, resp),
     };
   }
@@ -344,6 +347,14 @@ export class ReportsService {
         )
       : 0;
 
+    // Attendance score: share of joiners who completed ≥1 interactive answer.
+    const attended = byParticipant.filter((bp) =>
+      bp.answers.some((a) => a.isCompleted),
+    ).length;
+    const attendanceScore = parts.length
+      ? Math.round((attended / parts.length) * 100)
+      : 0;
+
     return {
       session: {
         id: session.id,
@@ -357,6 +368,8 @@ export class ReportsService {
         participants: parts.length,
         responses: resp.length,
         avgProgress,
+        attendanceScore,
+        clarityScore: null, // filled in sessionReport after ratingMetrics
       },
       byParticipant,
       byBlock,
@@ -433,22 +446,50 @@ export class ReportsService {
   }
 
   /**
+   * Clarity score (0–100) = mean of rating-block averages scaled from a 1–5
+   * (or whatever min/max the block used) scale. Returns null when nobody rated.
+   */
+  private clarityFromRatings(ratings: RatingMetric[]): number | null {
+    const withAnswers = ratings.filter((r) => r.count > 0);
+    if (withAnswers.length === 0) return null;
+    const avg =
+      withAnswers.reduce((sum, r) => sum + r.average, 0) / withAnswers.length;
+    // Ratings are 1–5 in the workbook; map to 0–100 (1→20 … 5→100).
+    return Math.round((avg / 5) * 100);
+  }
+
+  /**
    * Pull the set of correct answer values out of a block's free-form `options`
-   * jsonb (`{ correct: ... }`). Accepts an array or a single scalar; everything
-   * is normalized to trimmed strings for comparison. Returns an empty set when
-   * the shape is unrecognized.
+   * jsonb. Supports both shapes used in the product:
+   *   - editor/seed: `{ choices: string[], correctIndex: number }`
+   *   - legacy docs: `{ correct: string | string[] }`
+   * Everything is normalized to trimmed strings for comparison.
    */
   private extractCorrect(options: unknown): Set<string> {
     const out = new Set<string>();
     if (options == null || typeof options !== 'object') return out;
-    const raw = (options as Record<string, unknown>).correct;
+    const rec = options as Record<string, unknown>;
+
     const push = (v: unknown): void => {
       if (v == null) return;
       out.add(String(v).trim());
     };
+
+    // Preferred shape from the block editor / Day-1 seed.
+    if (
+      typeof rec.correctIndex === 'number' &&
+      Array.isArray(rec.choices) &&
+      rec.correctIndex >= 0 &&
+      rec.correctIndex < rec.choices.length
+    ) {
+      push(rec.choices[rec.correctIndex]);
+      return out;
+    }
+
+    const raw = rec.correct;
     if (Array.isArray(raw)) {
       for (const v of raw) push(v);
-    } else {
+    } else if (raw != null) {
       push(raw);
     }
     return out;

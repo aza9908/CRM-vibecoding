@@ -102,6 +102,7 @@ export function useMe() {
         id: me.id,
         email: me.email,
         fullName: me.fullName,
+        occupation: me.occupation ?? null,
         role: me.role,
         organizationId: me.organizationId,
       };

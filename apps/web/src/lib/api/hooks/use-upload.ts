@@ -18,16 +18,28 @@ export function useUploadImage() {
         filename: file.name,
         contentType: file.type || 'application/octet-stream',
       };
+      // Step 1 — ask the API for a presigned PUT URL. If storage isn't
+      // configured the API now returns a 503 with a clear message (previously
+      // this was an opaque 500), which `api.post` throws as an ApiError.
       const { uploadUrl, publicUrl } = await api.post<PresignResult>(
         '/uploads/presign',
         dto,
       );
 
-      const put = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': dto.contentType },
-        body: file,
-      });
+      // Step 2 — upload the bytes straight to S3/R2/MinIO. A failure here is
+      // usually a bucket CORS rule or an expired signature, not an API bug.
+      let put: Response;
+      try {
+        put = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': dto.contentType },
+          body: file,
+        });
+      } catch {
+        throw new Error(
+          'upload_network_error: could not reach the storage bucket (check bucket CORS)',
+        );
+      }
       if (!put.ok) {
         throw new Error(`upload_failed_${put.status}`);
       }

@@ -93,7 +93,11 @@
     "strengthWeak": "Too short",
     "strengthFair": "Fair",
     "strengthGood": "Good",
-    "strengthStrong": "Strong"
+    "strengthStrong": "Strong",
+    "companyName": "Company name",
+    "occupation": "Occupation",
+    "validationCompany": "Enter your company name",
+    "validationOccupation": "Enter your occupation"
   },
   "lessons": {
     "title": "Lessons",
@@ -135,7 +139,9 @@
     "options": "Options",
     "dragToReorder": "Drag to reorder",
     "uploadImage": "Upload image",
-    "uploading": "Uploading…"
+    "uploading": "Uploading…",
+    "uploadFailed": "Could not upload the image",
+    "uploadStorageMissing": "File storage is not configured on the server (S3). Ask an admin — this is not a 500."
   },
   "syllabus": {
     "title": "Syllabus",
@@ -250,6 +256,9 @@
     "kpiParticipants": "Participants",
     "kpiResponses": "Responses",
     "kpiAvgProgress": "Avg. progress",
+    "kpiCompletion": "Completion rate",
+    "kpiAttendance": "Attendance score",
+    "kpiClarity": "Clarity score",
     "completionByStudent": "Progress by student",
     "answeredCount": "{answered} of {total} answered",
     "completionMix": "Completion breakdown",

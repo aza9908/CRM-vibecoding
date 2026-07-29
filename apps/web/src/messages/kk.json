@@ -93,7 +93,11 @@
     "strengthWeak": "Тым қысқа",
     "strengthFair": "Қанағаттанарлық",
     "strengthGood": "Жақсы",
-    "strengthStrong": "Сенімді"
+    "strengthStrong": "Сенімді",
+    "companyName": "Компания атауы",
+    "occupation": "Лауазымы",
+    "validationCompany": "Компания атауын енгізіңіз",
+    "validationOccupation": "Лауазымыңызды енгізіңіз"
   },
   "lessons": {
     "title": "Сабақтар",
@@ -135,7 +139,9 @@
     "options": "Нұсқалар",
     "dragToReorder": "Ретін өзгерту үшін сүйреңіз",
     "uploadImage": "Сурет жүктеу",
-    "uploading": "Жүктелуде…"
+    "uploading": "Жүктелуде…",
+    "uploadFailed": "Суретті жүктеу мүмкін болмады",
+    "uploadStorageMissing": "Серверде файл қоймасы бапталмаған (S3). Әкімшіге хабарласыңыз — бұл 500 емес."
   },
   "syllabus": {
     "title": "Оқу бағдарламасы",
@@ -250,6 +256,9 @@
     "kpiParticipants": "Қатысушылар",
     "kpiResponses": "Жауаптар",
     "kpiAvgProgress": "Орташа барысы",
+    "kpiCompletion": "Аяқталу",
+    "kpiAttendance": "Қатысу",
+    "kpiClarity": "Түсініктілік",
     "completionByStudent": "Студенттер бойынша барысы",
     "answeredCount": "{total} ішінен {answered} жауап берілді",
     "completionMix": "Аяқталу бойынша бөлініс",

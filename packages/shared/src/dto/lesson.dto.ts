@@ -11,11 +11,24 @@ import { blockTypeEnum, lessonTypeEnum, type ProgressStatus } from '../enums.js'
  */
 
 /** A single workbook block as edited on the client / sent to the API. */
+/**
+ * Accepts a full absolute URL (uploaded media) OR a root-relative path such as
+ * `/workbook/slide-05.png` (static assets bundled with the web app). The old
+ * `.url()` rule rejected relative paths, which blocked serving lesson slides
+ * straight from `apps/web/public/`.
+ */
+const imageUrlSchema = z
+  .string()
+  .refine(
+    (v) => v.startsWith('/') || /^https?:\/\//i.test(v),
+    { message: 'imageUrl must be an absolute URL or a root-relative path' },
+  );
+
 export const blockSchema = z.object({
   id: z.string().uuid().optional(),
   type: blockTypeEnum,
   content: z.string().nullable().optional(),
-  imageUrl: z.string().url().nullable().optional(),
+  imageUrl: imageUrlSchema.nullable().optional(),
   options: z.unknown().nullable().optional(),
   outcomeId: z.string().uuid().nullable().optional(),
   blockRole: z.string().nullable().optional(),

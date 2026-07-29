@@ -4,6 +4,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { ImagePlus } from 'lucide-react';
 import { useUploadImage } from '@/lib/api/hooks';
+import { ApiError } from '@/lib/api/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
@@ -32,7 +33,13 @@ export function ImageUpload({
       const publicUrl = await upload.mutateAsync(file);
       onChange(publicUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      if (err instanceof ApiError && err.status === 503) {
+        setError(t('uploadStorageMissing'));
+      } else if (err instanceof ApiError) {
+        setError(err.message || t('uploadFailed'));
+      } else {
+        setError(err instanceof Error ? err.message : t('uploadFailed'));
+      }
     } finally {
       if (inputRef.current) inputRef.current.value = '';
     }

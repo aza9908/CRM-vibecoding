@@ -45,6 +45,8 @@ export const progressStatus = pgEnum('progress_status', [
 // lives in the private `course-materials/` S3 bucket (url = S3 key), a `link`
 // is an external web URL (url = href) served as-is.
 export const materialType = pgEnum('material_type', ['file', 'link']);
+// Column/status of an internal task on the Задачи board (Trello-style).
+export const taskStatus = pgEnum('task_status', ['todo', 'doing', 'done']);
 
 // ── мультитенантность ─────────────────────────────────
 export const organizations = pgTable('organizations', {
@@ -63,6 +65,7 @@ export const users = pgTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash'), // argon2; null если только OAuth
     fullName: text('full_name'),
+    occupation: text('occupation'), // должность, собирается при регистрации
     avatarUrl: text('avatar_url'),
     role: userRole('role').notNull().default('student'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -355,6 +358,32 @@ export const activityLogs = pgTable(
   }),
 );
 
+// ── внутренние задачи команды (Trello/Jira-style, docs/10) ───
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    status: taskStatus('status').notNull().default('todo'),
+    assigneeId: uuid('assignee_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    deadline: text('deadline'), // 'YYYY-MM-DD', nullable — matches the old tool
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    orgIdx: index('tasks_org_idx').on(t.organizationId),
+  }),
+);
+
 // ── barrel для drizzle query API ──────────────────────
 export const schema = {
   // enums
@@ -364,6 +393,7 @@ export const schema = {
   blockType,
   progressStatus,
   materialType,
+  taskStatus,
   // tables
   organizations,
   users,
@@ -382,4 +412,5 @@ export const schema = {
   lessonMaterials,
   lessonNotes,
   activityLogs,
+  tasks,
 };

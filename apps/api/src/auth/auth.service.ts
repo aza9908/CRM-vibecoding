@@ -92,7 +92,7 @@ export class AuthService {
     const created = await this.db.transaction(async (tx) => {
       const [org] = await tx
         .insert(organizations)
-        .values({ name: `${dto.fullName} workspace` })
+        .values({ name: dto.companyName })
         .returning();
       const [user] = await tx
         .insert(users)
@@ -100,6 +100,7 @@ export class AuthService {
           email: dto.email,
           passwordHash,
           fullName: dto.fullName,
+          occupation: dto.occupation,
           role: dto.role ?? 'teacher',
           organizationId: org.id,
         })
@@ -324,10 +325,23 @@ export class AuthService {
   ): Promise<{ id: string; userId: string; tokenHash: string } | null> {
     const tokenHash = this.hashToken(raw);
 
-    const row = await this.db.query.passwordResetTokens.findFirst({
-      where: (t, { and: a, eq: e, gt: g, isNull: n }) =>
-        a(e(t.tokenHash, tokenHash), n(t.usedAt), g(t.expiresAt, new Date())),
-    });
+    // Use the query builder (not the relational `where` callback) to avoid a
+    // drizzle-orm dual-package type clash under Nest's moduleResolution.
+    const [row] = await this.db
+      .select({
+        id: passwordResetTokens.id,
+        userId: passwordResetTokens.userId,
+        tokenHash: passwordResetTokens.tokenHash,
+      })
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.tokenHash, tokenHash),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
 
     if (!row) return null;
 

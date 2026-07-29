@@ -12,6 +12,7 @@ export type UserRecord = {
   email: string;
   passwordHash: string | null;
   fullName: string | null;
+  occupation: string | null;
   avatarUrl: string | null;
   role: UserRole;
   createdAt: Date | null;
@@ -90,6 +91,7 @@ export class UsersService {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      occupation: user.occupation,
       role: user.role,
       organizationId: user.organizationId,
     };

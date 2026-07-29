@@ -29,6 +29,13 @@
       "when": 1784475672614,
       "tag": "0003_mute_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785327000000,
+      "tag": "0004_add_user_occupation",
+      "breakpoints": true
     }
   ]
 }

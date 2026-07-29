@@ -91,6 +91,7 @@ export interface MeResponse {
   id: string;
   email: string;
   fullName: string | null;
+  occupation: string | null;
   role: UserRole;
   organizationId: string | null;
 }

@@ -325,12 +325,28 @@ export function ReportDetailView({
         )}
       </div>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiCard label={t('kpiParticipants')} value={report.totals.participants} />
         <KpiCard label={t('kpiResponses')} value={report.totals.responses} />
         <KpiCard
           label={t('kpiAvgProgress')}
           value={`${report.totals.avgProgress}%`}
+        />
+        <KpiCard
+          label={t('kpiCompletion')}
+          value={`${report.totals.avgProgress}%`}
+        />
+        <KpiCard
+          label={t('kpiAttendance')}
+          value={`${report.totals.attendanceScore ?? 0}%`}
+        />
+        <KpiCard
+          label={t('kpiClarity')}
+          value={
+            report.totals.clarityScore == null
+              ? '—'
+              : `${report.totals.clarityScore}%`
+          }
         />
       </div>
 
