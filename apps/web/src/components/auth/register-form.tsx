@@ -2,7 +2,16 @@
 
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowRight, Briefcase, Building2, Lock, Mail, User } from 'lucide-react';
+import {
+  ArrowRight,
+  Briefcase,
+  Building2,
+  Check,
+  Lock,
+  Mail,
+  Ticket,
+  User,
+} from 'lucide-react';
 import {
   registerSchema,
   selfRegisterRoleEnum,
@@ -10,7 +19,7 @@ import {
   type UserRole,
 } from '@lms/shared';
 import { useRouter, Link } from '@/i18n/routing';
-import { useRegister } from '@/lib/api/hooks';
+import { usePromoCodeLookup, useRegister } from '@/lib/api/hooks';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +41,20 @@ const ROLE_LABEL_KEY: Record<UserRole, string> = {
   student: 'roleStudent',
   admin: 'roleAdmin',
   team_lead: 'roleTeamLead',
+  curator: 'roleCurator',
+  methodist: 'roleMethodist',
+};
+
+/**
+ * Server rejection codes for a promo code, mapped to their message key. The
+ * API distinguishes them so a registrant can tell "I mistyped it" from "my
+ * company's intake is closed" without contacting support.
+ */
+const PROMO_ERROR_KEY: Record<string, string> = {
+  promo_code_not_found: 'promoCodeUnknown',
+  promo_code_inactive: 'promoCodeInactive',
+  promo_code_expired: 'promoCodeExpired',
+  promo_code_exhausted: 'promoCodeExhausted',
 };
 
 /** Controlled register form using the shared zod schema for validation. */
@@ -41,7 +64,7 @@ export function RegisterForm() {
   const register = useRegister();
 
   const [fullName, setFullName] = useState('');
-  const [companyName, setCompanyName] = useState('');
+  const [promoCode, setPromoCode] = useState('');
   const [occupation, setOccupation] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,13 +74,18 @@ export function RegisterForm() {
   >({});
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Confirms which company the code belongs to before the account is created,
+  // so a typo is caught here rather than after landing in the wrong tenant.
+  const lookup = usePromoCodeLookup(promoCode);
+  const resolvedCompany = lookup.data?.valid ? lookup.data.companyName : null;
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
 
     const parsed = registerSchema.safeParse({
       fullName,
-      companyName,
+      promoCode,
       occupation,
       email,
       password,
@@ -70,8 +98,7 @@ export function RegisterForm() {
         if (key === 'email') errs.email = t('validationEmail');
         else if (key === 'password') errs.password = t('validationPassword');
         else if (key === 'fullName') errs.fullName = t('validationName');
-        else if (key === 'companyName')
-          errs.companyName = t('validationCompany');
+        else if (key === 'promoCode') errs.promoCode = t('validationPromoCode');
         else if (key === 'occupation')
           errs.occupation = t('validationOccupation');
       }
@@ -84,11 +111,18 @@ export function RegisterForm() {
       const result = await register.mutateAsync(parsed.data);
       router.replace(postAuthPath(result.user.role));
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        setFormError(t('emailTaken'));
-      } else {
-        setFormError(err instanceof Error ? err.message : t('emailTaken'));
+      if (err instanceof ApiError) {
+        const promoKey = err.code ? PROMO_ERROR_KEY[err.code] : undefined;
+        if (promoKey) {
+          setFieldErrors({ promoCode: t(promoKey) });
+          return;
+        }
+        if (err.status === 409) {
+          setFormError(t('emailTaken'));
+          return;
+        }
       }
+      setFormError(err instanceof Error ? err.message : t('emailTaken'));
     }
   }
 
@@ -125,19 +159,37 @@ export function RegisterForm() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="companyName">{t('companyName')}</Label>
+          <Label htmlFor="promoCode">{t('promoCode')}</Label>
           <div className="relative">
-            <Building2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Ticket className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              id="companyName"
-              autoComplete="organization"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              aria-invalid={!!fieldErrors.companyName}
-              className="pl-9"
+              id="promoCode"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              placeholder="ACME2026"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+              aria-invalid={!!fieldErrors.promoCode}
+              aria-describedby="promoCodeHint"
+              className="pl-9 font-mono tracking-widest"
             />
           </div>
-          <FieldError message={fieldErrors.companyName} />
+          {resolvedCompany ? (
+            <p
+              className="flex items-center gap-1.5 text-sm text-primary"
+              role="status"
+            >
+              <Check className="h-4 w-4 shrink-0" />
+              <Building2 className="h-4 w-4 shrink-0" />
+              <span className="truncate font-medium">{resolvedCompany}</span>
+            </p>
+          ) : (
+            <p id="promoCodeHint" className="text-sm text-muted-foreground">
+              {lookup.isFetching ? t('promoCodeChecking') : t('promoCodeHint')}
+            </p>
+          )}
+          <FieldError message={fieldErrors.promoCode} />
         </div>
 
         <div className="flex flex-col gap-1.5">

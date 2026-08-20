@@ -23,6 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { ProgramTimeline } from './program-timeline';
 
 /** Thin horizontal progress bar (0–100). */
 function ProgressBar({ value }: { value: number }) {
@@ -164,6 +165,11 @@ export function CabinetView() {
           {t('loadError')}
         </p>
       )}
+
+      {/* Расписание программы: from the first lesson to Demo day. Placed
+          above the progress stats because "when is my next class?" is the
+          question people open this page for. */}
+      <ProgramTimeline />
 
       {!isLoading && !isError && (
         <>

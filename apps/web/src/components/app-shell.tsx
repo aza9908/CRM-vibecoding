@@ -5,6 +5,8 @@ import { useTranslations } from 'next-intl';
 import {
   BarChart3,
   BookOpen,
+  Building2,
+  CalendarClock,
   ClipboardList,
   FolderOpen,
   LayoutDashboard,
@@ -12,6 +14,7 @@ import {
   LogOut,
   ShieldCheck,
 } from 'lucide-react';
+import { PROGRAM_EDITOR_ROLES, type UserRole } from '@lms/shared';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { Brand } from '@/components/brand';
@@ -40,18 +43,33 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const isAdmin = user?.role === 'admin';
   const isAdminOrLead = user?.role === 'admin' || user?.role === 'team_lead';
+  // Whoever may author the program may reach the schedule editor — admin
+  // today, curator/methodist once that work is handed over.
+  const canEditProgram =
+    !!user &&
+    (PROGRAM_EDITOR_ROLES as readonly UserRole[]).includes(user.role);
 
   const nav = [
     { href: '/cabinet', label: t('cabinet'), icon: LayoutDashboard },
     { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
     { href: '/teacher/materials', label: t('materials'), icon: FolderOpen },
     { href: '/syllabus', label: t('syllabus'), icon: ListChecks },
+    ...(canEditProgram
+      ? [
+          {
+            href: '/admin/schedule',
+            label: t('schedule'),
+            icon: CalendarClock,
+          },
+        ]
+      : []),
     ...(isAdminOrLead
       ? [{ href: '/dashboard/company', label: t('dashboard'), icon: BarChart3 }]
       : []),
     ...(isAdmin
       ? [
           { href: '/admin', label: t('admin'), icon: ShieldCheck },
+          { href: '/admin/company', label: t('company'), icon: Building2 },
           { href: '/admin/tasks', label: t('tasks'), icon: ClipboardList },
         ]
       : []),
@@ -108,7 +126,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col gap-1 overflow-y-auto border-l bg-card/60 p-3 sm:flex"
         >
           {nav.map((item) => {
-            const active = pathname.startsWith(item.href);
+            // Exact-or-child, so /admin does not light up while the user is on
+            // /admin/company or /admin/schedule (each has its own entry).
+            const active =
+              pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <Link
