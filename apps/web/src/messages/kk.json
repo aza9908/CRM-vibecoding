@@ -201,7 +201,8 @@
     "connecting": "Қосылуда…",
     "connected": "Қосылды",
     "disconnected": "Байланыс үзілді",
-    "empty": "Әзірге бос"
+    "empty": "Әзірге бос",
+    "output": "Нәтиже"
   },
   "materials": {
     "title": "Материалдар",

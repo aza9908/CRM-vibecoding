@@ -201,7 +201,8 @@
     "connecting": "Подключение…",
     "connected": "Подключено",
     "disconnected": "Соединение потеряно",
-    "empty": "Пока пусто"
+    "empty": "Пока пусто",
+    "output": "Результат"
   },
   "materials": {
     "title": "Материалы",

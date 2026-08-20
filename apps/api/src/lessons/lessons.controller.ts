@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import {
   createLessonSchema,
+  PROGRAM_EDITOR_ROLES,
   saveBlocksSchema,
   updateLessonSchema,
   type AuthUserPayload,
@@ -49,10 +50,16 @@ export class LessonsController {
     private readonly curriculum: CurriculumService,
   ) {}
 
-  /** GET /lessons — list the organization's lessons (teacher). */
+  /**
+   * GET /lessons — list the organization's lessons.
+   *
+   * Read-only, so it is open to the program authors as well as teachers: the
+   * schedule editor offers a "link this event to a lesson" picker, and it can
+   * only populate that from here.
+   */
   @Get('lessons')
   @UseGuards(RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', ...PROGRAM_EDITOR_ROLES)
   list(@CurrentUser() user: AuthUserPayload) {
     return this.lessons.list(user.orgId);
   }

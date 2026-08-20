@@ -131,3 +131,25 @@
     animation: none;
   }
 }
+
+/* Countdown digit in the live quiz — Kahoot punches each number in. */
+@keyframes quiz-pop {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes quiz-pop {
+    from,
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}

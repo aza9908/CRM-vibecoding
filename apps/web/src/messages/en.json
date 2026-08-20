@@ -201,7 +201,8 @@
     "connecting": "Connecting…",
     "connected": "Connected",
     "disconnected": "Connection lost",
-    "empty": "Nothing here yet"
+    "empty": "Nothing here yet",
+    "output": "Result"
   },
   "materials": {
     "title": "Materials",
