@@ -20,6 +20,9 @@ export const userRole = pgEnum('user_role', [
   'teacher',
   'admin',
   'team_lead',
+  // Own the program of study and its schedule without full admin rights.
+  'curator',
+  'methodist',
 ]);
 export const lessonType = pgEnum('lesson_type', ['video', 'stream', 'text']);
 export const sessionStatus = pgEnum('session_status', [
@@ -47,6 +50,15 @@ export const progressStatus = pgEnum('progress_status', [
 export const materialType = pgEnum('material_type', ['file', 'link']);
 // Column/status of an internal task on the Задачи board (Trello-style).
 export const taskStatus = pgEnum('task_status', ['todo', 'doing', 'done']);
+// Kind of entry on a company's study timeline: a regular class, a Q&A, the
+// closing Demo day, a workshop, or anything else a curator needs to place.
+export const scheduleEventType = pgEnum('schedule_event_type', [
+  'lesson',
+  'qa',
+  'demo_day',
+  'workshop',
+  'other',
+]);
 
 // ── мультитенантность ─────────────────────────────────
 export const organizations = pgTable('organizations', {
@@ -54,6 +66,42 @@ export const organizations = pgTable('organizations', {
   name: text('name').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
+
+/**
+ * Промокоды компаний — как пользователь попадает в свою организацию.
+ *
+ * Админ выдаёт код на компанию, человек вводит его при регистрации, и сервер
+ * сам определяет тенант. Раньше `POST /auth/register` создавал новую
+ * организацию из текстового поля «название компании», из-за чего сотрудники
+ * одной компании оказывались в разных тенантах.
+ *
+ * Код уникален глобально (не внутри организации): при регистрации он
+ * приходит без контекста тенанта, значит должен однозначно указывать на одну
+ * компанию.
+ */
+export const promoCodes = pgTable(
+  'promo_codes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    code: text('code').notNull(),
+    label: text('label'), // заметка админа, напр. «поток Q1 2026»
+    isActive: boolean('is_active').notNull().default(true),
+    maxUses: integer('max_uses'), // null — без ограничения
+    usesCount: integer('uses_count').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    // Без FK на users: та таблица объявлена ниже и ссылается сюда, а
+    // взаимная ссылка ломает генерацию миграций. Значение информационное.
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    codeIdx: uniqueIndex('promo_codes_code_idx').on(t.code),
+    orgIdx: index('promo_codes_org_idx').on(t.organizationId),
+  }),
+);
 
 export const users = pgTable(
   'users',
@@ -68,6 +116,12 @@ export const users = pgTable(
     occupation: text('occupation'), // должность, собирается при регистрации
     avatarUrl: text('avatar_url'),
     role: userRole('role').notNull().default('student'),
+    // Код, по которому пользователь зарегистрировался. Нужен админу, чтобы
+    // видеть, с какого потока пришёл человек; на скоуп тенанта не влияет —
+    // источник правды по-прежнему `organization_id`.
+    promoCodeId: uuid('promo_code_id').references(() => promoCodes.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({
@@ -384,6 +438,51 @@ export const tasks = pgTable(
   }),
 );
 
+/**
+ * Расписание программы обучения компании — таймлайн от первого урока до
+ * Demo day, который сотрудник видит в личном кабинете.
+ *
+ * Живёт отдельно от `lessons` и `live_sessions` намеренно: в расписании есть
+ * события без рабочей тетради (QA, Demo day), а урок может проводиться
+ * несколько раз. `lesson_id` — необязательная связь: если она есть, с карточки
+ * таймлайна можно открыть тетрадь урока.
+ *
+ * Скоуп тенанта — прямой `organization_id`; заполняют админ, куратор и
+ * методист (`PROGRAM_EDITOR_ROLES` в `@lms/shared`).
+ */
+export const scheduleEvents = pgTable(
+  'schedule_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .references(() => organizations.id, { onDelete: 'cascade' })
+      .notNull(),
+    lessonId: uuid('lesson_id').references(() => lessons.id, {
+      onDelete: 'set null',
+    }),
+    title: text('title').notNull(),
+    type: scheduleEventType('type').notNull().default('lesson'),
+    // Абсолютный момент времени: расписание общее для всей компании, поэтому
+    // локальное «плавающее» время здесь не подходит.
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    description: text('description'),
+    location: text('location'), // аудитория, город или «онлайн»
+    meetingUrl: text('meeting_url'),
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    orgStartsIdx: index('schedule_org_starts_idx').on(
+      t.organizationId,
+      t.startsAt,
+    ),
+  }),
+);
+
 // ── barrel для drizzle query API ──────────────────────
 export const schema = {
   // enums
@@ -394,8 +493,10 @@ export const schema = {
   progressStatus,
   materialType,
   taskStatus,
+  scheduleEventType,
   // tables
   organizations,
+  promoCodes,
   users,
   passwordResetTokens,
   courses,
@@ -413,4 +514,5 @@ export const schema = {
   lessonNotes,
   activityLogs,
   tasks,
+  scheduleEvents,
 };

@@ -19,7 +19,14 @@ export type AdminUserDto = {
   id: string;
   email: string;
   fullName: string | null;
+  occupation: string | null;
   role: UserRole;
+  /**
+   * The company promo code this account registered with, or null for accounts
+   * created before codes existed. Lets an admin see which intake someone came
+   * in on without exposing anything about other tenants.
+   */
+  promoCode: string | null;
   createdAt: string | null;
 };
 

@@ -17,4 +17,6 @@ export * from './dto/analytics.dto.js';
 export * from './dto/program.dto.js';
 export * from './dto/admin.dto.js';
 export * from './dto/task.dto.js';
+export * from './dto/company.dto.js';
+export * from './dto/schedule.dto.js';
 export * from './ws-events.js';

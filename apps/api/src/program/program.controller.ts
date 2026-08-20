@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   createModuleSchema,
+  PROGRAM_EDITOR_ROLES,
   updateModuleSchema,
   upsertCourseSchema,
   type AuthUserPayload,
@@ -28,11 +29,15 @@ import { ProgramService } from './program.service';
 /**
  * Program-of-study management (docs/03 §5). Read access to the tree stays on
  * `GET /curriculum` (any authenticated user); every mutation here requires a
- * User JWT + `teacher` or `admin` role and is scoped to `@CurrentUser().orgId`.
+ * User JWT and is scoped to `@CurrentUser().orgId`.
+ *
+ * Teachers keep write access because they author the lessons that hang off
+ * these modules; `PROGRAM_EDITOR_ROLES` adds the curator and methodist who own
+ * the program and its schedule.
  */
 @Controller('program')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('teacher', 'admin')
+@Roles('teacher', ...PROGRAM_EDITOR_ROLES)
 export class ProgramController {
   constructor(private readonly program: ProgramService) {}
 

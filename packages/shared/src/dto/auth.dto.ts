@@ -3,6 +3,7 @@ import {
   selfRegisterRoleEnum,
   type UserRole,
 } from '../enums.js';
+import { promoCodeSchema } from './company.dto.js';
 
 /**
  * Auth DTOs and the JWT payload shapes shared between web and api.
@@ -13,17 +14,19 @@ import {
  */
 
 /**
- * Body for `POST /auth/register`. Creates an organization + user.
+ * Body for `POST /auth/register`. Creates a user inside an existing company.
  *
- * `fullName` (ФИО), `companyName` (название компании) and `occupation`
- * (должность) are collected on the public signup form. `companyName` becomes
- * the new organization's display name; `occupation` is stored on the user.
+ * `promoCode` is what ties the account to a company: the admin issues codes per
+ * organization and the registrant types one in, so the server resolves the
+ * tenant instead of trusting a free-text company name. Signup can no longer
+ * create an organization — an unknown code is rejected outright.
  */
 export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(1),
-  companyName: z.string().min(1),
+  /** Promo code of the company the user belongs to. */
+  promoCode: promoCodeSchema,
   occupation: z.string().min(1),
   /** Only student/teacher — elevated roles are admin-granted only. */
   role: selfRegisterRoleEnum.optional(),

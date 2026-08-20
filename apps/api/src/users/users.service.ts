@@ -3,7 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 import type { PublicUser, UserRole } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { users } from '../db/schema';
+import { promoCodes, users } from '../db/schema';
 
 /** A user row as stored in the database (including the password hash). */
 export type UserRecord = {
@@ -15,6 +15,8 @@ export type UserRecord = {
   occupation: string | null;
   avatarUrl: string | null;
   role: UserRole;
+  /** Promo code the account registered with; null for pre-promo-code users. */
+  promoCodeId: string | null;
   createdAt: Date | null;
 };
 
@@ -109,6 +111,36 @@ export class UsersService {
       where: eq(users.organizationId, orgId),
       orderBy: asc(users.createdAt),
     }) as Promise<UserRecord[]>;
+  }
+
+  /** The code text a single account registered with, if any. */
+  async findPromoCodeText(promoCodeId: string | null): Promise<string | null> {
+    if (!promoCodeId) return null;
+    const [row] = await this.db
+      .select({ code: promoCodes.code })
+      .from(promoCodes)
+      .where(eq(promoCodes.id, promoCodeId))
+      .limit(1);
+    return row?.code ?? null;
+  }
+
+  /**
+   * Same as `listByOrg`, but resolving the promo code each account joined
+   * through so the admin panel can tell intakes apart.
+   */
+  async listByOrgWithPromoCode(
+    orgId: string,
+  ): Promise<(UserRecord & { promoCode: string | null })[]> {
+    const rows = await this.db
+      .select({ user: users, promoCode: promoCodes.code })
+      .from(users)
+      .leftJoin(promoCodes, eq(promoCodes.id, users.promoCodeId))
+      .where(eq(users.organizationId, orgId))
+      .orderBy(asc(users.createdAt));
+    return rows.map(({ user, promoCode }) => ({
+      ...(user as UserRecord),
+      promoCode,
+    }));
   }
 
   /**
