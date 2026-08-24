@@ -11,3 +11,5 @@ export * from './use-analytics';
 export * from './use-program';
 export * from './use-admin';
 export * from './use-tasks';
+export * from './use-company';
+export * from './use-schedule';

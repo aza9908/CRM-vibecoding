@@ -27,4 +27,7 @@ export const queryKeys = {
     ['analytics', 'company', 'users', userId] as const,
   adminUsers: ['admin', 'users'] as const,
   tasks: ['tasks'] as const,
+  company: ['admin', 'company'] as const,
+  promoCodeLookup: (code: string) => ['promo-code', code] as const,
+  schedule: ['schedule'] as const,
 };

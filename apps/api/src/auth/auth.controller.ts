@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
@@ -23,6 +24,7 @@ import {
   type ForgotPasswordDto,
   type LoginDto,
   type MessageResult,
+  type PromoCodeLookup,
   type PublicUser,
   type RegisterDto,
   type ResetPasswordDto,
@@ -51,9 +53,9 @@ export class AuthController {
   }
 
   /**
-   * Register a new account (creates an organization + user). Sets the refresh
-   * token as an httpOnly cookie and also returns both tokens in the body so the
-   * web client can hold the access token in memory.
+   * Register a new account inside the company the promo code belongs to. Sets
+   * the refresh token as an httpOnly cookie and also returns both tokens in the
+   * body so the web client can hold the access token in memory.
    */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -64,6 +66,18 @@ export class AuthController {
     const result = await this.auth.register(dto);
     this.setRefreshCookie(res, result.refreshToken);
     return result;
+  }
+
+  /**
+   * Resolve a promo code to its company so the signup form can show which
+   * company the account will join. Public by necessity — it runs before the
+   * account exists — and answers `{ valid: false }` with no company name for
+   * anything unusable, so guessing codes reveals nothing about a tenant.
+   */
+  @Get('promo-code/:code')
+  @HttpCode(HttpStatus.OK)
+  lookupPromoCode(@Param('code') code: string): Promise<PromoCodeLookup> {
+    return this.auth.lookupPromoCode(code);
   }
 
   /** Authenticate with email + password. */

@@ -28,6 +28,8 @@ const ROLE_LABEL_KEY: Record<UserRole, string> = {
   student: 'roleStudent',
   admin: 'roleAdmin',
   team_lead: 'roleTeamLead',
+  curator: 'roleCurator',
+  methodist: 'roleMethodist',
 };
 
 /** Admin panel — org user list, role changes, password resets. Mirrors the
@@ -84,6 +86,7 @@ export function AdminUsersView() {
               <tr>
                 <th className="px-4 py-3 font-medium">{t('colName')}</th>
                 <th className="px-4 py-3 font-medium">{t('colEmail')}</th>
+                <th className="px-4 py-3 font-medium">{t('colPromoCode')}</th>
                 <th className="px-4 py-3 font-medium">{t('colRole')}</th>
                 <th className="px-4 py-3 font-medium">{t('colActions')}</th>
               </tr>
@@ -103,6 +106,15 @@ export function AdminUsersView() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {u.email}
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.promoCode ? (
+                        <span className="font-mono text-xs tracking-wider">
+                          {u.promoCode}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Select

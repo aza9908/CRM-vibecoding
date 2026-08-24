@@ -17,12 +17,14 @@ export class AdminService {
   constructor(private readonly users: UsersService) {}
 
   async listUsers(orgId: string): Promise<AdminUserDto[]> {
-    const rows = await this.users.listByOrg(orgId);
+    const rows = await this.users.listByOrgWithPromoCode(orgId);
     return rows.map((u) => ({
       id: u.id,
       email: u.email,
       fullName: u.fullName,
+      occupation: u.occupation,
       role: u.role,
+      promoCode: u.promoCode,
       createdAt: u.createdAt ? u.createdAt.toISOString() : null,
     }));
   }
@@ -53,7 +55,9 @@ export class AdminService {
       id: updated.id,
       email: updated.email,
       fullName: updated.fullName,
+      occupation: updated.occupation,
       role: updated.role,
+      promoCode: await this.users.findPromoCodeText(updated.promoCodeId),
       createdAt: updated.createdAt ? updated.createdAt.toISOString() : null,
     };
   }

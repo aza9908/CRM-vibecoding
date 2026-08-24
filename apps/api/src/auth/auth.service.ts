@@ -23,9 +23,10 @@ import type {
 } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { organizations, passwordResetTokens, users } from '../db/schema';
+import { passwordResetTokens, users } from '../db/schema';
 import { UsersService, type UserRecord } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
+import { PromoCodesService } from '../companies/promo-codes.service';
 
 /** Access token lifetime (short-lived; refreshed via the rotation flow). */
 const ACCESS_TTL = '15m';
@@ -60,6 +61,7 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly promoCodes: PromoCodesService,
     config: ConfigService,
   ) {
     const access = config.get<string>('JWT_ACCESS_SECRET');
@@ -75,9 +77,14 @@ export class AuthService {
   // ── public flows ────────────────────────────────────────────────────────
 
   /**
-   * Register a new account. Creates a fresh organization and its first user in
-   * a single transaction, then issues tokens. Email uniqueness is enforced
-   * both by the unique index and an upfront check for a friendlier error.
+   * Register a new account inside an existing company.
+   *
+   * The company comes from the promo code, never from user input: signup used
+   * to create a fresh organization out of a free-text «название компании»,
+   * which quietly put colleagues who spelled it differently into separate
+   * tenants. Redeeming the code claims one of its uses up front; if the insert
+   * then fails, the use is handed back so a typo'd email cannot burn a seat on
+   * a capped code.
    */
   async register(dto: RegisterDto): Promise<AuthResult> {
     // Prod DBs that predate migration 0004 lack `occupation` — ensure it
@@ -91,16 +98,17 @@ export class AuthService {
       throw new ConflictException('email_taken');
     }
 
-    const passwordHash = await argon2.hash(dto.password, {
-      type: argon2.argon2id,
-    });
+    const redeemed = await this.promoCodes.redeem(dto.promoCode);
+    if (!redeemed.ok) {
+      throw new BadRequestException(`promo_code_${redeemed.reason}`);
+    }
 
-    const created = await this.db.transaction(async (tx) => {
-      const [org] = await tx
-        .insert(organizations)
-        .values({ name: dto.companyName })
-        .returning();
-      const [user] = await tx
+    try {
+      const passwordHash = await argon2.hash(dto.password, {
+        type: argon2.argon2id,
+      });
+
+      const [user] = await this.db
         .insert(users)
         .values({
           email: dto.email,
@@ -108,13 +116,25 @@ export class AuthService {
           fullName: dto.fullName,
           occupation: dto.occupation,
           role: dto.role ?? 'student',
-          organizationId: org.id,
+          organizationId: redeemed.organizationId,
+          promoCodeId: redeemed.promoCodeId,
         })
         .returning();
-      return user as UserRecord;
-    });
 
-    return this.issueTokens(created);
+      return this.issueTokens(user as UserRecord);
+    } catch (err) {
+      await this.promoCodes.releaseUse(redeemed.promoCodeId);
+      throw err;
+    }
+  }
+
+  /**
+   * Public pre-check used by the signup form so the registrant can confirm the
+   * company before creating an account. Unusable codes come back as invalid
+   * with no company name attached.
+   */
+  async lookupPromoCode(code: string) {
+    return this.promoCodes.lookup(code.replace(/[\s-]/g, '').toUpperCase());
   }
 
   /** Verify email + password and issue tokens. */

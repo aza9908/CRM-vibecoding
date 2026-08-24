@@ -9,9 +9,32 @@ import { z } from 'zod';
  * so DTOs validate against the same vocabulary the database stores.
  */
 
-/** Application user roles (User JWT audience). */
-export const userRoleEnum = z.enum(['student', 'teacher', 'admin', 'team_lead']);
+/**
+ * Application user roles (User JWT audience).
+ *
+ * `curator` and `methodist` own the program of study and its schedule: today
+ * an admin builds both, and these two roles exist so that work can be handed
+ * over without granting full user-management rights.
+ */
+export const userRoleEnum = z.enum([
+  'student',
+  'teacher',
+  'admin',
+  'team_lead',
+  'curator',
+  'methodist',
+]);
 export type UserRole = z.infer<typeof userRoleEnum>;
+
+/**
+ * Roles allowed to author the program of study and its schedule. Kept as one
+ * list so the API guards and the web nav can never drift apart.
+ */
+export const PROGRAM_EDITOR_ROLES = [
+  'admin',
+  'curator',
+  'methodist',
+] as const satisfies readonly UserRole[];
 
 /**
  * Roles a caller may pick for THEMSELVES on public self-registration.
@@ -66,3 +89,26 @@ export const lessonProgressViewEnum = z.enum([
   'completed',
 ]);
 export type LessonProgressViewStatus = z.infer<typeof lessonProgressViewEnum>;
+
+/**
+ * Kind of entry on a company's study schedule.
+ *
+ * `lesson` is a regular class, `qa` a question-and-answer session, `demo_day`
+ * the closing showcase. `workshop` and `other` exist so a curator never has to
+ * mislabel an entry to fit it on the timeline.
+ */
+export const scheduleEventTypeEnum = z.enum([
+  'lesson',
+  'qa',
+  'demo_day',
+  'workshop',
+  'other',
+]);
+export type ScheduleEventType = z.infer<typeof scheduleEventTypeEnum>;
+
+/**
+ * Where an event sits relative to now. Derived by the API from `startsAt` /
+ * `endsAt` rather than stored, so the timeline can never show a stale state.
+ */
+export const scheduleEventStateEnum = z.enum(['past', 'today', 'upcoming']);
+export type ScheduleEventState = z.infer<typeof scheduleEventStateEnum>;

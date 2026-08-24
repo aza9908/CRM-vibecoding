@@ -145,17 +145,37 @@ function BlockBody({
         </p>
       );
 
-    case 'image':
-      return block.imageUrl ? (
+    case 'image': {
+      if (!block.imageUrl) {
+        return <p className="text-sm text-muted-foreground">{block.content}</p>;
+      }
+      // `output` images are what a prompt produced, not a deck slide. Framing
+      // and captioning them keeps a participant from mistaking the reference
+      // result for more instructions.
+      const isOutput = block.blockRole === 'output';
+      const image = (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={block.imageUrl}
           alt={block.content ?? ''}
           className="max-h-96 w-full rounded-md object-contain"
         />
-      ) : (
-        <p className="text-sm text-muted-foreground">{block.content}</p>
       );
+      if (!isOutput) return image;
+      return (
+        <figure className="space-y-2 rounded-lg border-2 border-dashed border-primary/40 bg-primary/5 p-3">
+          <figcaption className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-primary">
+            {t('output')}
+          </figcaption>
+          {image}
+          {block.content && (
+            <figcaption className="text-xs text-muted-foreground">
+              {block.content}
+            </figcaption>
+          )}
+        </figure>
+      );
+    }
 
     case 'action_button': {
       // The editor stores the button label/href in options (not content).
