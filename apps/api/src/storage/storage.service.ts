@@ -28,6 +28,14 @@ import { PG_POOL } from '../db/db.module';
 const PRESIGN_TTL_SECONDS = 60;
 /** Lifetime for download / direct-upload HMAC tokens when using DB storage. */
 const DB_URL_TTL_SECONDS = 300;
+/**
+ * Lifetime for `publicUrl()`'s DB-mode signed URL. This one is baked directly
+ * into `lesson_blocks.image_url` at authoring time and expected to keep
+ * working indefinitely (the method is documented as "stable"), unlike the
+ * short-lived download/upload tokens above — so it needs a TTL long enough
+ * that lesson images don't silently 404 months (or even a week) later.
+ */
+const PUBLIC_URL_TTL_SECONDS = 10 * 365 * 24 * 3600;
 /** Cap for DB-backed uploads (workshop decks / materials); also reused by
  * callers (e.g. `SessionsController`'s multipart limits) as the single
  * upload-size ceiling shared across the app. */
@@ -254,7 +262,7 @@ export class StorageService implements OnModuleInit {
         return this.signedDbUrl(
           'get',
           key,
-          7 * 24 * 3600,
+          PUBLIC_URL_TTL_SECONDS,
           opts?.requestOrigin,
         );
       } catch {
