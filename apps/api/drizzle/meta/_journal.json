@@ -36,6 +36,13 @@
       "when": 1785327000000,
       "tag": "0004_add_user_occupation",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787734845640,
+      "tag": "0005_new_mantis",
+      "breakpoints": true
     }
   ]
 }

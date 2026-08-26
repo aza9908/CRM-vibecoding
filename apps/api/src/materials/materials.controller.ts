@@ -56,10 +56,10 @@ export class MaterialsController {
     private readonly storage: StorageService,
   ) {}
 
-  /** GET /materials — all materials of the caller's org (teacher). */
+  /** GET /materials — org materials (teachers + students can read). */
   @Get('materials')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'admin', 'student', 'team_lead')
   list(@CurrentUser() user: AuthUserPayload): Promise<MaterialDto[]> {
     return this.materials.list(user.orgId);
   }
@@ -140,8 +140,20 @@ export class MaterialsController {
     const url = await this.storage.getSignedGetUrl(
       material.url,
       DOWNLOAD_TTL_SECONDS,
+      {
+        requestOrigin: this.requestApiOrigin(req),
+      },
     );
     return { url };
+  }
+
+  private requestApiOrigin(req: Request): string {
+    const proto = String(req.headers['x-forwarded-proto'] ?? req.protocol);
+    const host = String(
+      req.headers['x-forwarded-host'] ?? req.headers.host ?? '',
+    );
+    if (!host) return '';
+    return `${proto}://${host}`;
   }
 
   /**

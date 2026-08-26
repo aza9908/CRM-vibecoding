@@ -26,6 +26,14 @@ export type SelfRegisterRole = z.infer<typeof selfRegisterRoleEnum>;
 export const lessonTypeEnum = z.enum(['video', 'stream', 'text']);
 export type LessonType = z.infer<typeof lessonTypeEnum>;
 
+/**
+ * Curriculum position of a lesson, independent of `lessonTypeEnum` (delivery
+ * medium). Used to group/label lessons in the per-company timeline: an intro
+ * (pre-course) lesson, live workshops, QA sessions, and Demo day.
+ */
+export const lessonKindEnum = z.enum(['intro', 'workshop', 'qa', 'demo_day']);
+export type LessonKind = z.infer<typeof lessonKindEnum>;
+
 /** Lifecycle of a live session. */
 export const sessionStatusEnum = z.enum(['scheduled', 'live', 'ended']);
 export type SessionStatus = z.infer<typeof sessionStatusEnum>;

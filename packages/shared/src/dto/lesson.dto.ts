@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { blockTypeEnum, lessonTypeEnum, type ProgressStatus } from '../enums.js';
+import {
+  blockTypeEnum,
+  lessonKindEnum,
+  lessonTypeEnum,
+  type LessonKind,
+  type ProgressStatus,
+} from '../enums.js';
 
 /**
  * Lesson / workbook DTOs and the curriculum tree shape.
@@ -40,6 +46,8 @@ export type BlockDto = z.infer<typeof blockSchema>;
 export const createLessonSchema = z.object({
   title: z.string().min(1),
   type: lessonTypeEnum.optional(),
+  /** Curriculum position (intro/workshop/qa/demo_day) — independent of `type`. */
+  kind: lessonKindEnum.optional(),
   moduleId: z.string().uuid().optional(),
 });
 export type CreateLessonDto = z.infer<typeof createLessonSchema>;
@@ -88,6 +96,7 @@ export type CurriculumLesson = {
   id: string;
   title: string;
   type: z.infer<typeof lessonTypeEnum>;
+  kind: LessonKind | null;
   order: number;
   outcomes: CurriculumOutcome[];
   progressStatus?: ProgressStatus;

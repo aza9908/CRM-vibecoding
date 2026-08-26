@@ -6,7 +6,9 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { joinSessionSchema } from '@lms/shared';
 import { Link, useRouter } from '@/i18n/routing';
 import { useJoinSession } from '@/lib/api/hooks/use-sessions';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { Brand } from '@/components/brand';
+import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -20,19 +22,25 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 
 /**
- * /join — guests enter a 6-char session code + their name. On success the
- * participant token + sessionId are stored (by the mutation) and we redirect
- * to the live workbook.
+ * /join — enter a 6-char session code + name. Logged-in users attach userId
+ * so Excel reports get ФИО / должность / компания from registration.
  */
 export default function JoinPage() {
   const t = useTranslations('join');
   const tc = useTranslations('common');
   const router = useRouter();
   const join = useJoinSession();
+  const user = useAuthStore((s) => s.user);
 
   const [code, setCode] = React.useState('');
-  const [name, setName] = React.useState('');
+  const [name, setName] = React.useState(user?.fullName?.trim() ?? '');
   const [fieldError, setFieldError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (user?.fullName?.trim() && !name) {
+      setName(user.fullName.trim());
+    }
+  }, [user?.fullName, name]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +50,7 @@ export default function JoinPage() {
     const parsed = joinSessionSchema.safeParse({
       code: normalizedCode,
       name: name.trim(),
+      ...(user?.id ? { userId: user.id } : {}),
     });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
@@ -57,16 +66,14 @@ export default function JoinPage() {
       const result = await join.mutateAsync(parsed.data);
       router.push(`/live/${result.sessionId}`);
     } catch (err) {
-      // 404/410 = code unknown or session already ended; treat any failure as
-      // "session not found" for the guest (the API never leaks more detail).
       void err;
       setFieldError(t('sessionNotFound'));
     }
   };
 
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-background px-4 py-16">
-      <Brand size="lg" />
+  const card = (
+    <div className="flex w-full flex-col items-center justify-center gap-8 px-4 py-16">
+      {!user && <Brand size="lg" />}
 
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-2 text-center">
@@ -132,20 +139,32 @@ export default function JoinPage() {
               )}
             </Button>
 
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-            >
-              <Link href="/">
-                <ArrowLeft className="h-4 w-4" />
-                {tc('back')}
-              </Link>
-            </Button>
+            {!user && (
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+              >
+                <Link href="/">
+                  <ArrowLeft className="h-4 w-4" />
+                  {tc('back')}
+                </Link>
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>
+    </div>
+  );
+
+  if (user) {
+    return <AppShell>{card}</AppShell>;
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background">
+      {card}
     </main>
   );
 }

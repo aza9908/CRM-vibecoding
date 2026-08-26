@@ -1,0 +1,116 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
+import { BookOpen, KeyRound } from 'lucide-react';
+import { Link } from '@/i18n/routing';
+import { useCurriculum } from '@/lib/api/hooks';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Spinner } from '@/components/ui/spinner';
+
+/**
+ * Student-safe lesson list from curriculum (no teacher CRUD).
+ *
+ * `variant="past"` (used by the "Прошлые уроки" nav page) filters down to
+ * completed lessons only — same data source (`useCurriculum()`), no new
+ * endpoint, just a different slice of the same list.
+ */
+export function StudentLessonsView({
+  variant = 'upcoming',
+}: {
+  variant?: 'upcoming' | 'past';
+}) {
+  const t = useTranslations('lessons');
+  const tj = useTranslations('join');
+  const tc = useTranslations('common');
+  const { data, isLoading, isError, refetch } = useCurriculum();
+
+  const lessons = (
+    data?.modules.flatMap((m) =>
+      m.lessons.map((l) => ({ ...l, moduleTitle: m.title })),
+    ) ?? []
+  ).filter((l) =>
+    variant === 'past'
+      ? l.progressStatus === 'completed'
+      : l.progressStatus !== 'completed',
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {variant === 'past' ? t('pastTitle') : t('title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('studentHint')}</p>
+        </div>
+        <Button asChild>
+          <Link href="/join">
+            <KeyRound className="h-4 w-4" />
+            {tj('joinButton')}
+          </Link>
+        </Button>
+      </div>
+
+      {isLoading && (
+        <div className="flex justify-center py-16">
+          <Spinner />
+        </div>
+      )}
+
+      {isError && (
+        <Card className="p-6">
+          <p className="mb-3 text-sm text-destructive">{tc('error')}</p>
+          <Button type="button" variant="outline" onClick={() => void refetch()}>
+            {tc('retry')}
+          </Button>
+        </Card>
+      )}
+
+      {!isLoading && !isError && lessons.length === 0 && (
+        <Card className="p-8 text-center">
+          <BookOpen className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {variant === 'past' ? t('emptyPast') : t('emptyStudent')}
+          </p>
+          {variant === 'past' ? null : (
+            <Button asChild className="mt-4">
+              <Link href="/join">{tj('title')}</Link>
+            </Button>
+          )}
+        </Card>
+      )}
+
+      {!isLoading && !isError && lessons.length > 0 && (
+        <div className="grid gap-3">
+          {lessons.map((lesson) => (
+            <Card key={lesson.id}>
+              <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-2">
+                <div className="min-w-0">
+                  <CardTitle className="text-base">{lesson.title}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {lesson.moduleTitle}
+                  </p>
+                </div>
+                <Badge variant="secondary">
+                  {Math.round(lesson.progressPercent ?? 0)}%
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/join">{tj('joinButton')}</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -5,12 +5,18 @@ import { useTranslations } from 'next-intl';
 import {
   BarChart3,
   BookOpen,
+  CalendarClock,
+  CheckCircle2,
   ClipboardList,
   FolderOpen,
+  History,
+  KeyRound,
   LayoutDashboard,
   ListChecks,
   LogOut,
   ShieldCheck,
+  Ticket,
+  Wrench,
 } from 'lucide-react';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -21,37 +27,54 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * Chrome for every authenticated screen: a slim top bar (brand, locale,
- * theme, account) and the primary nav as a vertically-stacked rail docked to
- * the right edge, sticky under the top bar. Replaces the old horizontal nav
- * that lived inside the top bar (`AppHeader`) — same routes, same guards,
- * just re-laid-out per product request.
- *
- * Usage: wrap a page's content instead of rendering `<AppHeader />` as a
- * sibling —
- *   <AppShell><main className="container py-8">...</main></AppShell>
+ * Chrome for every authenticated screen: top bar + right nav rail.
+ * Nav is role-aware so students never hit teacher-only 403 pages.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const t = useTranslations('nav');
+  const ta = useTranslations('admin');
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
 
-  const isAdmin = user?.role === 'admin';
-  const isAdminOrLead = user?.role === 'admin' || user?.role === 'team_lead';
+  const role = user?.role;
+  const isTeacher = role === 'teacher' || role === 'admin';
+  const isAdmin = role === 'admin';
+  const isAdminOrLead = role === 'admin' || role === 'team_lead';
 
   const nav = [
     { href: '/cabinet', label: t('cabinet'), icon: LayoutDashboard },
-    { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
-    { href: '/teacher/materials', label: t('materials'), icon: FolderOpen },
+    { href: '/join', label: t('join'), icon: KeyRound },
+    ...(isTeacher
+      ? [
+          { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
+          {
+            href: '/teacher/materials',
+            label: t('materials'),
+            icon: FolderOpen,
+          },
+        ]
+      : [
+          { href: '/lessons', label: t('lessons'), icon: BookOpen },
+          { href: '/lessons/past', label: t('pastLessons'), icon: History },
+          { href: '/materials', label: t('materials'), icon: FolderOpen },
+        ]),
     { href: '/syllabus', label: t('syllabus'), icon: ListChecks },
+    { href: '/schedule', label: t('schedule'), icon: CalendarClock },
+    { href: '/tools', label: t('tools'), icon: Wrench },
+    { href: '/onboarding', label: t('onboarding'), icon: CheckCircle2 },
     ...(isAdminOrLead
       ? [{ href: '/dashboard/company', label: t('dashboard'), icon: BarChart3 }]
       : []),
     ...(isAdmin
       ? [
           { href: '/admin', label: t('admin'), icon: ShieldCheck },
+          {
+            href: '/admin/promo-codes',
+            label: ta('promoCodesNavLabel'),
+            icon: Ticket,
+          },
           { href: '/admin/tasks', label: t('tasks'), icon: ClipboardList },
         ]
       : []),
@@ -71,7 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur">
         <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/dashboard" aria-label="Lumen">
+          <Link href="/cabinet" aria-label="AI Research Labs">
             <Brand />
           </Link>
           <div className="flex items-center gap-2">
@@ -108,7 +131,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           className="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col gap-1 overflow-y-auto border-l bg-card/60 p-3 sm:flex"
         >
           {nav.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active =
+              item.href === '/join'
+                ? pathname === '/join' || pathname.startsWith('/live')
+                : pathname.startsWith(item.href);
             const Icon = item.icon;
             return (
               <Link

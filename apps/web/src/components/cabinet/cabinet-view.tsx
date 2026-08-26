@@ -23,6 +23,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { CurriculumTimeline } from './curriculum-timeline';
 
 /** Thin horizontal progress bar (0–100). */
 function ProgressBar({ value }: { value: number }) {
@@ -140,6 +141,11 @@ export function CabinetView() {
             <p className="truncate text-sm text-muted-foreground">
               {user.email}
             </p>
+            {user.occupation ? (
+              <p className="truncate text-sm text-muted-foreground">
+                {user.occupation}
+              </p>
+            ) : null}
           </div>
           {data?.course && (
             <div className="text-right">
@@ -151,6 +157,24 @@ export function CabinetView() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Join live lesson by code — primary CTA after registration */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="flex flex-wrap items-center justify-between gap-4 py-6">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">{t('joinLessonTitle')}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t('joinLessonHint')}
+            </p>
+          </div>
+          <Button asChild size="lg">
+            <Link href="/join">
+              <LogIn className="h-4 w-4" />
+              {t('joinLessonCta')}
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 
@@ -226,6 +250,16 @@ export function CabinetView() {
               </CardContent>
             </Card>
           )}
+
+          {/* Per-company learning timeline: every lesson, first to last */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('timelineTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CurriculumTimeline />
+            </CardContent>
+          </Card>
 
           {/* Per-module progress */}
           <Card>

@@ -63,7 +63,7 @@ export function useJoinSession() {
  */
 export function useSession(
   id: string | undefined,
-  opts?: { participant?: boolean },
+  opts?: { participant?: boolean; pollMs?: number },
 ) {
   return useQuery({
     queryKey: id ? queryKeys.session(id) : queryKeys.lessons,
@@ -72,25 +72,43 @@ export function useSession(
         participant: opts?.participant,
       }),
     enabled: !!id,
+    refetchInterval: opts?.pollMs ?? false,
+    // Survive cold starts / brief API blips — do NOT drop the live UI.
+    retry: 6,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 8_000),
+    staleTime: 1_000,
+    // Keep last good snapshot while a refetch fails (prevents 404 kick).
+    placeholderData: (prev) => prev,
   });
 }
 
-/** GET /sessions/:id/participants — teacher view. */
+/** GET /sessions/:id/participants — teacher view (live roster sync). */
 export function useSessionParticipants(id: string | undefined) {
   return useQuery({
     queryKey: id ? queryKeys.sessionParticipants(id) : queryKeys.lessons,
     queryFn: () =>
       api.get<SessionParticipant[]>(`/sessions/${id}/participants`),
     enabled: !!id,
+    refetchInterval: 2_500,
+    refetchIntervalInBackground: true,
+    staleTime: 1_000,
+    placeholderData: (prev) => prev,
+    retry: 4,
   });
 }
 
-/** GET /sessions/:id/responses — teacher summary of answers. */
+/** GET /sessions/:id/responses — teacher summary of answers (live polling). */
 export function useSessionResponses(id: string | undefined) {
   return useQuery({
     queryKey: id ? queryKeys.sessionResponses(id) : queryKeys.lessons,
     queryFn: () => api.get<SessionResponse[]>(`/sessions/${id}/responses`),
     enabled: !!id,
+    // ~1.5s keeps the board snappy for 15 students without hammering the API.
+    refetchInterval: 1_500,
+    refetchIntervalInBackground: true,
+    staleTime: 800,
+    placeholderData: (prev) => prev,
+    retry: 4,
   });
 }
 

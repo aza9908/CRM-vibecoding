@@ -160,26 +160,43 @@ export interface UploadedMaterialFile {
 export function useUploadMaterialFile() {
   return useMutation({
     mutationFn: async (file: File): Promise<UploadedMaterialFile> => {
-      const dto: PresignDto = {
-        filename: file.name,
-        contentType: file.type || 'application/octet-stream',
-        scope: 'course-materials',
-      };
-      const { uploadUrl, publicUrl } = await api.post<PresignResult>(
-        '/uploads/presign',
-        dto,
-      );
+      // Prefer server-side multipart upload (works without S3 secrets via
+      // Postgres fallback). Fall back to classic presign+PUT for older APIs.
+      const form = new FormData();
+      form.append('file', file);
+      form.append('scope', 'course-materials');
+      try {
+        const uploaded = await api.post<{
+          key: string;
+          publicUrl: string;
+          mode?: string;
+        }>('/uploads', form);
+        return {
+          key: uploaded.key || keyFromPublicUrl(uploaded.publicUrl),
+          filename: file.name,
+        };
+      } catch {
+        const dto: PresignDto = {
+          filename: file.name,
+          contentType: file.type || 'application/octet-stream',
+          scope: 'course-materials',
+        };
+        const { uploadUrl, publicUrl } = await api.post<PresignResult>(
+          '/uploads/presign',
+          dto,
+        );
 
-      const put = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': dto.contentType },
-        body: file,
-      });
-      if (!put.ok) {
-        throw new Error(`upload_failed_${put.status}`);
+        const put = await fetch(uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': dto.contentType },
+          body: file,
+        });
+        if (!put.ok) {
+          throw new Error(`upload_failed_${put.status}`);
+        }
+
+        return { key: keyFromPublicUrl(publicUrl), filename: file.name };
       }
-
-      return { key: keyFromPublicUrl(publicUrl), filename: file.name };
     },
   });
 }

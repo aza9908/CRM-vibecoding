@@ -25,6 +25,12 @@ export const WS_EVENTS = {
   participantJoined: 'participant:joined',
   /** server → all in room: the session was ended */
   sessionEnded: 'session:ended',
+  /** client → server: send a group-chat message */
+  chatSend: 'chat:send',
+  /** server → all in room: new chat message */
+  chatMessage: 'chat:message',
+  /** server → joiner: recent chat history after session:join */
+  chatHistory: 'chat:history',
 } as const;
 
 export type WsEventName = (typeof WS_EVENTS)[keyof typeof WS_EVENTS];
@@ -52,6 +58,8 @@ export interface ResponseSavePayload {
   sessionId: string;
   blockId: string;
   answerText: string;
+  /** Explicit mark-complete override — see `saveSessionResponseSchema`. */
+  completed?: boolean;
 }
 
 /** `response:updated` (server → teacher). `at` is an ISO timestamp string. */
@@ -73,6 +81,30 @@ export interface SessionEndedPayload {
   sessionId: string;
 }
 
+/** `chat:send` (client → server). */
+export interface ChatSendPayload {
+  sessionId: string;
+  text: string;
+}
+
+/** A single group-chat message (server → clients). */
+export interface ChatMessagePayload {
+  id: string;
+  sessionId: string;
+  senderId: string;
+  senderName: string;
+  /** `teacher` | `participant` */
+  role: 'teacher' | 'participant';
+  text: string;
+  at: string;
+}
+
+/** `chat:history` (server → joiner). */
+export interface ChatHistoryPayload {
+  sessionId: string;
+  messages: ChatMessagePayload[];
+}
+
 // ── Typed event maps for socket.io ───────────────────────────────────────────
 
 /** Events emitted by the server and listened to by clients. */
@@ -81,6 +113,8 @@ export interface ServerToClientEvents {
   [WS_EVENTS.responseUpdated]: (payload: ResponseUpdatedPayload) => void;
   [WS_EVENTS.participantJoined]: (payload: ParticipantJoinedPayload) => void;
   [WS_EVENTS.sessionEnded]: (payload: SessionEndedPayload) => void;
+  [WS_EVENTS.chatMessage]: (payload: ChatMessagePayload) => void;
+  [WS_EVENTS.chatHistory]: (payload: ChatHistoryPayload) => void;
 }
 
 /** Events emitted by clients and handled by the server. */
@@ -88,4 +122,5 @@ export interface ClientToServerEvents {
   [WS_EVENTS.sessionJoin]: (payload: SessionJoinPayload) => void;
   [WS_EVENTS.focusSet]: (payload: FocusSetPayload) => void;
   [WS_EVENTS.responseSave]: (payload: ResponseSavePayload) => void;
+  [WS_EVENTS.chatSend]: (payload: ChatSendPayload) => void;
 }

@@ -136,7 +136,7 @@ export function AppHeader() {
     <>
       <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur">
         <div className="container flex h-16 items-center justify-between gap-4">
-          <Link href="/teacher/lessons" aria-label="Lumen">
+          <Link href="/teacher/lessons" aria-label="AI Research Labs">
             <Brand />
           </Link>
 

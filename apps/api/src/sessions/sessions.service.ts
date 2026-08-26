@@ -135,8 +135,12 @@ export class SessionsService {
    * session matches.
    */
   async findLiveByCode(code: string) {
+    const normalized = code.trim().toUpperCase();
     return this.db.query.liveSessions.findFirst({
-      where: and(eq(liveSessions.code, code), eq(liveSessions.status, 'live')),
+      where: and(
+        eq(liveSessions.code, normalized),
+        eq(liveSessions.status, 'live'),
+      ),
     });
   }
 

@@ -122,12 +122,31 @@ export class AiService {
    * structure with the shared `blockSchema` before it ever reaches the DB.
    */
   async generateBlocks(topic: string): Promise<BlockDto[]> {
+    return this.runBlockGeneration(
+      `Тема урока: ${topic}\n\nВерни JSON-массив блоков по описанной схеме.`,
+    );
+  }
+
+  /**
+   * Same as {@link generateBlocks}, but from the extracted text of a
+   * teacher-uploaded material instead of a topic string (see
+   * `FileExtractionService` / `POST /lessons/:id/blocks/generate-from-file`).
+   * The excerpt is capped so an oversized document doesn't blow up token cost.
+   */
+  async generateBlocksFromText(text: string): Promise<BlockDto[]> {
+    const MAX_CHARS = 12_000;
+    const excerpt =
+      text.length > MAX_CHARS ? `${text.slice(0, MAX_CHARS)}…` : text;
+    return this.runBlockGeneration(
+      `Материал (текст, извлечённый из загруженного файла):\n\n${excerpt}\n\nПреобразуй его в JSON-массив блоков по описанной схеме.`,
+    );
+  }
+
+  /** Shared LLM call + validation for both block-generation entry points. */
+  private async runBlockGeneration(userMessage: string): Promise<BlockDto[]> {
     const messages: ChatMessage[] = [
       { role: 'system', content: this.blockGenerationSystemPrompt() },
-      {
-        role: 'user',
-        content: `Тема урока: ${topic}\n\nВерни JSON-массив блоков по описанной схеме.`,
-      },
+      { role: 'user', content: userMessage },
     ];
 
     const raw = await this.llm.complete(messages, { temperature: 0.3 });

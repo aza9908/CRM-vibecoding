@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { DRIZZLE, type Db } from '../db/db.module';
 import {
   participants,
@@ -32,25 +32,57 @@ export class ResponsesService {
    * (participantId, blockId) — a second save for the same pair updates the
    * existing row instead of creating a duplicate. `updatedAt` is bumped so the
    * teacher's live summary can show recency. Returns the persisted row.
+   *
+   * `explicitCompleted` lets the fullscreen slide view's mark-complete
+   * checkmark override the auto-derived "non-empty answer ⇒ complete" rule;
+   * omitting it preserves today's exact behavior.
    */
-  async upsert(participantId: string, blockId: string, answerText: string) {
+  async upsert(
+    participantId: string,
+    blockId: string,
+    answerText: string,
+    explicitCompleted?: boolean,
+  ) {
     const now = new Date();
+    const isCompleted = explicitCompleted ?? answerText.trim().length > 0;
     const [row] = await this.db
       .insert(responses)
       .values({
         participantId,
         blockId,
         answerText,
+        isCompleted,
         updatedAt: now,
       })
       .onConflictDoUpdate({
         target: [responses.participantId, responses.blockId],
         set: {
           answerText,
+          isCompleted,
           updatedAt: now,
         },
       })
       .returning();
+    return row;
+  }
+
+  /**
+   * A single participant's answer to a single block, or `undefined` if none
+   * exists yet. Used to resolve an `input_file` block's stored `file:<key>`
+   * answer before minting a presigned download URL
+   * (`GET /sessions/:id/responses/:participantId/:blockId/download`).
+   */
+  async getOne(participantId: string, blockId: string) {
+    const [row] = await this.db
+      .select()
+      .from(responses)
+      .where(
+        and(
+          eq(responses.participantId, participantId),
+          eq(responses.blockId, blockId),
+        ),
+      )
+      .limit(1);
     return row;
   }
 

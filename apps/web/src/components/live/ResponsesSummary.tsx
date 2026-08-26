@@ -2,30 +2,80 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Focus } from 'lucide-react';
+import { Eye, Paperclip } from 'lucide-react';
 import type { LiveResponses, LiveParticipant } from '@/lib/ws/useSessionSocket';
 import type { Block } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import { useResponseFileUrl } from '@/lib/api/hooks/use-live-rest';
+
+/** Convention for `input_file` answers stored as plain text in `answerText`. */
+const FILE_ANSWER_PREFIX = 'file:';
 
 export interface ResponsesSummaryProps {
-  /** Latest live answers, keyed `${participantId}:${blockId}`. */
   responses: LiveResponses;
   participants: LiveParticipant[];
   blocks: Block[];
-  /** The block the teacher is currently focusing (highlighted). */
   focusedBlockId: string | null;
-  /** Clicking a block focuses it for everyone. */
   onFocusBlock: (blockId: string) => void;
+  /** Needed to resolve download URLs for `file:` answers (teacher view). */
+  sessionId?: string;
+}
+
+/** A student's uploaded file/screenshot, shown as a download chip instead of
+ * the raw `file:<key>` sentinel. */
+function FileAnswerChip({
+  sessionId,
+  participantId,
+  blockId,
+}: {
+  sessionId?: string;
+  participantId: string;
+  blockId: string;
+}) {
+  const t = useTranslations('live');
+  const resolve = useResponseFileUrl(sessionId);
+
+  async function open() {
+    const { url } = await resolve.mutateAsync({ participantId, blockId });
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="mt-0.5 h-7 gap-1.5"
+      onClick={open}
+      disabled={!sessionId || resolve.isPending}
+    >
+      {resolve.isPending ? <Spinner /> : <Paperclip className="h-3.5 w-3.5" />}
+      {t('fileAttached')}
+    </Button>
+  );
 }
 
 function responseKey(participantId: string, blockId: string): string {
   return `${participantId}:${blockId}`;
 }
 
+function blockQuestion(block: Block, fallback: string): string {
+  if (block.type === 'test' && block.options && typeof block.options === 'object') {
+    const q = (block.options as { question?: string }).question;
+    if (q?.trim()) return q.trim();
+  }
+  if (block.content?.trim()) {
+    return block.content.trim().split('\n')[0] ?? fallback;
+  }
+  return fallback;
+}
+
 /**
- * Teacher's live answer board: one column-ish card per input block, listing
- * each participant's latest answer. Clicking a block focuses it for students.
+ * Teacher live answer board — every input/test block with each student's
+ * latest answer. Updated via WS + REST poll.
  */
 export function ResponsesSummary({
   responses,
@@ -33,6 +83,7 @@ export function ResponsesSummary({
   blocks,
   focusedBlockId,
   onFocusBlock,
+  sessionId,
 }: ResponsesSummaryProps) {
   const t = useTranslations('live');
 
@@ -43,46 +94,67 @@ export function ResponsesSummary({
     [participants],
   );
 
-  // Group the latest responses by block for quick lookup.
   const byBlock = React.useMemo(() => {
-    const map = new Map<string, { participantId: string; answerText: string }[]>();
+    const map = new Map<
+      string,
+      { participantId: string; answerText: string; at?: string }[]
+    >();
     for (const r of Object.values(responses)) {
+      if (!r.blockId) continue;
+      const text = (r.answerText ?? '').trim();
+      if (!text) continue;
       const list = map.get(r.blockId) ?? [];
-      list.push({ participantId: r.participantId, answerText: r.answerText });
+      list.push({
+        participantId: r.participantId,
+        answerText: r.answerText,
+        at: r.at,
+      });
       map.set(r.blockId, list);
     }
     return map;
   }, [responses]);
 
-  const totalResponses = Object.keys(responses).length;
+  const totalResponses = React.useMemo(
+    () =>
+      Object.values(responses).filter((r) => (r.answerText ?? '').trim())
+        .length,
+    [responses],
+  );
+
+  if (blocks.length === 0) {
+    return (
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold">{t('responses')}</h2>
+        <p className="text-sm text-muted-foreground">{t('noResponses')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">{t('responses')}</h2>
-        {totalResponses > 0 && (
-          <span className="text-xs text-muted-foreground">{totalResponses}</span>
-        )}
+        <Badge variant="secondary" className="tabular-nums">
+          {t('answersCount', { count: totalResponses })}
+        </Badge>
       </div>
 
       {totalResponses === 0 && (
-        <p className="text-sm text-muted-foreground">{t('noResponses')}</p>
+        <p className="text-sm text-muted-foreground">{t('waitingAnswers')}</p>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-3 pr-1">
         {blocks.map((block, i) => {
           const answers = byBlock.get(block.id) ?? [];
           const focused = block.id === focusedBlockId;
-          const label =
-            block.content?.slice(0, 80) ||
-            `${t('focusBlock')} ${i + 1}`;
+          const label = blockQuestion(block, `${t('focusBlock')} ${i + 1}`);
           return (
             <div
               key={block.id}
               className={cn(
                 'rounded-lg border p-3 transition-colors',
                 focused
-                  ? 'border-l-2 border-l-primary bg-primary/5'
+                  ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
                   : 'border-border bg-card',
               )}
             >
@@ -91,17 +163,24 @@ export function ResponsesSummary({
                 onClick={() => onFocusBlock(block.id)}
                 className="mb-2 flex w-full items-center justify-between gap-2 text-left"
               >
-                <span className="line-clamp-1 text-sm font-medium">{label}</span>
-                {focused ? (
-                  <Badge className="shrink-0 gap-1">
-                    <Focus className="h-3 w-3" />
-                    {t('focused')}
+                <span className="line-clamp-2 text-sm font-semibold">
+                  {i + 1}. {label}
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <Badge variant="outline" className="tabular-nums">
+                    {answers.length}/{participants.length || '—'}
                   </Badge>
-                ) : (
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent">
-                    {t('focusBlock')}
-                  </span>
-                )}
+                  {focused ? (
+                    <Badge className="gap-1">
+                      <Eye className="h-3 w-3" />
+                      {t('focused')}
+                    </Badge>
+                  ) : (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent">
+                      {t('focusBlock')}
+                    </span>
+                  )}
+                </span>
               </button>
 
               {answers.length === 0 ? (
@@ -111,14 +190,22 @@ export function ResponsesSummary({
                   {answers.map((a) => (
                     <li
                       key={responseKey(a.participantId, block.id)}
-                      className="flex flex-col rounded-md bg-muted/50 px-2.5 py-1.5 text-sm"
+                      className="flex flex-col rounded-md border border-border/60 bg-background px-2.5 py-2 text-sm"
                     >
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-xs font-semibold text-primary">
                         {participantName(a.participantId)}
                       </span>
-                      <span className="whitespace-pre-wrap break-words text-foreground">
-                        {a.answerText}
-                      </span>
+                      {a.answerText.startsWith(FILE_ANSWER_PREFIX) ? (
+                        <FileAnswerChip
+                          sessionId={sessionId}
+                          participantId={a.participantId}
+                          blockId={block.id}
+                        />
+                      ) : (
+                        <span className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
+                          {a.answerText}
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>

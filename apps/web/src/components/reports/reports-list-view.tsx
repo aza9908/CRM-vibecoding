@@ -42,11 +42,13 @@ export function ReportsListView({ lessonId }: { lessonId: string }) {
   const { data: sessions, isLoading, isError, refetch } =
     useLessonSessions(lessonId);
 
-  const [exporting, setExporting] = React.useState<'csv' | 'json' | null>(null);
+  const [exporting, setExporting] = React.useState<'csv' | 'json' | 'xlsx' | null>(
+    null,
+  );
   const [exportError, setExportError] = React.useState<string | null>(null);
 
   const onExport = React.useCallback(
-    async (format: 'csv' | 'json') => {
+    async (format: 'csv' | 'json' | 'xlsx') => {
       setExportError(null);
       setExporting(format);
       try {
@@ -81,6 +83,14 @@ export function ReportsListView({ lessonId }: { lessonId: string }) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void onExport('xlsx')}
+              disabled={exporting !== null}
+            >
+              {exporting === 'xlsx' ? <Spinner /> : <Download />}
+              {t('exportExcel')}
+            </Button>
             <Button
               variant="outline"
               onClick={() => void onExport('csv')}

@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { ChatDto, ChatMessage } from '@lms/shared';
 import { API_URL } from '@/lib/api/client';
-import { getAccessToken } from '@/lib/store/auth-store';
+import { getAccessToken, getParticipantToken } from '@/lib/store/auth-store';
 
 export interface UseAiChatResult {
   /** Full conversation (user + assistant turns). */
@@ -73,7 +73,7 @@ export function useAiChat(): UseAiChatResult {
 
       let accumulated = '';
       try {
-        const token = getAccessToken();
+        const token = getAccessToken() ?? getParticipantToken();
         const res = await fetch(`${API_URL}/ai/chat`, {
           method: 'POST',
           credentials: 'include',

@@ -18,7 +18,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
-  /** JSON body — serialized automatically. */
+  /** JSON body — serialized automatically — or FormData for multipart uploads. */
   body?: unknown;
   /** Attach the access token (default: true). */
   auth?: boolean;
@@ -48,7 +48,9 @@ async function refreshAccessToken(): Promise<string | null> {
         headers: { 'Content-Type': 'application/json' },
       });
       if (!res.ok) {
-        useAuthStore.getState().clear();
+        // Never wipe participant live session on teacher refresh failure —
+        // only drop the user access token so polls can retry later.
+        useAuthStore.setState({ accessToken: null, user: null });
         return null;
       }
       const data = (await res.json()) as {
@@ -60,7 +62,7 @@ async function refreshAccessToken(): Promise<string | null> {
       if (data.user) store.setUser(data.user);
       return data.accessToken;
     } catch {
-      useAuthStore.getState().clear();
+      // Network blip — keep participant token; teacher can retry refresh.
       return null;
     } finally {
       refreshPromise = null;
@@ -72,7 +74,12 @@ async function refreshAccessToken(): Promise<string | null> {
 
 function buildHeaders(opts: RequestOptions, token: string | null): Headers {
   const headers = new Headers(opts.headers);
-  if (opts.body !== undefined && !headers.has('Content-Type')) {
+  // Don't force JSON Content-Type for FormData — the browser sets the boundary.
+  if (
+    opts.body !== undefined &&
+    !(opts.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json');
   }
   if (opts.auth !== false && token) {
@@ -146,7 +153,12 @@ export async function request<T>(
     signal: opts.signal,
     headers,
     credentials: 'include',
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body:
+      opts.body === undefined
+        ? undefined
+        : opts.body instanceof FormData
+          ? opts.body
+          : JSON.stringify(opts.body),
   };
 
   let res = await fetch(url, init);

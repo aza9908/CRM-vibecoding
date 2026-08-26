@@ -1,6 +1,7 @@
 export * from './use-auth';
 export * from './use-lessons';
 export * from './use-sessions';
+export * from './use-live-rest';
 export * from './use-ai-chat';
 export * from './use-upload';
 export * from './use-materials';
@@ -10,4 +11,5 @@ export * from './use-reports';
 export * from './use-analytics';
 export * from './use-program';
 export * from './use-admin';
+export * from './use-promo-codes';
 export * from './use-tasks';

@@ -2,18 +2,21 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { ListChecks, Paperclip, NotebookPen, Bot } from 'lucide-react';
+import { ListChecks, Paperclip, NotebookPen, Bot, MessagesSquare } from 'lucide-react';
 import type { Block } from '@/lib/api/types';
+import type { ChatMessagePayload } from '@lms/shared';
 import { cn } from '@/lib/utils';
 import { NavigationTab } from './NavigationTab';
 import { MaterialsTab } from './MaterialsTab';
 import { NotesTab } from './NotesTab';
 import { TutorTab } from './TutorTab';
+import { GroupChatTab } from './GroupChatTab';
 
-type TabId = 'navigation' | 'materials' | 'notes' | 'tutor';
+type TabId = 'navigation' | 'chat' | 'materials' | 'notes' | 'tutor';
 
 const TABS: { id: TabId; labelKey: string; Icon: typeof ListChecks }[] = [
   { id: 'navigation', labelKey: 'tabNavigation', Icon: ListChecks },
+  { id: 'chat', labelKey: 'tabChat', Icon: MessagesSquare },
   { id: 'materials', labelKey: 'tabMaterials', Icon: Paperclip },
   { id: 'notes', labelKey: 'tabNotes', Icon: NotebookPen },
   { id: 'tutor', labelKey: 'tabTutor', Icon: Bot },
@@ -22,28 +25,22 @@ const TABS: { id: TabId; labelKey: string; Icon: typeof ListChecks }[] = [
 export interface RightPanelProps {
   lessonId: string | undefined;
   blocks: Block[];
-  /** Ids of blocks the student has answered (responses + local answers). */
   answered: Set<string>;
-  /** Teacher's currently focused block (from useSessionSocket). */
   focusedBlockId: string | null;
-  /** The block the student is currently working on (null = none). */
   activeBlockId?: string | null;
-  /** Lesson completion percent over interactive blocks (0–100). */
   percent: number;
-  /** Scroll the named block into view in the center stage. */
   onSelectBlock: (blockId: string) => void;
-  /** AI mentor context: the focused block's content + current answer. */
   blockContent?: string;
   taskContext?: string;
+  /** Live group chat */
+  chatMessages?: ChatMessagePayload[];
+  onSendChat?: (text: string) => void;
+  chatSelfId?: string | null;
   className?: string;
 }
 
 /**
- * Right-side panel of the student live workbook (docs/08 §3): a tabbed
- * container with four tabs — Навигация · Материалы · Заметки · ИИ.
- *
- * The Tutor (AI) tab brings its own bordered card, so it renders edge-to-edge
- * without the shared panel chrome; the other three render inside a padded body.
+ * Right-side panel: Навигация · Чат · Материалы · Заметки · ИИ.
  */
 export function RightPanel({
   lessonId,
@@ -55,6 +52,9 @@ export function RightPanel({
   onSelectBlock,
   blockContent,
   taskContext,
+  chatMessages = [],
+  onSendChat,
+  chatSelfId,
   className,
 }: RightPanelProps) {
   const t = useTranslations('rightPanel');
@@ -82,7 +82,7 @@ export function RightPanel({
               aria-selected={selected}
               onClick={() => setActive(id)}
               className={cn(
-                'flex flex-1 flex-col items-center gap-1 px-1 py-2.5 text-xs font-medium transition-colors',
+                'flex flex-1 flex-col items-center gap-1 px-0.5 py-2 text-[10px] font-medium transition-colors sm:text-xs',
                 selected
                   ? 'border-b-2 border-primary text-primary'
                   : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground',
@@ -99,8 +99,9 @@ export function RightPanel({
         role="tabpanel"
         className={cn(
           'min-h-0 flex-1',
-          // The Tutor tab is a self-contained card; others get a scrollable body.
-          active === 'tutor' ? 'overflow-hidden' : 'overflow-y-auto p-3',
+          active === 'tutor' || active === 'chat'
+            ? 'overflow-hidden p-3'
+            : 'overflow-y-auto p-3',
         )}
       >
         {active === 'navigation' && (
@@ -111,6 +112,13 @@ export function RightPanel({
             activeBlockId={activeBlockId}
             percent={percent}
             onSelect={onSelectBlock}
+          />
+        )}
+        {active === 'chat' && (
+          <GroupChatTab
+            messages={chatMessages}
+            onSend={(text) => onSendChat?.(text)}
+            selfId={chatSelfId}
           />
         )}
         {active === 'materials' &&

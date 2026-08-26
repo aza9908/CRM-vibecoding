@@ -105,6 +105,31 @@ export type TestMetric = {
   correct: number;
 };
 
+/**
+ * Lightweight live-session metrics for teacher + joined students
+ * (`GET /sessions/:id/live-metrics`). Never includes peer answer text.
+ */
+export type LiveSessionMetrics = {
+  sessionId: string;
+  lessonTitle: string | null;
+  status: SessionStatus;
+  totals: {
+    participants: number;
+    avgProgress: number;
+    attendanceScore: number;
+  };
+  roster: Array<{
+    participantId: string;
+    name: string;
+    progressPercent: number;
+  }>;
+  me?: {
+    participantId: string;
+    name: string;
+    progressPercent: number;
+  };
+};
+
 // ── Company analytics ─────────────────────────────────────────────────────
 
 /** Summary for `GET /analytics/company`. */

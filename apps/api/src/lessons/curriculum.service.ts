@@ -62,6 +62,7 @@ export class CurriculumService {
             moduleId: lessons.moduleId,
             title: lessons.title,
             type: lessons.type,
+            kind: lessons.kind,
             order: lessons.order,
           })
           .from(lessons)
@@ -98,6 +99,7 @@ export class CurriculumService {
         id: l.id,
         title: l.title,
         type: l.type,
+        kind: l.kind,
         order: l.order,
         outcomes: outcomesByLesson.get(l.id) ?? [],
       };

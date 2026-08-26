@@ -4,20 +4,32 @@ import * as React from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useSession, useMyResponses } from '@/lib/api/hooks/use-sessions';
+import {
+  useLiveChatActions,
+  useSaveSessionResponse,
+  useUploadResponseFile,
+  useResponseFileUrl,
+} from '@/lib/api/hooks/use-live-rest';
 import { useUpdateProgress } from '@/lib/api/hooks/use-progress';
 import { useSessionSocket } from '@/lib/ws/useSessionSocket';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/api/query-keys';
 import type { Block } from '@/lib/api/types';
 import { isInputBlock } from '@/lib/blocks';
 import { progressPercent } from '@/lib/progress';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
+import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
+import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { Brand } from '@/components/brand';
 import { ConnectionBadge } from '@/components/live/ConnectionBadge';
 import { SessionStateBanner } from '@/components/live/SessionStateBanner';
+import { SessionCelebration } from '@/components/live/SessionCelebration';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react';
+import { ApiError } from '@/lib/api/client';
 
 /** Debounce window for persisting the lesson-summary progress percent. */
 const PROGRESS_SYNC_MS = 2000;
@@ -43,13 +55,47 @@ export default function StudentLivePage() {
   const user = useAuthStore((s) => s.user);
   const isAuthedUser = !!user;
 
-  const sessionQuery = useSession(sessionId, { participant: true });
+  // Poll focus/status lightly — full blocks stay cached; WS carries focus/chat.
+  const sessionQuery = useSession(sessionId, {
+    participant: true,
+    pollMs: 8_000,
+  });
   const myResponsesQuery = useMyResponses(sessionId);
 
-  const { status, focusedBlockId, saveResponse, ended } = useSessionSocket(
-    sessionId,
-    { token: participantToken, debounceMs: 300 },
-  );
+  const {
+    status,
+    focusedBlockId: wsFocus,
+    saveResponse,
+    ended,
+  } = useSessionSocket(sessionId, { token: participantToken, debounceMs: 150 });
+
+  const saveRest = useSaveSessionResponse(sessionId);
+  const uploadFile = useUploadResponseFile(sessionId);
+  const resolveFileUrl = useResponseFileUrl(sessionId, { asParticipant: true });
+  const qc = useQueryClient();
+  const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId, {
+    participant: true,
+  });
+
+  const [slideDeckOpen, setSlideDeckOpen] = React.useState(false);
+
+  // WS focus with REST poll fallback (session.focusedBlockId).
+  const focusedBlockId =
+    wsFocus ?? sessionQuery.data?.focusedBlockId ?? null;
+
+  const chatSelfId = React.useMemo(() => {
+    const token = participantToken ?? null;
+    if (!token) return null;
+    try {
+      const b64 = token.split('.')[1] ?? '';
+      const payload = JSON.parse(
+        atob(b64.replace(/-/g, '+').replace(/_/g, '/')),
+      ) as { sub?: string };
+      return payload.sub ?? null;
+    } catch {
+      return null;
+    }
+  }, [participantToken]);
 
   const blocks: Block[] = sessionQuery.data?.blocks ?? [];
   const lessonId = sessionQuery.data?.lessonId;
@@ -62,6 +108,27 @@ export default function StudentLivePage() {
   // When the teacher's focused block is off-screen, hint its direction so the
   // student can jump to it on demand — we intentionally do NOT auto-scroll.
   const [focusHint, setFocusHint] = React.useState<null | 'up' | 'down'>(null);
+  const restDebounce = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+
+  // Hydrate textareas after reload so students don't lose typed answers.
+  React.useEffect(() => {
+    const rows = myResponsesQuery.data;
+    if (!rows?.length) return;
+    setAnswers((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const r of rows) {
+        if (!r.blockId || !r.answerText?.trim()) continue;
+        if (next[r.blockId] === undefined) {
+          next[r.blockId] = r.answerText;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [myResponsesQuery.data]);
 
   // "Answered" = blocks with a server-seeded response OR a non-empty local
   // answer. Seeded once from GET /sessions/:id/my-responses, then grown locally.
@@ -81,13 +148,113 @@ export default function StudentLivePage() {
     [blocks, answered],
   );
 
+  // Explicit mark-complete set (fullscreen slide checkmark), seeded from the
+  // server's isCompleted flag and grown locally after a successful mark.
+  const [locallyCompleted, setLocallyCompleted] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const completed = React.useMemo(() => {
+    const set = new Set(locallyCompleted);
+    for (const r of myResponsesQuery.data ?? []) {
+      if (r.isCompleted) set.add(r.blockId);
+    }
+    return set;
+  }, [myResponsesQuery.data, locallyCompleted]);
+
+  const handleMarkComplete = React.useCallback(
+    (blockId: string) => {
+      setLocallyCompleted((prev) => new Set(prev).add(blockId));
+      const currentAnswer = answers[blockId] ?? '';
+      // `handleFileUpload` seeds `answers[blockId]` with a local `file:`
+      // placeholder (the real storage key only ever lives server-side —
+      // download resolves it by (participantId, blockId), never by parsing
+      // this value). Re-saving that placeholder as `answerText` here would
+      // overwrite the real `file:<key>` the upload endpoint already
+      // persisted, breaking every future download of that submission. The
+      // upload endpoint already sets `completed: true` server-side, so
+      // there is nothing left to persist for a file answer — just reflect
+      // it as complete locally.
+      if (currentAnswer.startsWith('file:')) return;
+      saveRest.mutate(
+        { blockId, answerText: currentAnswer, completed: true },
+        {
+          onSuccess: () => {
+            if (sessionId) {
+              void qc.invalidateQueries({
+                queryKey: queryKeys.myResponses(sessionId),
+              });
+            }
+          },
+        },
+      );
+    },
+    [answers, saveRest, sessionId, qc],
+  );
+
+  const handleFileUpload = React.useCallback(
+    async (blockId: string, file: File) => {
+      await uploadFile.mutateAsync({ blockId, file });
+      setAnswers((prev) => ({ ...prev, [blockId]: `file:${blockId}` }));
+      setLocallyCompleted((prev) => new Set(prev).add(blockId));
+      if (sessionId) {
+        await qc.invalidateQueries({
+          queryKey: queryKeys.myResponses(sessionId),
+        });
+      }
+    },
+    [uploadFile, sessionId, qc],
+  );
+
+  const handleResolveFileUrl = React.useCallback(
+    async (blockId: string) => {
+      const participantId = chatSelfId ?? '';
+      const { url } = await resolveFileUrl.mutateAsync({
+        participantId,
+        blockId,
+      });
+      return url;
+    },
+    [resolveFileUrl, chatSelfId],
+  );
+
+  const queueRestSave = React.useCallback(
+    (blockId: string, answerText: string, immediate = false) => {
+      const timers = restDebounce.current;
+      const existing = timers.get(blockId);
+      if (existing) clearTimeout(existing);
+      if (immediate) {
+        timers.delete(blockId);
+        saveRest.mutate({ blockId, answerText });
+        return;
+      }
+      const t = setTimeout(() => {
+        saveRest.mutate({ blockId, answerText });
+        timers.delete(blockId);
+      }, 350);
+      timers.set(blockId, t);
+    },
+    [saveRest],
+  );
+
   const handleAnswer = React.useCallback(
     (blockId: string, answerText: string) => {
       setAnswers((prev) => ({ ...prev, [blockId]: answerText }));
       setActiveBlockId(blockId);
       saveResponse(blockId, answerText);
+      // Debounced REST — avoids per-keystroke storms with 15+ students.
+      queueRestSave(blockId, answerText);
     },
-    [saveResponse],
+    [saveResponse, queueRestSave],
+  );
+
+  const handleSubmit = React.useCallback(
+    (blockId: string, answerText: string) => {
+      setAnswers((prev) => ({ ...prev, [blockId]: answerText }));
+      setActiveBlockId(blockId);
+      saveResponse(blockId, answerText);
+      queueRestSave(blockId, answerText, true);
+    },
+    [saveResponse, queueRestSave],
   );
 
   const scrollToBlock = React.useCallback((blockId: string) => {
@@ -134,8 +301,19 @@ export default function StudentLivePage() {
     };
   }, [percent, isAuthedUser, lessonId]);
 
-  // Watch whether the focused block is in view (no auto-scroll). If it leaves
-  // the viewport, show a jump button pointing up or down toward it.
+  // Soft-scroll to the teacher's focus so students land on the right block.
+  // Jump hint still appears if they scroll away afterward.
+  React.useEffect(() => {
+    if (!focusedBlockId) return;
+    const timer = window.setTimeout(() => {
+      const el = blockRefs.current.get(focusedBlockId);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [focusedBlockId]);
+
+  // Watch whether the focused block is in view. If it leaves the viewport,
+  // show a jump button pointing up or down toward it.
   React.useEffect(() => {
     setFocusHint(null);
     if (!focusedBlockId) return;
@@ -164,7 +342,7 @@ export default function StudentLivePage() {
   );
 
   // Loading / error / ended states.
-  if (sessionQuery.isLoading) {
+  if (sessionQuery.isLoading && !sessionQuery.data) {
     return (
       <main className="container flex min-h-screen items-center justify-center">
         <Spinner className="h-6 w-6" label={tc('loading')} />
@@ -174,13 +352,27 @@ export default function StudentLivePage() {
 
   const isEndedSession = ended || sessionQuery.data?.status === 'ended';
 
-  // Any load failure (404 unknown session, expired participant token, etc.)
-  // is shown as "not found" to the guest.
-  if (sessionQuery.error) {
+  // Only kick on a hard 404 with no cached session — never on transient
+  // network / cold-start errors (critical for a 15-person live room).
+  const hard404 =
+    !sessionQuery.data &&
+    sessionQuery.isError &&
+    sessionQuery.error instanceof ApiError &&
+    sessionQuery.error.status === 404;
+
+  if (hard404) {
     return <SessionStateBanner kind="notFound" />;
   }
+  if (!sessionQuery.data) {
+    return (
+      <main className="container flex min-h-screen flex-col items-center justify-center gap-3">
+        <Spinner className="h-6 w-6" label={tc('loading')} />
+        <p className="text-sm text-muted-foreground">{t('reconnecting')}</p>
+      </main>
+    );
+  }
   if (isEndedSession) {
-    return <SessionStateBanner kind="ended" />;
+    return <SessionCelebration />;
   }
 
   const aiTaskContext = focusedBlock
@@ -199,12 +391,25 @@ export default function StudentLivePage() {
             </p>
           )}
         </div>
-        <ConnectionBadge status={status} />
+        <div className="flex items-center gap-2">
+          {blocks.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSlideDeckOpen(true)}
+            >
+              <Maximize2 className="h-4 w-4" />
+              {t('fullscreenMode')}
+            </Button>
+          ) : null}
+          <ConnectionBadge status={status} />
+        </div>
       </header>
 
       <div className="grid flex-1 gap-6 lg:grid-cols-[1fr_360px]">
         {/* Workbook — single centered reading column */}
-        <section className="mx-auto w-full max-w-2xl space-y-4">
+        <section className="mx-auto w-full max-w-3xl space-y-4">
           {blocks.length === 0 && (
             <p className="text-sm text-muted-foreground">{tc('empty')}</p>
           )}
@@ -218,12 +423,18 @@ export default function StudentLivePage() {
               focused={block.id === focusedBlockId}
               value={isInputBlock(block.type) ? answers[block.id] ?? '' : ''}
               onAnswerChange={handleAnswer}
+              onAnswerSubmit={handleSubmit}
+              onFileUpload={handleFileUpload}
+              onResolveFileUrl={handleResolveFileUrl}
             />
           ))}
         </section>
 
-        {/* Right panel — Navigation · Materials · Notes · AI */}
-        <aside className="lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
+        {/* Right panel — Navigation · Chat · Materials · Notes · AI · Metrics */}
+        <aside className="space-y-4 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-y-auto">
+          <div className="rounded-lg border bg-card p-4">
+            <SessionMetricsPanel sessionId={sessionId!} participant />
+          </div>
           <RightPanel
             lessonId={lessonId}
             blocks={blocks}
@@ -234,7 +445,10 @@ export default function StudentLivePage() {
             onSelectBlock={scrollToBlock}
             blockContent={focusedBlock?.content ?? undefined}
             taskContext={aiTaskContext}
-            className="h-full"
+            chatMessages={chatMessages}
+            onSendChat={sendChat}
+            chatSelfId={chatSelfId}
+            className="h-auto min-h-[24rem]"
           />
         </aside>
       </div>
@@ -249,6 +463,21 @@ export default function StudentLivePage() {
           {t('goToFocused')}
         </Button>
       )}
+
+      {slideDeckOpen ? (
+        <SlideDeck
+          blocks={blocks}
+          initialBlockId={focusedBlockId}
+          answers={answers}
+          completed={completed}
+          onAnswerChange={handleAnswer}
+          onAnswerSubmit={handleSubmit}
+          onMarkComplete={handleMarkComplete}
+          onFileUpload={handleFileUpload}
+          onResolveFileUrl={handleResolveFileUrl}
+          onClose={() => setSlideDeckOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }

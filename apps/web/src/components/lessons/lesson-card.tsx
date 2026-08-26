@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   BarChart3,
+  Check,
   FileText,
   Pencil,
   Radio,
   Trash2,
   Video,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import type { Lesson, LiveSessionSummary } from '@/lib/api/types';
@@ -17,6 +19,7 @@ import { Link, useRouter } from '@/i18n/routing';
 import {
   useStartSession,
   useDeleteLesson,
+  useUpdateLesson,
 } from '@/lib/api/hooks';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,6 +29,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 
 const TYPE_META: Record<LessonType, { icon: LucideIcon; labelKey: string }> = {
@@ -34,7 +38,7 @@ const TYPE_META: Record<LessonType, { icon: LucideIcon; labelKey: string }> = {
   text: { icon: FileText, labelKey: 'typeText' },
 };
 
-/** A single lesson row: open editor, go live (or resume a running one), delete. */
+/** A single lesson row: rename, open editor, go live, delete. */
 export function LessonCard({
   lesson,
   activeSession,
@@ -43,11 +47,15 @@ export function LessonCard({
   activeSession?: LiveSessionSummary;
 }) {
   const t = useTranslations('lessons');
+  const tCommon = useTranslations('common');
   const tReports = useTranslations('reports');
   const router = useRouter();
   const startSession = useStartSession();
   const deleteLesson = useDeleteLesson();
+  const updateLesson = useUpdateLesson(lesson.id);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(lesson.title);
 
   async function goLive() {
     setError(null);
@@ -64,12 +72,28 @@ export function LessonCard({
     deleteLesson.mutate(lesson.id);
   }
 
+  async function saveTitle() {
+    const next = titleDraft.trim();
+    if (!next || next === lesson.title) {
+      setEditing(false);
+      setTitleDraft(lesson.title);
+      return;
+    }
+    setError(null);
+    try {
+      await updateLesson.mutateAsync({ title: next });
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('renameFailed'));
+    }
+  }
+
   const { icon: TypeIcon, labelKey } = TYPE_META[lesson.type];
 
   return (
     <Card className="flex flex-col transition-shadow hover:shadow-md">
       <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="w-fit gap-1.5">
               <TypeIcon className="size-3.5" />
@@ -82,7 +106,65 @@ export function LessonCard({
               </Badge>
             ) : null}
           </div>
-          <CardTitle>{lesson.title}</CardTitle>
+          {editing ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void saveTitle();
+                  if (e.key === 'Escape') {
+                    setEditing(false);
+                    setTitleDraft(lesson.title);
+                  }
+                }}
+                aria-label={t('lessonTitle')}
+                autoFocus
+                className="h-9"
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => void saveTitle()}
+                disabled={updateLesson.isPending}
+                aria-label={tCommon('save')}
+              >
+                {updateLesson.isPending ? <Spinner /> : <Check />}
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  setEditing(false);
+                  setTitleDraft(lesson.title);
+                }}
+                aria-label={tCommon('cancel')}
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-start gap-1">
+              <CardTitle className="min-w-0 flex-1 break-words">
+                {lesson.title}
+              </CardTitle>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-muted-foreground"
+                onClick={() => {
+                  setTitleDraft(lesson.title);
+                  setEditing(true);
+                }}
+                aria-label={t('rename')}
+              >
+                <Pencil className="size-4" />
+              </Button>
+            </div>
+          )}
         </div>
         <Button
           variant="ghost"

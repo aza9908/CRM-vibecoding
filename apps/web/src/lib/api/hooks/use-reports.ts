@@ -62,12 +62,16 @@ function filenameFromDisposition(
  */
 export async function downloadReportExport(
   lessonId: string,
-  format: 'csv' | 'json' = 'csv',
+  format: 'csv' | 'json' | 'xlsx' = 'csv',
+  sessionId?: string,
 ): Promise<void> {
   const token = getAccessToken();
-  const url = `${API_URL}/reports/export?lessonId=${encodeURIComponent(
+  const params = new URLSearchParams({
     lessonId,
-  )}&format=${format}`;
+    format,
+  });
+  if (sessionId) params.set('sessionId', sessionId);
+  const url = `${API_URL}/reports/export?${params.toString()}`;
 
   const res = await fetch(url, {
     method: 'GET',
@@ -80,9 +84,10 @@ export async function downloadReportExport(
   }
 
   const blob = await res.blob();
+  const ext = format === 'xlsx' ? 'xls' : format;
   const filename = filenameFromDisposition(
     res.headers.get('Content-Disposition'),
-    `report-${lessonId}.${format}`,
+    `report-${lessonId}.${ext}`,
   );
 
   const objectUrl = URL.createObjectURL(blob);

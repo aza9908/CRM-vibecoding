@@ -2,16 +2,19 @@ import { Logger, Module, OnModuleInit } from '@nestjs/common';
 
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
+import { PromoCodesModule } from '../promo-codes/promo-codes.module';
 import { WorkbookSeedService } from '../db/workbook-seed.service';
 import { AdminController } from './admin.controller';
 import { AdminWorkbookController } from './admin-workbook.controller';
+import { PromoCodesController } from '../promo-codes/promo-codes.controller';
 import { AdminService } from './admin.service';
 
 /** Admin-only user management module (list users, change roles, reset
- * passwords). `AuthModule` supplies the guards; `UsersModule` the data access. */
+ * passwords, promo codes). `AuthModule` supplies the guards; `UsersModule`
+ * and `PromoCodesModule` the data access. */
 @Module({
-  imports: [AuthModule, UsersModule],
-  controllers: [AdminController, AdminWorkbookController],
+  imports: [AuthModule, UsersModule, PromoCodesModule],
+  controllers: [AdminController, AdminWorkbookController, PromoCodesController],
   providers: [AdminService, WorkbookSeedService],
 })
 export class AdminModule implements OnModuleInit {
@@ -19,13 +22,26 @@ export class AdminModule implements OnModuleInit {
 
   constructor(private readonly seed: WorkbookSeedService) {}
 
-  /** Best-effort schema patch so register(occupation) doesn't 500 on old DBs. */
+  /**
+   * On boot: ensure `users.occupation` exists, then upsert the Day-1 workshop
+   * lesson into every organization so every teacher sees it under Уроки.
+   */
   async onModuleInit(): Promise<void> {
     try {
       await this.seed.ensureSchema();
     } catch (err) {
       this.logger.warn(
         `ensureSchema failed (will retry on seed): ${(err as Error).message}`,
+      );
+    }
+    try {
+      const { orgs, results } = await this.seed.seedAllOrgs();
+      this.logger.log(
+        `Day-1 workbook ready in ${results.length}/${orgs} organizations`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `seedAllOrgs failed (call POST /admin/workbook/seed): ${(err as Error).message}`,
       );
     }
   }

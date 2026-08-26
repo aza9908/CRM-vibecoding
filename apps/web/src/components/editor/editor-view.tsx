@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, Save, Sparkles } from 'lucide-react';
+import { Check, Eye, Save, Sparkles, Upload } from 'lucide-react';
 import {
   DndContext,
   PointerSensor,
@@ -35,6 +35,7 @@ import {
 import { SortableBlock } from './sortable-block';
 import { AddBlockMenu } from './add-block-menu';
 import { AiGenerateDialog } from './ai-generate-dialog';
+import { UploadGenerateDialog } from './upload-generate-dialog';
 import { LessonMaterialsPanel } from './lesson-materials-panel';
 
 type Patch = Partial<Omit<EditorBlock, 'localId' | 'type'>>;
@@ -65,6 +66,7 @@ export function EditorView({ lessonId }: { lessonId: string }) {
   // `draftSaved` = the most recent edits have been flushed to localStorage.
   const [draftSaved, setDraftSaved] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -215,9 +217,19 @@ export function EditorView({ lessonId }: { lessonId: string }) {
               {t('draftSaved')}
             </Badge>
           ) : null}
+          <Button asChild variant="outline">
+            <Link href={`/editor/${lessonId}/preview`}>
+              <Eye />
+              {t('preview')}
+            </Link>
+          </Button>
           <Button variant="ghost" onClick={() => setAiOpen(true)}>
             <Sparkles />
-            {t('generateWithAi')}
+            {t('generateByTopic')}
+          </Button>
+          <Button variant="ghost" onClick={() => setUploadOpen(true)}>
+            <Upload />
+            {t('generateFromFile')}
           </Button>
           <Button onClick={publish} disabled={saveBlocks.isPending}>
             {saveBlocks.isPending ? <Spinner /> : <Check />}
@@ -260,6 +272,12 @@ export function EditorView({ lessonId }: { lessonId: string }) {
         lessonId={lessonId}
         open={aiOpen}
         onClose={() => setAiOpen(false)}
+        onGenerated={onAiGenerated}
+      />
+      <UploadGenerateDialog
+        lessonId={lessonId}
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
         onGenerated={onAiGenerated}
       />
     </main>

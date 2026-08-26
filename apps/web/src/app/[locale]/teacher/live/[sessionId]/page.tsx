@@ -9,6 +9,7 @@ import {
   useSessionResponses,
   useEndSession,
 } from '@/lib/api/hooks/use-sessions';
+import { useLiveChatActions } from '@/lib/api/hooks/use-live-rest';
 import {
   useSessionSocket,
   type LiveParticipant,
@@ -19,15 +20,19 @@ import type { Block } from '@/lib/api/types';
 import { isInputBlock } from '@/lib/blocks';
 import { SessionCode } from '@/components/live/SessionCode';
 import { ParticipantsList } from '@/components/live/ParticipantsList';
+import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { ResponsesSummary } from '@/components/live/ResponsesSummary';
 import { ConnectionBadge } from '@/components/live/ConnectionBadge';
 import { SessionStateBanner } from '@/components/live/SessionStateBanner';
+import { SessionEndedReport } from '@/components/live/SessionEndedReport';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
+import { GroupChatTab } from '@/components/live/GroupChatTab';
 import { Brand } from '@/components/brand';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Card } from '@/components/ui/card';
 import { Users } from 'lucide-react';
+import { ApiError } from '@/lib/api/client';
 
 function responseKey(participantId: string, blockId: string): string {
   return `${participantId}:${blockId}`;
@@ -52,7 +57,7 @@ export default function TeacherLivePage() {
 
   const accessToken = useAuthStore((s) => s.accessToken);
 
-  const sessionQuery = useSession(sessionId);
+  const sessionQuery = useSession(sessionId, { pollMs: 6_000 });
   const participantsQuery = useSessionParticipants(sessionId);
   const responsesQuery = useSessionResponses(sessionId);
   const endSession = useEndSession();
@@ -65,6 +70,21 @@ export default function TeacherLivePage() {
     responses: liveResponses,
     ended,
   } = useSessionSocket(sessionId, { token: accessToken });
+
+  const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId);
+
+  const chatSelfId = React.useMemo(() => {
+    if (!accessToken) return null;
+    try {
+      const b64 = accessToken.split('.')[1] ?? '';
+      const payload = JSON.parse(
+        atob(b64.replace(/-/g, '+').replace(/_/g, '/')),
+      ) as { sub?: string };
+      return payload.sub ?? null;
+    } catch {
+      return null;
+    }
+  }, [accessToken]);
 
   // Merge REST baseline + live deltas so a late-connecting teacher still sees
   // everyone who joined / answered before the socket was up.
@@ -82,14 +102,18 @@ export default function TeacherLivePage() {
   const responses = React.useMemo<LiveResponses>(() => {
     const merged: LiveResponses = {};
     for (const r of responsesQuery.data ?? []) {
+      if (!r.blockId || !r.participantId) continue;
       merged[responseKey(r.participantId, r.blockId)] = {
         participantId: r.participantId,
         blockId: r.blockId,
-        answerText: r.answerText,
-        at: r.updatedAt,
+        answerText: r.answerText ?? '',
+        at: r.updatedAt
+          ? typeof r.updatedAt === 'string'
+            ? r.updatedAt
+            : new Date(r.updatedAt).toISOString()
+          : new Date().toISOString(),
       };
     }
-    // Live updates win over the REST snapshot.
     for (const [key, value] of Object.entries(liveResponses)) {
       merged[key] = value;
     }
@@ -102,7 +126,8 @@ export default function TeacherLivePage() {
     [blocks],
   );
 
-  const effectiveFocus = focusedBlockId ?? sessionQuery.data?.focusedBlockId ?? null;
+  const effectiveFocus =
+    focusedBlockId ?? sessionQuery.data?.focusedBlockId ?? null;
 
   const handleEnd = React.useCallback(() => {
     if (!sessionId) return;
@@ -110,7 +135,7 @@ export default function TeacherLivePage() {
     endSession.mutate(sessionId);
   }, [sessionId, endSession, t]);
 
-  if (sessionQuery.isLoading) {
+  if (sessionQuery.isLoading && !sessionQuery.data) {
     return (
       <main className="container flex min-h-screen items-center justify-center">
         <Spinner className="h-6 w-6" label={tc('loading')} />
@@ -118,18 +143,37 @@ export default function TeacherLivePage() {
     );
   }
 
-  // 404 (unknown session) or 403 (another org's session) — both surface as
-  // "not found" so we never leak cross-tenant existence.
-  if (sessionQuery.error) {
+  // Hard kick only on true 404/403 with no cached snapshot — never on
+  // transient network / cold-start blips during a live room.
+  const hardMissing =
+    !sessionQuery.data &&
+    sessionQuery.isError &&
+    sessionQuery.error instanceof ApiError &&
+    (sessionQuery.error.status === 404 || sessionQuery.error.status === 403);
+
+  if (hardMissing) {
     return <SessionStateBanner kind="notFound" homeHref="/lessons" />;
+  }
+  if (!sessionQuery.data) {
+    return (
+      <main className="container flex min-h-screen flex-col items-center justify-center gap-3">
+        <Spinner className="h-6 w-6" label={tc('loading')} />
+        <p className="text-sm text-muted-foreground">{t('reconnecting')}</p>
+      </main>
+    );
   }
 
   const isEnded =
     ended ||
     endSession.isSuccess ||
     sessionQuery.data?.status === 'ended';
-  if (isEnded) {
-    return <SessionStateBanner kind="ended" homeHref="/lessons" />;
+  if (isEnded && sessionId) {
+    return (
+      <SessionEndedReport
+        sessionId={sessionId}
+        lessonId={sessionQuery.data?.lessonId}
+      />
+    );
   }
 
   return (
@@ -173,9 +217,9 @@ export default function TeacherLivePage() {
       </header>
 
       <div className="container flex flex-1 flex-col gap-6 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
           {/* Workbook preview — click a block to focus it for students. */}
-          <section className="space-y-3">
+          <section className="min-w-0 space-y-3">
             <h2 className="text-sm font-semibold">{t('focusBlock')}</h2>
             {blocks.length === 0 && (
               <p className="text-sm text-muted-foreground">{tc('empty')}</p>
@@ -191,21 +235,38 @@ export default function TeacherLivePage() {
             ))}
           </section>
 
-          {/* Right column: live roster + answer board. */}
-          <section className="space-y-6">
-            <Card className="p-4">
-              <ParticipantsList participants={participants} />
-            </Card>
-            <Card className="p-4">
+          {/* Right column: sticky + independently scrollable through all panels. */}
+          <aside className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            <Card className="border-primary/30 p-4 shadow-sm">
               <ResponsesSummary
                 responses={responses}
                 participants={participants}
                 blocks={inputBlocks}
                 focusedBlockId={effectiveFocus}
                 onFocusBlock={sendFocus}
+                sessionId={sessionId}
               />
             </Card>
-          </section>
+            <Card className="p-4">
+              <ParticipantsList
+                participants={participants}
+                blocks={blocks}
+                responses={responses}
+                focusedBlockId={effectiveFocus}
+              />
+            </Card>
+            <Card className="p-4">
+              <h2 className="mb-2 text-sm font-semibold">{t('groupChat')}</h2>
+              <GroupChatTab
+                messages={chatMessages}
+                onSend={sendChat}
+                selfId={chatSelfId}
+              />
+            </Card>
+            <Card className="p-4">
+              <SessionMetricsPanel sessionId={sessionId} />
+            </Card>
+          </aside>
         </div>
       </div>
     </main>

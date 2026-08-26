@@ -29,3 +29,19 @@ export const generateBlocksSchema = z.object({
   topic: z.string().min(1),
 });
 export type GenerateBlocksDto = z.infer<typeof generateBlocksSchema>;
+
+/**
+ * Body for `POST /lessons/:id/blocks/generate-from-file` — AI block
+ * generation from an already-uploaded material. `materialId` (not a raw
+ * storage key) so the server resolves it through the same org-scoped
+ * `MaterialsService.assertMaterialInOrg` check every other material read
+ * goes through — a raw storage key would let the caller's org be bypassed.
+ * The teacher's file is uploaded via the existing materials upload flow
+ * (`useUploadMaterialFile` → `POST /materials`) before this call.
+ */
+export const generateBlocksFromFileSchema = z.object({
+  materialId: z.string().uuid(),
+});
+export type GenerateBlocksFromFileDto = z.infer<
+  typeof generateBlocksFromFileSchema
+>;

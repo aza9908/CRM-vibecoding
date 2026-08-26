@@ -3,14 +3,14 @@
 # and injects PORT=8080 at runtime; main.ts already reads process.env.PORT.
 
 runConfig:
-  cpu: 1
-  memoryMiB: 1024
-  minInstances: 0
+  # Workshop day: keep API warm and roomy for 15+ concurrent live clients.
+  cpu: 2
+  memoryMiB: 2048
+  minInstances: 1
   # Keep a single instance while REDIS_URL is unset: the Socket.IO adapter
   # falls back to in-memory, so rooms/broadcasts only work within one instance.
-  # Raise this only after wiring a managed Redis and setting REDIS_URL.
   maxInstances: 1
-  concurrency: 80
+  concurrency: 120
 
 scripts:
   # IMPORTANT: do NOT set buildCommand here. The App Hosting buildpack rewrites
@@ -35,6 +35,10 @@ env:
     value: https://lms.magauin.kz,https://lms-web--lms-ai-a2fd7.europe-west4.hosted.app
     availability:
       - RUNTIME
-# Add the rest of the environment variables (JWT secrets, S3_*, WEB_ORIGIN,
-# GROQ_API_KEY) in the App Hosting console UI or as Secret Manager
-# references here, following the DATABASE_URL example above.
+  # Absolute API origin for DB-backed upload/download URLs when S3_* is unset.
+  - variable: API_PUBLIC_URL
+    value: https://lms-ai--lms-ai-a2fd7.europe-west4.hosted.app
+    availability:
+      - RUNTIME
+# Optional: add S3_ENDPOINT / S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY as
+# Secret Manager refs to switch from Postgres object storage to R2/S3.

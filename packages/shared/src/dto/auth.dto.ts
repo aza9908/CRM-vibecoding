@@ -13,21 +13,29 @@ import {
  */
 
 /**
- * Body for `POST /auth/register`. Creates an organization + user.
+ * Body for `POST /auth/register`. Either creates a new organization or joins
+ * an existing one.
  *
- * `fullName` (ФИО), `companyName` (название компании) and `occupation`
- * (должность) are collected on the public signup form. `companyName` becomes
- * the new organization's display name; `occupation` is stored on the user.
+ * `fullName` (ФИО) and `occupation` (должность) are always collected. Exactly
+ * one of `companyName` / `promoCode` must be supplied: `companyName` creates a
+ * brand-new organization (today's original flow); `promoCode` joins the
+ * organization that issued that code instead (see `PromoCodesService`).
  */
-export const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  fullName: z.string().min(1),
-  companyName: z.string().min(1),
-  occupation: z.string().min(1),
-  /** Only student/teacher — elevated roles are admin-granted only. */
-  role: selfRegisterRoleEnum.optional(),
-});
+export const registerSchema = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(8),
+    fullName: z.string().min(1),
+    companyName: z.string().min(1).optional(),
+    promoCode: z.string().min(1).optional(),
+    occupation: z.string().min(1),
+    /** Only student/teacher — elevated roles are admin-granted only. */
+    role: selfRegisterRoleEnum.optional(),
+  })
+  .refine((v) => Boolean(v.companyName) !== Boolean(v.promoCode), {
+    message: 'provide_company_name_or_promo_code',
+    path: ['companyName'],
+  });
 export type RegisterDto = z.infer<typeof registerSchema>;
 
 /** Body for `POST /auth/login`. */

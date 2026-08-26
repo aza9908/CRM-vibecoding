@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 /*
- * Lumen design system — tokens mirror DESIGN.md / .stitch (indigo brand on a
- * slate canvas, emerald = "live", amber = attention). shadcn components read
- * these HSL custom properties, so the whole UI re-themes from here.
+ * AI Research Labs design system — brand purple from the official logo
+ * (#5D5FEF) on a slate canvas. Emerald = "live", amber = attention.
+ * shadcn components read these HSL custom properties.
  */
 @layer base {
   :root {
@@ -18,7 +18,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 47.4% 11.2%;
 
-    --primary: 243 75% 59%;           /* #4F46E5 indigo-600 — brand */
+    --primary: 241 40% 53%;           /* #5755BC — sampled from AI Research Labs logo */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;       /* #F1F5F9 slate-100 */
@@ -27,8 +27,8 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;  /* #64748B slate-500 */
 
-    --accent: 226 100% 97%;           /* #F5F7FF indigo-tint — hover/focus surfaces */
-    --accent-foreground: 243 75% 59%;
+    --accent: 241 60% 96%;            /* brand-tint — hover/focus surfaces */
+    --accent-foreground: 241 40% 40%;
 
     --destructive: 0 84.2% 60.2%;     /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
@@ -40,7 +40,7 @@
 
     --border: 214.3 31.8% 91.4%;      /* #E2E8F0 slate-200 */
     --input: 214.3 31.8% 91.4%;
-    --ring: 243 75% 59%;              /* indigo focus ring */
+    --ring: 241 40% 53%;              /* brand focus ring */
 
     --radius: 0.625rem;               /* 10px base → cards 10px, buttons 8px */
   }
@@ -55,7 +55,7 @@
     --popover: 222 44% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 239 84% 67%;           /* #6366F1 indigo-500 — brighter on dark */
+    --primary: 241 45% 62%;           /* brighter brand on dark */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217.2 32.6% 17.5%;   /* slate-800 */
@@ -64,8 +64,8 @@
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;  /* slate-400 */
 
-    --accent: 239 60% 22%;            /* indigo-tinted dark */
-    --accent-foreground: 226 100% 90%;
+    --accent: 241 40% 22%;            /* brand-tinted dark */
+    --accent-foreground: 241 80% 90%;
 
     --destructive: 0 62.8% 45%;
     --destructive-foreground: 0 0% 100%;
@@ -77,7 +77,7 @@
 
     --border: 217.2 32.6% 22%;
     --input: 217.2 32.6% 22%;
-    --ring: 239 84% 67%;
+    --ring: 241 45% 62%;
   }
 }
 
@@ -125,7 +125,26 @@
   animation: drawer-panel-in 240ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+@keyframes celebrate-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.celebrate-card {
+  animation: celebrate-card-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .celebrate-card {
+    animation: none;
+  }
+
   .drawer-overlay,
   .drawer-panel {
     animation: none;

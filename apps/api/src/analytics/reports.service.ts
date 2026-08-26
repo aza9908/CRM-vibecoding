@@ -20,8 +20,10 @@ import {
   lessonBlocks,
   lessons,
   liveSessions,
+  organizations,
   participants,
   responses,
+  users,
 } from '../db/schema';
 
 type BlockRow = typeof lessonBlocks.$inferSelect;
@@ -45,15 +47,37 @@ const INTERACTIVE_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
 const isInteractive = (b: BlockRow): boolean =>
   INTERACTIVE_BLOCK_TYPES.has(b.type as BlockType);
 
-/** One row of an export CSV: exactly one participant answer to one block. */
+/** One row of an export: one participant answer to one block. */
 export interface ExportRow {
   session_code: string;
-  participant: string;
+  full_name: string;
+  occupation: string;
+  company: string;
+  progress_percent: number;
   block: string;
   question: string;
   answer: string;
   completed: boolean;
   at: string;
+}
+
+/** One summary row per participant (for Excel sheet «Участники»). */
+export interface ParticipantExportRow {
+  session_code: string;
+  full_name: string;
+  occupation: string;
+  company: string;
+  progress_percent: number;
+  answered: number;
+  total_interactive: number;
+}
+
+function answerCompleted(r: {
+  isCompleted?: boolean | null;
+  answerText?: string | null;
+}): boolean {
+  if (r.isCompleted) return true;
+  return (r.answerText ?? '').trim().length > 0;
 }
 
 /** The hierarchical JSON payload returned by the export endpoint (json format). */
@@ -70,7 +94,10 @@ export interface ExportData {
     };
     report: SessionReport;
   }>;
+  /** Flat answers, sorted by participant name then time. */
   rows: ExportRow[];
+  /** One row per participant — convenient summary sheet. */
+  participants: ParticipantExportRow[];
 }
 
 /**
@@ -194,20 +221,30 @@ export class ReportsService {
   async aggregateForExport(
     orgId: string,
     lessonId: string,
+    sessionId?: string | null,
   ): Promise<ExportData> {
     const lesson = await this.assertLessonInOrg(lessonId, orgId);
 
-    const sessions = await this.db
+    let sessions = await this.db
       .select()
       .from(liveSessions)
       .where(eq(liveSessions.lessonId, lessonId))
       .orderBy(asc(liveSessions.createdAt));
+
+    if (sessionId) {
+      sessions = sessions.filter((s) => s.id === sessionId);
+      if (sessions.length === 0) {
+        throw new NotFoundException('session_not_found');
+      }
+      await this.assertSessionInOrg(sessionId, orgId);
+    }
 
     const out: ExportData = {
       lesson: { id: lesson.id, title: lesson.title },
       generatedAt: new Date().toISOString(),
       sessions: [],
       rows: [],
+      participants: [],
     };
 
     for (const s of sessions) {
@@ -216,6 +253,47 @@ export class ReportsService {
         s,
       );
       const report = this.buildReport(session, blocks, parts, resp);
+      const progressByParticipant = new Map(
+        report.byParticipant.map((p) => [
+          p.participant.id,
+          p.progressPercent,
+        ]),
+      );
+      const answeredByParticipant = new Map(
+        report.byParticipant.map((p) => [
+          p.participant.id,
+          p.answers.filter((a) => answerCompleted(a)).length,
+        ]),
+      );
+      const interactiveCount = blocks.filter(isInteractive).length;
+
+      // Enrich participants with registration FIO / должность / компания.
+      const userIds = parts
+        .map((p) => p.userId)
+        .filter((id): id is string => !!id);
+      const profileByUserId = new Map<
+        string,
+        { fullName: string | null; occupation: string | null; company: string }
+      >();
+      if (userIds.length > 0) {
+        const profiles = await this.db
+          .select({
+            id: users.id,
+            fullName: users.fullName,
+            occupation: users.occupation,
+            company: organizations.name,
+          })
+          .from(users)
+          .leftJoin(organizations, eq(users.organizationId, organizations.id))
+          .where(inArray(users.id, userIds));
+        for (const u of profiles) {
+          profileByUserId.set(u.id, {
+            fullName: u.fullName,
+            occupation: u.occupation,
+            company: u.company ?? '',
+          });
+        }
+      }
 
       out.sessions.push({
         session: {
@@ -231,22 +309,61 @@ export class ReportsService {
       });
 
       const blockById = new Map(blocks.map((b) => [b.id, b]));
-      const nameById = new Map(parts.map((p) => [p.id, p.name]));
+      const partMeta = new Map(
+        parts.map((p) => {
+          const profile = p.userId ? profileByUserId.get(p.userId) : undefined;
+          return [
+            p.id,
+            {
+              fullName: profile?.fullName?.trim() || p.name,
+              occupation: profile?.occupation?.trim() || '',
+              company: profile?.company?.trim() || '',
+            },
+          ] as const;
+        }),
+      );
+
+      for (const p of parts) {
+        const meta = partMeta.get(p.id)!;
+        out.participants.push({
+          session_code: session.code,
+          full_name: meta.fullName,
+          occupation: meta.occupation,
+          company: meta.company,
+          progress_percent: progressByParticipant.get(p.id) ?? 0,
+          answered: answeredByParticipant.get(p.id) ?? 0,
+          total_interactive: interactiveCount,
+        });
+      }
+
       for (const r of resp) {
         const block = r.blockId ? blockById.get(r.blockId) : undefined;
+        const pid = r.participantId ?? '';
+        const meta = pid ? partMeta.get(pid) : undefined;
         out.rows.push({
           session_code: session.code,
-          participant: r.participantId
-            ? (nameById.get(r.participantId) ?? '')
-            : '',
+          full_name: meta?.fullName ?? '',
+          occupation: meta?.occupation ?? '',
+          company: meta?.company ?? '',
+          progress_percent: pid ? (progressByParticipant.get(pid) ?? 0) : 0,
           block: block ? (block.type as string) : '',
           question: block?.content ?? '',
           answer: r.answerText ?? '',
-          completed: r.isCompleted ?? false,
+          completed: answerCompleted(r),
           at: r.updatedAt ? r.updatedAt.toISOString() : '',
         });
       }
     }
+
+    // Group Excel answers by person (name ASC), then by time.
+    out.participants.sort((a, b) =>
+      a.full_name.localeCompare(b.full_name, 'ru'),
+    );
+    out.rows.sort((a, b) => {
+      const byName = a.full_name.localeCompare(b.full_name, 'ru');
+      if (byName !== 0) return byName;
+      return a.at.localeCompare(b.at);
+    });
 
     return out;
   }
@@ -310,7 +427,8 @@ export class ReportsService {
     const byParticipant: SessionReportParticipant[] = parts.map((p) => {
       const mine = resp.filter((r) => r.participantId === p.id);
       const done = mine.filter(
-        (r) => r.isCompleted && interactive.some((b) => b.id === r.blockId),
+        (r) =>
+          answerCompleted(r) && interactive.some((b) => b.id === r.blockId),
       ).length;
       return {
         participant: { id: p.id, name: p.name },
@@ -320,7 +438,7 @@ export class ReportsService {
         answers: mine.map((r) => ({
           blockId: r.blockId ?? '',
           answerText: r.answerText,
-          isCompleted: r.isCompleted ?? false,
+          isCompleted: answerCompleted(r),
           updatedAt: r.updatedAt ? r.updatedAt.toISOString() : null,
         })),
       };
@@ -347,9 +465,9 @@ export class ReportsService {
         )
       : 0;
 
-    // Attendance score: share of joiners who completed ≥1 interactive answer.
+    // Attendance: share of joiners who submitted ≥1 non-empty interactive answer.
     const attended = byParticipant.filter((bp) =>
-      bp.answers.some((a) => a.isCompleted),
+      bp.answers.some((a) => answerCompleted(a)),
     ).length;
     const attendanceScore = parts.length
       ? Math.round((attended / parts.length) * 100)

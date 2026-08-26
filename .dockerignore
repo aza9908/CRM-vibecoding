@@ -1,8 +1,14 @@
 node_modules
 **/node_modules
 **/dist
+**/*.tsbuildinfo
 .git
-apps/web
+# apps/web's package.json must stay reachable — the API image's `npm ci`
+# resolves the whole workspace lockfile and needs every workspace's
+# package.json present, even though only apps/api's dist gets copied out.
+apps/web/src
+apps/web/public
+apps/web/.next
 docs
 *.md
 .env

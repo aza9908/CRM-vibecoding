@@ -22,9 +22,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'LMS — live lessons & workbook',
+  title: 'AI Research Labs — live lessons & workbook',
   description:
-    'B2B LMS with live lessons, a session-code workbook, and an AI mentor.',
+    'B2B LMS by AI Research Labs: live lessons, workbook, and AI mentor.',
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/brand/ai-research-labs.png' }],
+  },
 };
 
 export function generateStaticParams() {

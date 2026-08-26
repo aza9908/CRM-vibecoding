@@ -25,14 +25,35 @@ export class AdminWorkbookController {
 
   /**
    * POST /admin/workbook/seed — create/refresh the Day-1 lesson + blocks for
-   * the admin's organization. Idempotent.
+   * the caller's organization. Idempotent.
    */
   @Post('seed')
   @HttpCode(HttpStatus.OK)
-  seedWorkbook(@CurrentUser() user: AuthUserPayload) {
-    return this.seed.seed({
+  async seedWorkbook(@CurrentUser() user: AuthUserPayload) {
+    const result = await this.seed.seed({
       orgId: user.orgId,
       teacherEmail: null,
     });
+    // Attribute the workshop lesson to the teacher who triggered the seed
+    // so it shows under their Уроки ownership consistently.
+    await this.seed.assignTeacher(result.lessonId, user.sub);
+    return result;
+  }
+
+  /**
+   * POST /admin/workbook/seed-all — platform bootstrap only.
+   * Restricted to admin: teachers must use POST /admin/workbook/seed (own org).
+   */
+  @Post('seed-all')
+  @HttpCode(HttpStatus.OK)
+  @Roles('admin')
+  async seedAll() {
+    const { orgs, results } = await this.seed.seedAllOrgs();
+    // Do not leak other tenants' orgId/lessonId to the caller.
+    return {
+      orgs,
+      seeded: results.length,
+      blocks: results[0]?.blocks ?? 0,
+    };
   }
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Inject,
   Logger,
@@ -11,10 +12,13 @@ import {
 import type { Response } from 'express';
 import {
   chatSchema,
+  generateBlocksFromFileSchema,
   generateBlocksSchema,
   type ChatDto,
   type GenerateBlocksDto,
+  type GenerateBlocksFromFileDto,
   type AuthUserPayload,
+  type ParticipantPayload,
 } from '@lms/shared';
 
 import { ZodBody } from '../common/zod-body.decorator';
@@ -22,8 +26,12 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { UserOrParticipantGuard } from '../auth/guards/user-or-participant.guard';
 import { BlocksService } from '../lessons/blocks.service';
+import { MaterialsService } from '../materials/materials.service';
+import { StorageService } from '../storage/storage.service';
 import { AiService, type PromptRole } from './ai.service';
+import { FileExtractionService } from './file-extraction.service';
 import {
   LLM_PROVIDER,
   type LlmProvider,
@@ -32,6 +40,12 @@ import {
 /** Hard cap on a single chat stream so a stuck upstream can't hang a socket. */
 const STREAM_TIMEOUT_MS = 30_000;
 
+type ChatCaller = AuthUserPayload | ParticipantPayload;
+
+function isUser(p: ChatCaller): p is AuthUserPayload {
+  return p.aud === 'user';
+}
+
 @Controller()
 export class AiController {
   private readonly logger = new Logger(AiController.name);
@@ -39,20 +53,23 @@ export class AiController {
   constructor(
     private readonly ai: AiService,
     private readonly blocks: BlocksService,
+    private readonly storage: StorageService,
+    private readonly fileExtraction: FileExtractionService,
+    private readonly materials: MaterialsService,
     @Inject(LLM_PROVIDER) private readonly llm: LlmProvider,
   ) {}
 
   /**
    * `POST /ai/chat` — Socratic assistant, streamed over SSE.
    *
-   * Manual SSE (not Nest `@Sse`) because we need to persist the full answer
-   * after the stream completes and emit a terminal `[DONE]` sentinel. Guarded
-   * by `JwtAuthGuard`: only authenticated Users (students/teachers) can chat.
+   * Accepts either a logged-in user JWT or a live-session participant JWT so
+   * code-join students can use the tutor during a workshop. Participant turns
+   * are not persisted (ai_chats.userId FK is users only).
    */
   @Post('ai/chat')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(UserOrParticipantGuard)
   async chat(
-    @CurrentUser() user: AuthUserPayload,
+    @CurrentUser() caller: ChatCaller,
     @ZodBody(chatSchema) dto: ChatDto,
     @Res() res: Response,
   ): Promise<void> {
@@ -62,7 +79,8 @@ export class AiController {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
 
-    const role: PromptRole = user.role === 'teacher' ? 'teacher' : 'student';
+    const role: PromptRole =
+      isUser(caller) && caller.role === 'teacher' ? 'teacher' : 'student';
 
     const messages = await this.ai.buildMessages({
       role,
@@ -72,11 +90,8 @@ export class AiController {
       history: dto.history,
     });
 
-    // 30s safeguard: abort the upstream stream and close the SSE connection.
     const abort = new AbortController();
     const timeout = setTimeout(() => abort.abort(), STREAM_TIMEOUT_MS);
-
-    // If the client disconnects, stop pulling tokens from the provider.
     res.on('close', () => abort.abort());
 
     let full = '';
@@ -88,8 +103,9 @@ export class AiController {
         res.write(`data: ${JSON.stringify({ token })}\n\n`);
       }
 
-      // Persist the completed turn before signalling completion.
-      await this.ai.persistChat(user.sub, dto.lessonId, dto.userMessage, full);
+      if (isUser(caller)) {
+        await this.ai.persistChat(caller.sub, dto.lessonId, dto.userMessage, full);
+      }
       res.write('data: [DONE]\n\n');
     } catch (err) {
       const aborted = abort.signal.aborted;
@@ -98,10 +114,9 @@ export class AiController {
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      // Best-effort: persist whatever was generated so history isn't lost.
-      if (full.length > 0) {
+      if (full.length > 0 && isUser(caller)) {
         await this.ai
-          .persistChat(user.sub, dto.lessonId, dto.userMessage, full)
+          .persistChat(caller.sub, dto.lessonId, dto.userMessage, full)
           .catch(() => undefined);
       }
       if (!res.writableEnded) {
@@ -120,10 +135,6 @@ export class AiController {
 
   /**
    * `POST /lessons/:id/blocks/generate` — teacher-only AI block generation.
-   *
-   * Generates and zod-validates a workbook draft, then hands it to
-   * `BlocksService.saveBlocks(orgId, lessonId, ...)`, which enforces that the
-   * lesson belongs to the caller's organization (multi-tenant isolation).
    */
   @Post('lessons/:id/blocks/generate')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -135,5 +146,61 @@ export class AiController {
   ): Promise<unknown> {
     const blocks = await this.ai.generateBlocks(dto.topic);
     return this.blocks.saveBlocks(user.orgId, lessonId, blocks);
+  }
+
+  /**
+   * `POST /lessons/:id/blocks/generate-from-file` — teacher uploads a
+   * material (PDF/DOCX/TXT/MD, via the existing materials upload flow) and
+   * gets it turned into a full block-based lesson. Lands through the SAME
+   * `saveBlocks` path as topic-based generation, so the result opens directly
+   * in the already-built drag-and-drop editor for review before publishing —
+   * this endpoint never writes lesson content on its own.
+   *
+   * Takes a `materialId`, not a raw storage key: `MaterialsService.assertMaterialInOrg`
+   * is the SAME org-scoping check every other material read in the app goes
+   * through, so a teacher can never read another org's uploaded file through
+   * this path (a raw client-supplied storage key would bypass that check
+   * entirely — the codebase's stated main security risk).
+   */
+  @Post('lessons/:id/blocks/generate-from-file')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher')
+  async generateFromFile(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', ParseUUIDPipe) lessonId: string,
+    @ZodBody(generateBlocksFromFileSchema) dto: GenerateBlocksFromFileDto,
+  ): Promise<unknown> {
+    const material = await this.materials.assertMaterialInOrg(
+      dto.materialId,
+      user.orgId,
+    );
+    if (material.type !== 'file') {
+      throw new BadRequestException('material_not_a_file');
+    }
+    const buffer = await this.storage.getObjectBuffer(material.url);
+    const text = await this.fileExtraction.extractText(
+      buffer,
+      contentTypeFromFilename(material.title),
+    );
+    const blocks = await this.ai.generateBlocksFromText(text);
+    return this.blocks.saveBlocks(user.orgId, lessonId, blocks);
+  }
+}
+
+/** Best-effort MIME guess from a filename extension, for a material row that
+ * (like every `course_materials` row) has no stored content-type column. */
+function contentTypeFromFilename(filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'pdf':
+      return 'application/pdf';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'doc':
+      return 'application/msword';
+    case 'md':
+      return 'text/markdown';
+    default:
+      return 'text/plain';
   }
 }

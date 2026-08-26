@@ -22,6 +22,15 @@ export const userRole = pgEnum('user_role', [
   'team_lead',
 ]);
 export const lessonType = pgEnum('lesson_type', ['video', 'stream', 'text']);
+// Curriculum position, independent of `lessonType` (delivery medium). Nullable
+// on existing rows — only used to group/label lessons in the per-company
+// timeline (docs/03 extension): intro (pre-course), workshop, qa, demo_day.
+export const lessonKind = pgEnum('lesson_kind', [
+  'intro',
+  'workshop',
+  'qa',
+  'demo_day',
+]);
 export const sessionStatus = pgEnum('session_status', [
   'scheduled',
   'live',
@@ -73,6 +82,39 @@ export const users = pgTable(
   (t) => ({
     emailIdx: uniqueIndex('users_email_idx').on(t.email),
     orgIdx: index('users_org_idx').on(t.organizationId),
+  }),
+);
+
+/**
+ * Company promo codes. An admin issues one or more codes for their
+ * organization; a new user who enters a valid code at registration joins
+ * that organization instead of creating a new one (see `AuthService.register`).
+ * `active=false` revokes a code without freeing its string for reuse until
+ * the row is deleted — the partial unique index only enforces uniqueness
+ * among currently-active codes, mirroring `sessions_code_live_idx` below.
+ */
+export const promoCodes = pgTable(
+  'promo_codes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    active: boolean('active').notNull().default(true),
+    maxUses: integer('max_uses'), // null = unlimited
+    useCount: integer('use_count').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    codeActiveIdx: uniqueIndex('promo_codes_code_active_idx')
+      .on(t.code)
+      .where(sql`active = true`),
+    orgIdx: index('promo_codes_org_idx').on(t.organizationId),
   }),
 );
 
@@ -139,6 +181,7 @@ export const lessons = pgTable(
     teacherId: uuid('teacher_id').references(() => users.id),
     title: text('title').notNull(),
     type: lessonType('type').notNull().default('stream'),
+    kind: lessonKind('kind'),
     contentUrl: text('content_url'),
     order: integer('order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -239,6 +282,25 @@ export const responses = pgTable(
       t.participantId,
       t.blockId,
     ),
+  }),
+);
+
+/** Live session group chat — REST source of truth (WS is optional fanout). */
+export const sessionChatMessages = pgTable(
+  'session_chat_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sessionId: uuid('session_id')
+      .references(() => liveSessions.id, { onDelete: 'cascade' })
+      .notNull(),
+    senderId: uuid('sender_id').notNull(),
+    senderName: text('sender_name').notNull(),
+    role: text('role').notNull(), // teacher | participant
+    text: text('text').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (t) => ({
+    sessionIdx: index('session_chat_session_idx').on(t.sessionId),
   }),
 );
 
@@ -389,6 +451,7 @@ export const schema = {
   // enums
   userRole,
   lessonType,
+  lessonKind,
   sessionStatus,
   blockType,
   progressStatus,
@@ -397,6 +460,7 @@ export const schema = {
   // tables
   organizations,
   users,
+  promoCodes,
   passwordResetTokens,
   courses,
   modules,
@@ -406,6 +470,7 @@ export const schema = {
   liveSessions,
   participants,
   responses,
+  sessionChatMessages,
   userProgress,
   aiChats,
   courseMaterials,

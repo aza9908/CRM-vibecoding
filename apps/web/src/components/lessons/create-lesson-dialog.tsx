@@ -4,7 +4,9 @@ import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   createLessonSchema,
+  lessonKindEnum,
   lessonTypeEnum,
+  type LessonKind,
   type LessonType,
 } from '@lms/shared';
 import { useCreateLesson } from '@/lib/api/hooks';
@@ -29,6 +31,16 @@ const TYPE_LABEL_KEY: Record<LessonType, string> = {
   text: 'typeText',
 };
 
+const KIND_LABEL_KEY: Record<LessonKind, string> = {
+  intro: 'kindIntro',
+  workshop: 'kindWorkshop',
+  qa: 'kindQa',
+  demo_day: 'kindDemoDay',
+};
+
+/** Sentinel value for "no kind selected" — Radix Select can't hold '' as an item value. */
+const KIND_NONE = '__none__';
+
 /** "New lesson" dialog — creates a lesson and opens its editor on success. */
 export function CreateLessonDialog({
   open,
@@ -44,13 +56,18 @@ export function CreateLessonDialog({
 
   const [title, setTitle] = useState('');
   const [type, setType] = useState<LessonType>('text');
+  const [kind, setKind] = useState<LessonKind | typeof KIND_NONE>(KIND_NONE);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const parsed = createLessonSchema.safeParse({ title, type });
+    const parsed = createLessonSchema.safeParse({
+      title,
+      type,
+      kind: kind === KIND_NONE ? undefined : kind,
+    });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input');
       return;
@@ -60,6 +77,7 @@ export function CreateLessonDialog({
       const lesson = await create.mutateAsync(parsed.data);
       setTitle('');
       setType('text');
+      setKind(KIND_NONE);
       onClose();
       router.push(`/editor/${lesson.id}`);
     } catch (err) {
@@ -90,6 +108,26 @@ export function CreateLessonDialog({
               {lessonTypeEnum.options.map((lt) => (
                 <SelectItem key={lt} value={lt}>
                   {t(TYPE_LABEL_KEY[lt])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="lesson-kind">{t('kind')}</Label>
+          <Select
+            value={kind}
+            onValueChange={(v) => setKind(v as LessonKind | typeof KIND_NONE)}
+          >
+            <SelectTrigger id="lesson-kind">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={KIND_NONE}>{t('kindNone')}</SelectItem>
+              {lessonKindEnum.options.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {t(KIND_LABEL_KEY[k])}
                 </SelectItem>
               ))}
             </SelectContent>

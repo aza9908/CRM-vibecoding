@@ -68,6 +68,7 @@ export class LessonsService {
         organizationId: orgId,
         title: dto.title,
         type: (dto.type ?? 'stream') as LessonType,
+        kind: dto.kind ?? null,
         moduleId: dto.moduleId ?? null,
         teacherId,
       })
@@ -107,6 +108,7 @@ export class LessonsService {
     const patch: Partial<typeof lessons.$inferInsert> = {};
     if (dto.title !== undefined) patch.title = dto.title;
     if (dto.type !== undefined) patch.type = dto.type;
+    if (dto.kind !== undefined) patch.kind = dto.kind;
     if (dto.moduleId !== undefined) patch.moduleId = dto.moduleId;
 
     if (Object.keys(patch).length === 0) {

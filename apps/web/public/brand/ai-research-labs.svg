@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 96" fill="none" role="img" aria-label="AI Research Labs">
+  <g fill="#5A5AC8">
+    <!-- sparkle above the i -->
+    <path d="M118 10 L121.2 20.5 L132 23.5 L121.2 26.5 L118 37 L114.8 26.5 L104 23.5 L114.8 20.5 Z"/>
+    <!-- ai -->
+    <text x="0" y="78" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="78" font-weight="800" letter-spacing="-2">ai</text>
+    <!-- research labs stacked, slightly larger than tiny captions -->
+    <text x="148" y="42" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="26" font-weight="400" letter-spacing="0.5">research</text>
+    <text x="148" y="76" font-family="Inter, system-ui, -apple-system, Segoe UI, sans-serif" font-size="26" font-weight="400" letter-spacing="0.5">labs</text>
+  </g>
+</svg>

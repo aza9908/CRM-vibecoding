@@ -11,7 +11,7 @@ export interface TabItem {
 /**
  * Minimal underlined tab bar (no extra dependency). Controlled by the parent so
  * report pages can keep the active tab in their own state. Styled to match the
- * Lumen indigo accent used elsewhere.
+ * Brand purple accent used elsewhere.
  */
 export function Tabs({
   items,

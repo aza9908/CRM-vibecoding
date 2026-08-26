@@ -101,6 +101,22 @@ export function useGenerateBlocks(lessonId: string) {
   });
 }
 
+/**
+ * POST /lessons/:id/blocks/generate-from-file — turns an already-uploaded
+ * material (see `useUploadMaterialFile`) into a full block-based lesson via
+ * the same server-side pipeline as topic-based generation.
+ */
+export function useGenerateBlocksFromFile(lessonId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { materialId: string }) =>
+      api.post<Block[]>(`/lessons/${lessonId}/blocks/generate-from-file`, dto),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.lesson(lessonId) });
+    },
+  });
+}
+
 /** GET /curriculum — module/lesson tree (with per-lesson progress for students). */
 export function useCurriculum() {
   return useQuery({

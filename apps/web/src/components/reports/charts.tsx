@@ -14,12 +14,12 @@ import {
 } from 'recharts';
 
 /**
- * Thin recharts wrappers themed to the Lumen palette (indigo `--primary`).
+ * Thin recharts wrappers themed to the AI Research Labs palette (`--primary`).
  * Colors reference the CSS variables so charts follow light/dark mode. The
  * data is always pre-aggregated by the API; these components only draw it.
  */
 
-/** Indigo-led categorical palette for donut/segmented charts. */
+/** Brand-led categorical palette for donut/segmented charts. */
 export const CHART_COLORS = [
   'hsl(var(--primary))',
   '#10b981', // emerald-500 — "completed" / positive
@@ -59,11 +59,41 @@ function ChartTooltip({
 export interface BarDatum {
   label: string;
   value: number;
+  /** Optional per-bar color (e.g. unique student colors). */
+  color?: string;
+}
+
+/** Distinct palette for up to ~20 students in post-session charts. */
+export const STUDENT_COLORS = [
+  '#7c3aed', // violet
+  '#2563eb', // blue
+  '#0891b2', // cyan
+  '#059669', // emerald
+  '#65a30d', // lime
+  '#ca8a04', // yellow
+  '#ea580c', // orange
+  '#dc2626', // red
+  '#db2777', // pink
+  '#9333ea', // purple
+  '#4f46e5', // indigo
+  '#0d9488', // teal
+  '#16a34a', // green
+  '#d97706', // amber
+  '#e11d48', // rose
+  '#6366f1', // indigo-400
+  '#14b8a6', // teal-400
+  '#8b5cf6', // violet-400
+  '#f43f5e', // rose-500
+  '#0ea5e9', // sky
+];
+
+export function studentColor(index: number): string {
+  return STUDENT_COLORS[index % STUDENT_COLORS.length]!;
 }
 
 /**
  * Horizontal bar chart — good for "progress / completion by student" where
- * labels are names. `unit` is appended to the tooltip value (e.g. "%").
+ * labels are names. Supports per-bar colors for multi-student sessions.
  */
 export function HorizontalBars({
   data,
@@ -101,10 +131,16 @@ export function HorizontalBars({
         />
         <Bar
           dataKey="value"
-          fill="hsl(var(--primary))"
           radius={[0, 4, 4, 0]}
           maxBarSize={22}
-        />
+        >
+          {data.map((d, i) => (
+            <Cell
+              key={`${d.label}-${i}`}
+              fill={d.color ?? studentColor(i)}
+            />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );

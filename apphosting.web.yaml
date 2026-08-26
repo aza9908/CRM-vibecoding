@@ -4,11 +4,12 @@
 # npm-workspaces lockfile and packages/shared are available.
 
 runConfig:
-  cpu: 1
-  memoryMiB: 1024
-  minInstances: 0
+  # Workshop day: warm Next.js for 15+ concurrent live tabs.
+  cpu: 2
+  memoryMiB: 2048
+  minInstances: 1
   maxInstances: 4
-  concurrency: 80
+  concurrency: 120
 
 scripts:
   # next start binds to $PORT provided by Cloud Run.

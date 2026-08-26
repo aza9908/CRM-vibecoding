@@ -256,7 +256,7 @@ export function ReportDetailView({
     setExportError(null);
     setExporting(true);
     try {
-      await downloadReportExport(lessonId, 'csv');
+      await downloadReportExport(lessonId, 'xlsx');
     } catch (err) {
       setExportError(err instanceof Error ? err.message : tc('error'));
     } finally {
@@ -315,7 +315,7 @@ export function ReportDetailView({
             disabled={exporting}
           >
             {exporting ? <Spinner /> : <Download />}
-            {t('exportCsv')}
+            {t('exportExcel')}
           </Button>
         </div>
         {exportError && (
