@@ -45,6 +45,7 @@ export const blockType = pgEnum('block_type', [
   'action_button',
   'input_file',
   'test',
+  'checklist',
 ]);
 export const progressStatus = pgEnum('progress_status', [
   'started',

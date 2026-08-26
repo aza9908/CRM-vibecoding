@@ -191,6 +191,11 @@
     "blockActionButton": "Кнопка действия",
     "blockInputFile": "Загрузка файла",
     "blockTest": "Тест",
+    "blockChecklist": "Чеклист",
+    "checklistItems": "Пункты чеклиста",
+    "checklistItemPlaceholder": "Текст пункта, напр. «VS Code установлен»",
+    "checklistLinkPlaceholder": "Ссылка (необязательно)",
+    "checklistTitlePlaceholder": "Заголовок чеклиста",
     "blockContent": "Содержимое",
     "imageUrl": "URL изображения",
     "options": "Варианты",
@@ -303,7 +308,8 @@
     "prevSlide": "Назад",
     "nextSlide": "Далее",
     "exitFullscreen": "Закрыть",
-    "fullscreenMode": "Полноэкранный режим"
+    "fullscreenMode": "Полноэкранный режим",
+    "checklistProgress": "Отмечено {checked} из {total}"
   },
   "materials": {
     "title": "Материалы",
@@ -477,5 +483,24 @@
     "subtitle": "Пройдите вводный урок перед началом обучения",
     "openLesson": "Открыть вводный урок",
     "empty": "Вводный урок для вашей компании ещё не добавлен — обратитесь к преподавателю"
+  },
+  "program": {
+    "manageTitle": "Управление программой",
+    "manageHint": "Курс, разделы и распределение уроков по программе — от первого урока до Demo day",
+    "courseTitle": "Название курса",
+    "moduleCodePlaceholder": "Код (M1)",
+    "moduleTitlePlaceholder": "Название раздела",
+    "addModule": "Добавить раздел",
+    "editModule": "Редактировать раздел",
+    "deleteModule": "Удалить раздел",
+    "deleteModuleConfirm": "Удалить раздел «{title}»?",
+    "save": "Сохранить",
+    "unassignedLessonsTitle": "Уроки без раздела",
+    "unassignedLessonsHint": "Назначьте разделу и типу, чтобы урок появился в расписании и программе обучения",
+    "assignToModule": "Раздел",
+    "assignKind": "Тип",
+    "assign": "Назначить",
+    "noModulesYet": "Сначала создайте раздел выше",
+    "chooseModule": "Выберите раздел"
   }
 }

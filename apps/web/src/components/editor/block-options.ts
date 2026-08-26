@@ -24,6 +24,16 @@ export interface TestOptions {
   correctIndex: number;
 }
 
+/** One line of a `checklist` block — a label with an optional instruction link. */
+export interface ChecklistItem {
+  text: string;
+  url?: string;
+}
+
+export interface ChecklistOptions {
+  items: ChecklistItem[];
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
@@ -62,4 +72,20 @@ export function readTestOptions(value: unknown): TestOptions {
     choices: choices.length ? choices : ['', ''],
     correctIndex,
   };
+}
+
+export function readChecklistOptions(value: unknown): ChecklistOptions {
+  const rec = asRecord(value);
+  const raw = Array.isArray(rec.items) ? rec.items : [];
+  const items: ChecklistItem[] = raw.map((v) => {
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      return {
+        text: typeof o.text === 'string' ? o.text : '',
+        url: typeof o.url === 'string' && o.url ? o.url : undefined,
+      };
+    }
+    return { text: typeof v === 'string' ? v : '' };
+  });
+  return { items: items.length ? items : [{ text: '' }] };
 }

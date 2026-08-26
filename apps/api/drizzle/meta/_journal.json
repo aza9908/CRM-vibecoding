@@ -43,6 +43,13 @@
       "when": 1787734845640,
       "tag": "0005_new_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787744765673,
+      "tag": "0006_peaceful_stature",
+      "breakpoints": true
     }
   ]
 }

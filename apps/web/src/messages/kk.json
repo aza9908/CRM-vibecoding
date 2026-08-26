@@ -191,6 +191,11 @@
     "blockActionButton": "Әрекет түймесі",
     "blockInputFile": "Файл жүктеу",
     "blockTest": "Тест",
+    "blockChecklist": "Чеклист",
+    "checklistItems": "Чеклист тармақтары",
+    "checklistItemPlaceholder": "Тармақ мәтіні, мыс. «VS Code орнатылған»",
+    "checklistLinkPlaceholder": "Сілтеме (міндетті емес)",
+    "checklistTitlePlaceholder": "Чеклист тақырыбы",
     "blockContent": "Мазмұны",
     "imageUrl": "Сурет URL",
     "options": "Нұсқалар",
@@ -303,7 +308,8 @@
     "prevSlide": "Артқа",
     "nextSlide": "Келесі",
     "exitFullscreen": "Жабу",
-    "fullscreenMode": "Толық экран режимі"
+    "fullscreenMode": "Толық экран режимі",
+    "checklistProgress": "{total} ішінен {checked} белгіленді"
   },
   "materials": {
     "title": "Материалдар",
@@ -477,5 +483,24 @@
     "subtitle": "Оқу басталмас бұрын кіріспе сабақты өтіңіз",
     "openLesson": "Кіріспе сабақты ашу",
     "empty": "Сіздің компанияңыз үшін кіріспе сабақ әлі қосылмаған — мұғаліміңізге хабарласыңыз"
+  },
+  "program": {
+    "manageTitle": "Бағдарламаны басқару",
+    "manageHint": "Курс, бөлімдер және сабақтардың бағдарламаға бөлінуі — бірінші сабақтан Demo day дейін",
+    "courseTitle": "Курс атауы",
+    "moduleCodePlaceholder": "Код (M1)",
+    "moduleTitlePlaceholder": "Бөлім атауы",
+    "addModule": "Бөлім қосу",
+    "editModule": "Бөлімді өңдеу",
+    "deleteModule": "Бөлімді жою",
+    "deleteModuleConfirm": "«{title}» бөлімін жою керек пе?",
+    "save": "Сақтау",
+    "unassignedLessonsTitle": "Бөлімсіз сабақтар",
+    "unassignedLessonsHint": "Сабақ кесте мен бағдарламада көрінуі үшін бөлім мен түрді тағайындаңыз",
+    "assignToModule": "Бөлім",
+    "assignKind": "Түрі",
+    "assign": "Тағайындау",
+    "noModulesYet": "Алдымен жоғарыда бөлім жасаңыз",
+    "chooseModule": "Бөлімді таңдаңыз"
   }
 }

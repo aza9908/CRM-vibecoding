@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 import { ImageUpload } from './image-upload';
 import {
   readActionButtonOptions,
+  readChecklistOptions,
   readRatingOptions,
   readSelectOptions,
   readTestOptions,
+  type ChecklistItem,
 } from './block-options';
 
 type Patch = Partial<Omit<EditorBlock, 'localId' | 'type'>>;
@@ -84,6 +86,69 @@ function ChoiceList({
       >
         <Plus />
         {t('options')}
+      </Button>
+    </div>
+  );
+}
+
+/** Editor for a `checklist` block's items — each a checkbox label with an
+ * optional instruction link (e.g. "VS Code установлен" → download page). */
+function ChecklistItemsEditor({
+  items,
+  onChange,
+}: {
+  items: ChecklistItem[];
+  onChange: (next: ChecklistItem[]) => void;
+}) {
+  const t = useTranslations('editor');
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {t('checklistItems')}
+      </Label>
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <Input
+            value={item.text}
+            placeholder={t('checklistItemPlaceholder')}
+            onChange={(e) => {
+              const next = [...items];
+              next[i] = { text: e.target.value, url: item.url };
+              onChange(next);
+            }}
+          />
+          <Input
+            value={item.url ?? ''}
+            placeholder={t('checklistLinkPlaceholder')}
+            className="w-56"
+            onChange={(e) => {
+              const next = [...items];
+              next[i] = { text: item.text, url: e.target.value || undefined };
+              onChange(next);
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => onChange(items.filter((_, idx) => idx !== i))}
+            disabled={items.length <= 1}
+            aria-label="Remove item"
+          >
+            <X />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-fit"
+        onClick={() => onChange([...items, { text: '' }])}
+      >
+        <Plus />
+        {t('checklistItems')}
       </Button>
     </div>
   );
@@ -275,6 +340,28 @@ export function BlockEditor({ block, onChange }: Props) {
                 },
               })
             }
+          />
+        </div>
+      );
+    }
+
+    case 'checklist': {
+      const opts = readChecklistOptions(block.options);
+      return (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t('blockContent')}
+            </Label>
+            <Input
+              value={block.content ?? ''}
+              onChange={(e) => onChange({ content: e.target.value })}
+              placeholder={t('checklistTitlePlaceholder')}
+            />
+          </div>
+          <ChecklistItemsEditor
+            items={opts.items}
+            onChange={(items) => onChange({ options: { items } })}
           />
         </div>
       );

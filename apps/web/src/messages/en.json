@@ -191,6 +191,11 @@
     "blockActionButton": "Action button",
     "blockInputFile": "File upload",
     "blockTest": "Test",
+    "blockChecklist": "Checklist",
+    "checklistItems": "Checklist items",
+    "checklistItemPlaceholder": "Item text, e.g. \"VS Code installed\"",
+    "checklistLinkPlaceholder": "Link (optional)",
+    "checklistTitlePlaceholder": "Checklist title",
     "blockContent": "Content",
     "imageUrl": "Image URL",
     "options": "Options",
@@ -303,7 +308,8 @@
     "prevSlide": "Back",
     "nextSlide": "Next",
     "exitFullscreen": "Close",
-    "fullscreenMode": "Fullscreen mode"
+    "fullscreenMode": "Fullscreen mode",
+    "checklistProgress": "{checked} of {total} checked"
   },
   "materials": {
     "title": "Materials",
@@ -477,5 +483,24 @@
     "subtitle": "Complete the intro lesson before the program starts",
     "openLesson": "Open the intro lesson",
     "empty": "No intro lesson has been added for your company yet — ask your teacher"
+  },
+  "program": {
+    "manageTitle": "Manage the program",
+    "manageHint": "Course, modules, and how lessons map to the program — from lesson one to Demo day",
+    "courseTitle": "Course title",
+    "moduleCodePlaceholder": "Code (M1)",
+    "moduleTitlePlaceholder": "Module title",
+    "addModule": "Add module",
+    "editModule": "Edit module",
+    "deleteModule": "Delete module",
+    "deleteModuleConfirm": "Delete module \"{title}\"?",
+    "save": "Save",
+    "unassignedLessonsTitle": "Lessons with no module",
+    "unassignedLessonsHint": "Assign a module and kind so the lesson shows up in the schedule and program",
+    "assignToModule": "Module",
+    "assignKind": "Kind",
+    "assign": "Assign",
+    "noModulesYet": "Create a module above first",
+    "chooseModule": "Choose a module"
   }
 }

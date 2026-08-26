@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Eye, FileText, Link2, Paperclip, Upload } from 'lucide-react';
+import { Check, ExternalLink, Eye, FileText, Link2, Paperclip, Upload } from 'lucide-react';
 import type { Block } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { isInputBlock } from '@/lib/blocks';
@@ -366,6 +366,16 @@ function BlockBody({
         </div>
       );
 
+    case 'checklist':
+      return (
+        <ChecklistBlockBody
+          block={block}
+          value={value}
+          readOnly={readOnly}
+          onChange={onChange}
+        />
+      );
+
     case 'input_select':
     case 'test': {
       const optsRec =
@@ -720,6 +730,132 @@ function FileAnswerInput({
           ) : null}
         </>
       )}
+    </div>
+  );
+}
+
+interface ChecklistItemOption {
+  text: string;
+  url?: string;
+}
+
+/** Read a `checklist` block's items from its `options` payload. */
+function parseChecklistItems(options: unknown): ChecklistItemOption[] {
+  if (!options || typeof options !== 'object') return [];
+  const items = (options as Record<string, unknown>).items;
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((v) => {
+      if (typeof v === 'string') return { text: v };
+      if (v && typeof v === 'object') {
+        const o = v as Record<string, unknown>;
+        return {
+          text: typeof o.text === 'string' ? o.text : '',
+          url: typeof o.url === 'string' && o.url ? o.url : undefined,
+        };
+      }
+      return null;
+    })
+    .filter((x): x is ChecklistItemOption => !!x && x.text.length > 0);
+}
+
+/** Parse the checked-index set stored in `answerText` (JSON array of numbers). */
+function parseCheckedIndices(value: string): Set<number> {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return new Set(parsed.filter((x): x is number => typeof x === 'number'));
+    }
+  } catch {
+    /* no saved state yet */
+  }
+  return new Set();
+}
+
+/**
+ * `checklist` block — a readiness/todo list with real checkboxes (replacing
+ * the earlier workaround of one `input_select` block per item). Each item is
+ * a label with an optional instruction link (e.g. a download page or video).
+ * Checked state is stored as a JSON array of indices in `answerText`.
+ */
+function ChecklistBlockBody({
+  block,
+  value,
+  readOnly,
+  onChange,
+}: {
+  block: Block;
+  value: string;
+  readOnly?: boolean;
+  onChange: (next: string) => void;
+}) {
+  const t = useTranslations('live');
+  const items = React.useMemo(() => parseChecklistItems(block.options), [block.options]);
+  const checked = React.useMemo(() => parseCheckedIndices(value), [value]);
+
+  function toggle(index: number) {
+    if (readOnly) return;
+    const next = new Set(checked);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    onChange(JSON.stringify([...next].sort((a, b) => a - b)));
+  }
+
+  return (
+    <div className="space-y-2">
+      {block.content && (
+        <Label className="text-sm">
+          <RichBlockText text={block.content} asLabel />
+        </Label>
+      )}
+      <ul className="flex flex-col gap-1.5">
+        {items.map((item, i) => {
+          const isChecked = checked.has(i);
+          return (
+            <li key={i} className="flex items-center gap-2">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={isChecked}
+                disabled={readOnly}
+                onClick={() => toggle(i)}
+                className={cn(
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors disabled:opacity-60',
+                  isChecked
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-input bg-background hover:bg-accent',
+                )}
+              >
+                {isChecked ? <Check className="h-3.5 w-3.5" /> : null}
+              </button>
+              <span
+                className={cn(
+                  'flex-1 text-sm',
+                  isChecked && 'text-muted-foreground line-through',
+                )}
+              >
+                {item.text}
+              </span>
+              {item.url ? (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-muted-foreground hover:text-primary"
+                  aria-label={item.text}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+      {items.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          {t('checklistProgress', { checked: checked.size, total: items.length })}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -54,21 +54,24 @@ export class CurriculumService {
 
     const moduleIds = moduleRows.map((m) => m.id);
 
-    // Lessons across all modules of this course, ordered for stable rendering.
-    const lessonRows = moduleIds.length
-      ? await this.db
-          .select({
-            id: lessons.id,
-            moduleId: lessons.moduleId,
-            title: lessons.title,
-            type: lessons.type,
-            kind: lessons.kind,
-            order: lessons.order,
-          })
-          .from(lessons)
-          .where(inArray(lessons.moduleId, moduleIds))
-          .orderBy(asc(lessons.order))
-      : [];
+    // Every lesson owned by this org, not just ones already attached to a
+    // module — the editor creates module-less lessons by default (see the
+    // comment on `lessons.organizationId` in schema.ts), so scoping this
+    // query through `moduleIds` would silently hide most real content.
+    // Module-less lessons are bucketed into a synthetic "unassigned" module
+    // below instead of being dropped.
+    const lessonRows = await this.db
+      .select({
+        id: lessons.id,
+        moduleId: lessons.moduleId,
+        title: lessons.title,
+        type: lessons.type,
+        kind: lessons.kind,
+        order: lessons.order,
+      })
+      .from(lessons)
+      .where(eq(lessons.organizationId, orgId))
+      .orderBy(asc(lessons.order));
 
     const lessonIds = lessonRows.map((l) => l.id);
 
@@ -92,9 +95,13 @@ export class CurriculumService {
       outcomesByLesson.set(o.lessonId, list);
     }
 
+    /** Synthetic module id for lessons with no real `moduleId`. Never sent
+     * to `/program/modules/*` — the client must not render edit/delete
+     * controls for it, only for real (UUID) module rows. */
+    const UNASSIGNED_MODULE_ID = 'unassigned';
+
     const lessonsByModule = new Map<string, CurriculumLesson[]>();
     for (const l of lessonRows) {
-      if (!l.moduleId) continue;
       const lesson: CurriculumLesson = {
         id: l.id,
         title: l.title,
@@ -103,9 +110,10 @@ export class CurriculumService {
         order: l.order,
         outcomes: outcomesByLesson.get(l.id) ?? [],
       };
-      const list = lessonsByModule.get(l.moduleId) ?? [];
+      const bucketId = l.moduleId ?? UNASSIGNED_MODULE_ID;
+      const list = lessonsByModule.get(bucketId) ?? [];
       list.push(lesson);
-      lessonsByModule.set(l.moduleId, list);
+      lessonsByModule.set(bucketId, list);
     }
 
     const modulesTree: CurriculumModule[] = moduleRows.map((m) => ({
@@ -118,6 +126,18 @@ export class CurriculumService {
       // overwrites this with the real per-module average.
       progressPercent: 0,
     }));
+
+    const unassignedLessons = lessonsByModule.get(UNASSIGNED_MODULE_ID) ?? [];
+    if (unassignedLessons.length > 0) {
+      modulesTree.push({
+        id: UNASSIGNED_MODULE_ID,
+        code: null,
+        title: 'Без раздела',
+        order: Number.MAX_SAFE_INTEGER,
+        lessons: unassignedLessons,
+        progressPercent: 0,
+      });
+    }
 
     return { course: { id: course.id, title: course.title }, modules: modulesTree };
   }

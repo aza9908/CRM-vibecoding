@@ -7,6 +7,7 @@ export const INPUT_BLOCK_TYPES: readonly BlockType[] = [
   'input_rating',
   'input_file',
   'test',
+  'checklist',
 ];
 
 /** Whether a block type collects an answer from the student. */
@@ -33,6 +34,8 @@ export function blockLabelKey(type: BlockType): string {
       return 'blockInputFile';
     case 'test':
       return 'blockTest';
+    case 'checklist':
+      return 'blockChecklist';
     default:
       return 'blockText';
   }
@@ -48,4 +51,5 @@ export const ALL_BLOCK_TYPES: readonly BlockType[] = [
   'action_button',
   'input_file',
   'test',
+  'checklist',
 ];

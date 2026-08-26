@@ -3,11 +3,18 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import type { CurriculumModule, CurriculumTree } from '@lms/shared';
+import {
+  lessonKindEnum,
+  type CurriculumLesson,
+  type CurriculumModule,
+  type CurriculumTree,
+  type LessonKind,
+} from '@lms/shared';
 import {
   useCreateModule,
   useDeleteModule,
   useUpdateModule,
+  useUpdateLesson,
   useUpsertCourse,
 } from '@/lib/api/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +22,96 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+const KIND_LABEL_KEY: Record<LessonKind, string> = {
+  intro: 'kindIntro',
+  workshop: 'kindWorkshop',
+  qa: 'kindQa',
+  demo_day: 'kindDemoDay',
+};
+
+/** Sentinel value for "no kind selected" — Radix Select can't hold '' as an item value. */
+const KIND_NONE = '__none__';
+
+/** One module-less lesson, with controls to assign it a module + kind so it
+ * shows up in the curriculum timeline and schedule. */
+function UnassignedLessonRow({
+  lesson,
+  modules,
+}: {
+  lesson: CurriculumLesson;
+  modules: CurriculumModule[];
+}) {
+  const t = useTranslations('program');
+  const tl = useTranslations('lessons');
+  const update = useUpdateLesson(lesson.id);
+
+  const [moduleId, setModuleId] = useState('');
+  const [kind, setKind] = useState<LessonKind | typeof KIND_NONE>(
+    lesson.kind ?? KIND_NONE,
+  );
+
+  async function assign() {
+    if (!moduleId) return;
+    await update.mutateAsync({
+      moduleId,
+      kind: kind === KIND_NONE ? undefined : kind,
+    });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border p-2">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        {lesson.title}
+      </span>
+      <Select value={moduleId} onValueChange={setModuleId}>
+        <SelectTrigger className="h-8 w-44">
+          <SelectValue placeholder={t('chooseModule')} />
+        </SelectTrigger>
+        <SelectContent>
+          {modules.map((m) => (
+            <SelectItem key={m.id} value={m.id}>
+              {m.code ? `${m.code} · ` : ''}
+              {m.title}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={kind}
+        onValueChange={(v) => setKind(v as LessonKind | typeof KIND_NONE)}
+      >
+        <SelectTrigger className="h-8 w-36">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={KIND_NONE}>{tl('kindNone')}</SelectItem>
+          {lessonKindEnum.options.map((k) => (
+            <SelectItem key={k} value={k}>
+              {tl(KIND_LABEL_KEY[k])}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        size="sm"
+        onClick={assign}
+        disabled={!moduleId || update.isPending}
+      >
+        {update.isPending ? <Spinner /> : null}
+        {t('assign')}
+      </Button>
+    </div>
+  );
+}
 
 /** Inline rename/delete row for one existing module. */
 function ModuleRow({ moduleId, title, code }: { moduleId: string; title: string; code: string | null }) {
@@ -136,7 +233,13 @@ export function ProgramEditor({ curriculum }: { curriculum: CurriculumTree | und
     setNewModuleCode('');
   }
 
-  const modules: CurriculumModule[] = curriculum?.modules ?? [];
+  // The `unassigned` id is a synthetic bucket the API builds for module-less
+  // lessons (see curriculum.service.ts) — it is never a real module row and
+  // must never be sent to /program/modules/* (ParseUUIDPipe would reject it).
+  const allModules: CurriculumModule[] = curriculum?.modules ?? [];
+  const modules = allModules.filter((m) => m.id !== 'unassigned');
+  const unassignedLessons =
+    allModules.find((m) => m.id === 'unassigned')?.lessons ?? [];
 
   return (
     <Card>
@@ -166,6 +269,28 @@ export function ProgramEditor({ curriculum }: { curriculum: CurriculumTree | und
             <ModuleRow key={m.id} moduleId={m.id} title={m.title} code={m.code} />
           ))}
         </div>
+
+        {unassignedLessons.length > 0 ? (
+          <div className="flex flex-col gap-2 border-t pt-4">
+            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t('unassignedLessonsTitle')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {modules.length > 0 ? t('unassignedLessonsHint') : t('noModulesYet')}
+            </p>
+            {modules.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {unassignedLessons.map((lesson) => (
+                  <UnassignedLessonRow
+                    key={lesson.id}
+                    lesson={lesson}
+                    modules={modules}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <form onSubmit={addModule} className="flex items-end gap-2 border-t pt-4">
           <Input
