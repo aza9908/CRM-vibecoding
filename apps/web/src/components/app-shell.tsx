@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import {
   BarChart3,
   BookOpen,
+  Building2,
   CalendarClock,
   CheckCircle2,
   ClipboardList,
@@ -76,6 +77,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon: Ticket,
           },
           { href: '/admin/tasks', label: t('tasks'), icon: ClipboardList },
+        ]
+      : []),
+    ...(user?.isPlatformAdmin
+      ? [
+          {
+            href: '/platform/companies',
+            label: t('platformCompanies'),
+            icon: Building2,
+          },
         ]
       : []),
   ];

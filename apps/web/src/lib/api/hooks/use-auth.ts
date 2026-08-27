@@ -105,6 +105,7 @@ export function useMe() {
         occupation: me.occupation ?? null,
         role: me.role,
         organizationId: me.organizationId,
+        isPlatformAdmin: me.isPlatformAdmin,
       };
       setUser(user);
       return user;

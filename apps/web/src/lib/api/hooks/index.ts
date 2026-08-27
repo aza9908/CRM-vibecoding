@@ -12,4 +12,5 @@ export * from './use-analytics';
 export * from './use-program';
 export * from './use-admin';
 export * from './use-promo-codes';
+export * from './use-platform';
 export * from './use-tasks';

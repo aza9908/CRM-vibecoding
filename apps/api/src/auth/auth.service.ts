@@ -152,6 +152,15 @@ export class AuthService {
           organizationId,
         })
         .returning();
+
+      // A brand-new company should always have a code to hand out — the
+      // platform admin issues it, not the founder (see `PlatformController`);
+      // this just makes sure one exists from minute one instead of leaving
+      // the company invisible until someone remembers to create it by hand.
+      if (!dto.promoCode) {
+        await this.promoCodes.createInTx(tx, organizationId, user.id);
+      }
+
       return user as UserRecord;
     });
 
@@ -422,6 +431,7 @@ export class AuthService {
       role: user.role,
       orgId,
       aud: 'user',
+      ...(user.isPlatformAdmin ? { isPlatformAdmin: true } : {}),
     };
     const accessToken = this.jwt.sign(accessPayload, {
       secret: this.accessSecret,

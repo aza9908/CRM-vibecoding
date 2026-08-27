@@ -23,3 +23,16 @@ export type PromoCodeDto = {
   expiresAt: string | null;
   createdAt: string | null;
 };
+
+/**
+ * One company + its current active promo code, as listed on the
+ * platform-admin "companies" screen (`GET /platform/companies`). Distinct
+ * from `PromoCodeDto` above, which is scoped to one org's own admin view —
+ * this shape spans every organization, visible only to a platform admin
+ * (`AuthUserPayload.isPlatformAdmin`).
+ */
+export type CompanyCodeDto = {
+  organizationId: string;
+  organizationName: string;
+  code: PromoCodeDto;
+};

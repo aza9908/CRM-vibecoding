@@ -7,14 +7,21 @@ import { WorkbookSeedService } from '../db/workbook-seed.service';
 import { AdminController } from './admin.controller';
 import { AdminWorkbookController } from './admin-workbook.controller';
 import { PromoCodesController } from '../promo-codes/promo-codes.controller';
+import { PlatformController } from '../promo-codes/platform.controller';
 import { AdminService } from './admin.service';
 
 /** Admin-only user management module (list users, change roles, reset
  * passwords, promo codes). `AuthModule` supplies the guards; `UsersModule`
- * and `PromoCodesModule` the data access. */
+ * and `PromoCodesModule` the data access. `PlatformController` lives here too
+ * (not its own module) since it only needs the same two dependencies. */
 @Module({
   imports: [AuthModule, UsersModule, PromoCodesModule],
-  controllers: [AdminController, AdminWorkbookController, PromoCodesController],
+  controllers: [
+    AdminController,
+    AdminWorkbookController,
+    PromoCodesController,
+    PlatformController,
+  ],
   providers: [AdminService, WorkbookSeedService],
 })
 export class AdminModule implements OnModuleInit {

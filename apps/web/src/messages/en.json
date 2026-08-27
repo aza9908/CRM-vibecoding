@@ -41,6 +41,7 @@
     "cabinet": "Cabinet",
     "admin": "Admin",
     "tasks": "Tasks",
+    "platformCompanies": "Companies",
     "menu": "Menu",
     "closeMenu": "Close menu",
     "account": "Account",
@@ -464,6 +465,19 @@
     "expiresAtLabel": "Expires at (optional)",
     "noCodes": "No promo codes yet — create one so employees can join your company at registration",
     "codeCopied": "Copied"
+  },
+  "platform": {
+    "title": "Companies",
+    "subtitle": "Each company's promo code — hand it to their point of contact so employees can join at registration",
+    "colCompany": "Company",
+    "colCode": "Promo code",
+    "colUses": "Uses",
+    "colActions": "Actions",
+    "copy": "Copy",
+    "regenerate": "Regenerate code",
+    "regenerateConfirm": "Regenerate the promo code for \"{name}\"? The old code will stop working.",
+    "statusRevoked": "Revoked",
+    "noCompanies": "No companies yet"
   },
   "tools": {
     "title": "Tools & platforms",

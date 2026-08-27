@@ -13,6 +13,7 @@ interface RawUserClaims {
   role?: unknown;
   orgId?: unknown;
   aud?: unknown;
+  isPlatformAdmin?: unknown;
 }
 
 /**
@@ -66,6 +67,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_USER_STRATEGY) {
       role: payload.role as UserRole,
       orgId: payload.orgId,
       aud: 'user',
+      ...(payload.isPlatformAdmin === true ? { isPlatformAdmin: true } : {}),
     };
   }
 }

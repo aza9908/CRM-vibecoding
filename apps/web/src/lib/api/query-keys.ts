@@ -27,5 +27,6 @@ export const queryKeys = {
     ['analytics', 'company', 'users', userId] as const,
   adminUsers: ['admin', 'users'] as const,
   promoCodes: ['admin', 'promo-codes'] as const,
+  platformCompanies: ['platform', 'companies'] as const,
   tasks: ['tasks'] as const,
 };

@@ -5,11 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
-import { and, eq, sql } from 'drizzle-orm';
-import type { CreatePromoCodeDto, PromoCodeDto } from '@lms/shared';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import type { CompanyCodeDto, CreatePromoCodeDto, PromoCodeDto } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { promoCodes } from '../db/schema';
+import { organizations, promoCodes } from '../db/schema';
 
 /** Same ambiguity-free alphabet as live session codes; longer since these are
  * long-lived and typed by hand at signup rather than a 4-hour session join. */
@@ -47,8 +47,23 @@ export class PromoCodesService {
     createdBy: string,
     dto: CreatePromoCodeDto,
   ): Promise<PromoCodeDto> {
+    return this.createInTx(this.db, orgId, createdBy, dto);
+  }
+
+  /**
+   * Same as `create`, but runs against a caller-supplied db/transaction
+   * handle — used by `AuthService.register()` so a brand-new company's first
+   * promo code is created atomically with its founding account, in the same
+   * transaction as the org + user insert.
+   */
+  async createInTx(
+    db: Db,
+    orgId: string,
+    createdBy: string,
+    dto: CreatePromoCodeDto = {},
+  ): Promise<PromoCodeDto> {
     const code = await this.generateUniqueCode();
-    const [row] = await this.db
+    const [row] = await db
       .insert(promoCodes)
       .values({
         organizationId: orgId,
@@ -94,6 +109,60 @@ export class PromoCodesService {
       RETURNING organization_id
     `);
     return result.rows[0]?.organization_id ?? null;
+  }
+
+  /**
+   * Return `orgId`'s current active code, creating one if it doesn't have
+   * one yet. Used by the platform-admin cross-org view so every company
+   * always has a code to hand out, without anyone having to remember to
+   * click "create" for each new signup.
+   */
+  private async getOrCreateActiveCode(
+    orgId: string,
+    fallbackCreatedBy: string,
+  ): Promise<PromoCodeDto> {
+    const [existing] = await this.db
+      .select()
+      .from(promoCodes)
+      .where(and(eq(promoCodes.organizationId, orgId), eq(promoCodes.active, true)))
+      .orderBy(promoCodes.createdAt)
+      .limit(1);
+    if (existing) return toDto(existing);
+    return this.createInTx(this.db, orgId, fallbackCreatedBy);
+  }
+
+  /**
+   * Revoke every active code for `orgId` and issue a fresh one — for when a
+   * company's existing code needs to be reissued (e.g. it leaked or someone
+   * lost it). Only the platform admin can call this (see `PlatformController`).
+   */
+  async regenerate(orgId: string, byUserId: string): Promise<PromoCodeDto> {
+    await this.db
+      .update(promoCodes)
+      .set({ active: false })
+      .where(and(eq(promoCodes.organizationId, orgId), eq(promoCodes.active, true)));
+    return this.createInTx(this.db, orgId, byUserId);
+  }
+
+  /**
+   * Every organization in the system, each paired with its current active
+   * promo code (auto-created on first access). Platform-admin only — this is
+   * the one place codes are visible across tenants instead of scoped to a
+   * single `orgId`, so it must never be reachable through the regular
+   * `RolesGuard` path (see `PlatformAdminGuard`).
+   */
+  async listAllCompaniesWithCodes(requestedBy: string): Promise<CompanyCodeDto[]> {
+    const orgs = await this.db
+      .select({ id: organizations.id, name: organizations.name })
+      .from(organizations)
+      .orderBy(asc(organizations.name));
+
+    const result: CompanyCodeDto[] = [];
+    for (const org of orgs) {
+      const code = await this.getOrCreateActiveCode(org.id, requestedBy);
+      result.push({ organizationId: org.id, organizationName: org.name, code });
+    }
+    return result;
   }
 
   private randomCode(): string {

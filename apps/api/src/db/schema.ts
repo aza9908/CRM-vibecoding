@@ -78,6 +78,12 @@ export const users = pgTable(
     occupation: text('occupation'), // должность, собирается при регистрации
     avatarUrl: text('avatar_url'),
     role: userRole('role').notNull().default('student'),
+    // Platform-wide operator: can see/issue promo codes across every
+    // organization (not just their own). Not a `userRole` value — it's an
+    // orthogonal flag so a platform admin keeps a normal per-org role
+    // (teacher/admin/etc.) for everything else. Granted by direct DB write
+    // only; there is no self-service or admin-panel path to set it.
+    isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({

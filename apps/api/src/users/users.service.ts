@@ -15,6 +15,7 @@ export type UserRecord = {
   occupation: string | null;
   avatarUrl: string | null;
   role: UserRole;
+  isPlatformAdmin: boolean;
   createdAt: Date | null;
 };
 
@@ -94,6 +95,7 @@ export class UsersService {
       occupation: user.occupation,
       role: user.role,
       organizationId: user.organizationId,
+      isPlatformAdmin: user.isPlatformAdmin,
     };
   }
 

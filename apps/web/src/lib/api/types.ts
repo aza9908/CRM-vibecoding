@@ -94,6 +94,7 @@ export interface MeResponse {
   occupation: string | null;
   role: UserRole;
   organizationId: string | null;
+  isPlatformAdmin: boolean;
 }
 
 /** POST /uploads/presign response. */

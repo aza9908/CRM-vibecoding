@@ -94,6 +94,8 @@ export type AuthUserPayload = {
   role: UserRole;
   orgId: string;
   aud?: 'user';
+  /** Platform-wide operator: sees/issues promo codes across every org. */
+  isPlatformAdmin?: boolean;
 };
 
 /**
@@ -114,6 +116,8 @@ export type PublicUser = {
   occupation: string | null;
   role: UserRole;
   organizationId: string | null;
+  /** Platform-wide operator: sees/issues promo codes across every org. */
+  isPlatformAdmin: boolean;
 };
 
 /** Result returned by register/login/refresh. */
