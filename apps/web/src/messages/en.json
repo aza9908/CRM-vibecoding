@@ -202,6 +202,7 @@
     "dragToReorder": "Drag to reorder",
     "moveUp": "Move up",
     "moveDown": "Move down",
+    "previewErrorWrongOrg": "This lesson wasn't found for the account you're signed in with — it most likely belongs to a different company. Sign in with that company's account instead.",
     "uploadImage": "Upload image",
     "uploading": "Uploading…",
     "uploadFailed": "Could not upload the image",

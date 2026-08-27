@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { ArrowLeft, Eye, Maximize2 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useLesson } from '@/lib/api/hooks';
+import { ApiError } from '@/lib/api/client';
 import type { Block } from '@/lib/api/types';
 import { isInputBlock } from '@/lib/blocks';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
@@ -22,7 +23,7 @@ export function LessonPreviewView({ lessonId }: { lessonId: string }) {
   const t = useTranslations('editor');
   const tl = useTranslations('live');
   const tc = useTranslations('common');
-  const { data: lesson, isLoading, isError } = useLesson(lessonId);
+  const { data: lesson, isLoading, isError, error } = useLesson(lessonId);
   const [demoFocus, setDemoFocus] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [slideDeckOpen, setSlideDeckOpen] = useState(false);
@@ -43,9 +44,23 @@ export function LessonPreviewView({ lessonId }: { lessonId: string }) {
   }
 
   if (isError || !lesson) {
+    // 404 here almost always means the lesson belongs to a different
+    // organization than the one the logged-in account is signed into —
+    // lessons are tenant-scoped, so switching to that company's account is
+    // the fix, not a bug report.
+    const status = error instanceof ApiError ? error.status : undefined;
     return (
       <main className="container py-8">
         <p className="text-destructive">{tc('error')}</p>
+        {status === 404 ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t('previewErrorWrongOrg')}
+          </p>
+        ) : status ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {status}: {error instanceof ApiError ? error.message : ''}
+          </p>
+        ) : null}
         <Button asChild variant="outline" className="mt-4">
           <Link href={`/editor/${lessonId}`}>{tc('back')}</Link>
         </Button>
