@@ -72,6 +72,9 @@ export class LessonsService {
         moduleId: dto.moduleId ?? null,
         teacherId,
         ...(dto.order !== undefined ? { order: dto.order } : {}),
+        ...(dto.scheduledAt !== undefined
+          ? { scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null }
+          : {}),
       })
       .returning();
 
@@ -112,6 +115,9 @@ export class LessonsService {
     if (dto.kind !== undefined) patch.kind = dto.kind;
     if (dto.moduleId !== undefined) patch.moduleId = dto.moduleId;
     if (dto.order !== undefined) patch.order = dto.order;
+    if (dto.scheduledAt !== undefined) {
+      patch.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+    }
 
     if (Object.keys(patch).length === 0) {
       // Nothing to change — return the current row.

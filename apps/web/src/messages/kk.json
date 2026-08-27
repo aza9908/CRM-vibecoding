@@ -225,6 +225,16 @@
     "progressCompleted": "Аяқталды",
     "noProgress": "Басталмаған"
   },
+  "schedule": {
+    "dateTbd": "Күні нақтыланады",
+    "setDate": "Күн белгілеу",
+    "editDate": "Күнді өзгерту",
+    "clearDate": "Күнді алып тастау",
+    "save": "Сақтау",
+    "cancel": "Болдырмау",
+    "progressStarted": "Басталды",
+    "progressCompleted": "Аяқталды"
+  },
   "join": {
     "title": "Сабаққа кіру",
     "subtitle": "Сессия кодын және атыңызды енгізіңіз",

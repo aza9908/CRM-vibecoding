@@ -51,6 +51,8 @@ export const createLessonSchema = z.object({
   moduleId: z.string().uuid().optional(),
   /** Position within its module's lesson list — lower sorts first. */
   order: z.number().int().min(0).optional(),
+  /** When the class happens — shown to students on the schedule. `null` clears it. */
+  scheduledAt: z.string().datetime().nullable().optional(),
 });
 export type CreateLessonDto = z.infer<typeof createLessonSchema>;
 
@@ -108,6 +110,8 @@ export type CurriculumLesson = {
   type: z.infer<typeof lessonTypeEnum>;
   kind: LessonKind | null;
   order: number;
+  /** ISO datetime of the class, or null if the teacher hasn't scheduled it yet. */
+  scheduledAt: string | null;
   outcomes: CurriculumOutcome[];
   progressStatus?: ProgressStatus;
   /** 0–100 lesson progress (student view); absent for the teacher view. */

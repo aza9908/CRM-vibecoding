@@ -225,6 +225,16 @@
     "progressCompleted": "Завершено",
     "noProgress": "Не начато"
   },
+  "schedule": {
+    "dateTbd": "Дата уточняется",
+    "setDate": "Назначить дату",
+    "editDate": "Изменить дату",
+    "clearDate": "Убрать дату",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "progressStarted": "Начато",
+    "progressCompleted": "Завершено"
+  },
   "join": {
     "title": "Вход на урок",
     "subtitle": "Введите код сессии и ваше имя",

@@ -68,6 +68,7 @@ export class CurriculumService {
         type: lessons.type,
         kind: lessons.kind,
         order: lessons.order,
+        scheduledAt: lessons.scheduledAt,
       })
       .from(lessons)
       .where(eq(lessons.organizationId, orgId))
@@ -108,6 +109,7 @@ export class CurriculumService {
         type: l.type,
         kind: l.kind,
         order: l.order,
+        scheduledAt: l.scheduledAt ? l.scheduledAt.toISOString() : null,
         outcomes: outcomesByLesson.get(l.id) ?? [],
       };
       const bucketId = l.moduleId ?? UNASSIGNED_MODULE_ID;

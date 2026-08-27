@@ -225,6 +225,16 @@
     "progressCompleted": "Completed",
     "noProgress": "Not started"
   },
+  "schedule": {
+    "dateTbd": "Date to be announced",
+    "setDate": "Set date",
+    "editDate": "Edit date",
+    "clearDate": "Clear date",
+    "save": "Save",
+    "cancel": "Cancel",
+    "progressStarted": "Started",
+    "progressCompleted": "Completed"
+  },
   "join": {
     "title": "Join a lesson",
     "subtitle": "Enter the session code and your name",

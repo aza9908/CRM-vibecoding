@@ -185,6 +185,8 @@ export const lessons = pgTable(
     kind: lessonKind('kind'),
     contentUrl: text('content_url'),
     order: integer('order').notNull().default(0),
+    /** Teacher-set class time shown to students on the schedule; null until scheduled. */
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({
