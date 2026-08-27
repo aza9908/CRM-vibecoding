@@ -9,6 +9,7 @@ import type {
 } from '@lms/shared';
 import { useCurriculum } from '@/lib/api/hooks';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
 import { ProgramEditor } from '@/components/program/program-editor';
 import {
   Card,
@@ -59,6 +60,7 @@ function LessonStatusIcon({ status }: { status?: ProgressStatus }) {
 
 function LessonRow({ lesson }: { lesson: CurriculumLesson }) {
   const t = useTranslations('syllabus');
+  const tl = useTranslations('lessons');
   const isStarted = lesson.progressStatus === 'started';
   return (
     <li
@@ -68,12 +70,19 @@ function LessonRow({ lesson }: { lesson: CurriculumLesson }) {
           : 'rounded-lg border bg-card p-3'
       }
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-medium">
           <LessonStatusIcon status={lesson.progressStatus} />
           {lesson.title}
         </span>
-        <ProgressBadge status={lesson.progressStatus} />
+        <div className="flex flex-wrap items-center gap-2">
+          {lesson.kind ? (
+            <Badge variant={KIND_BADGE_VARIANT[lesson.kind]}>
+              {tl(KIND_LABEL_KEY[lesson.kind])}
+            </Badge>
+          ) : null}
+          <ProgressBadge status={lesson.progressStatus} />
+        </div>
       </div>
       {lesson.outcomes.length > 0 ? (
         <div className="mt-2 pl-6">

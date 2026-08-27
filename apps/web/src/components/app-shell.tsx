@@ -50,6 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...(isTeacher
       ? [
           { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
+          { href: '/lessons/past', label: t('pastLessons'), icon: History },
           {
             href: '/teacher/materials',
             label: t('materials'),
