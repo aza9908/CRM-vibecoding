@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { BookOpen, KeyRound } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useCurriculum } from '@/lib/api/hooks';
+import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
 import {
   Card,
   CardContent,
@@ -98,9 +99,16 @@ export function StudentLessonsView({
                     {lesson.moduleTitle}
                   </p>
                 </div>
-                <Badge variant="secondary">
-                  {Math.round(lesson.progressPercent ?? 0)}%
-                </Badge>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {lesson.kind ? (
+                    <Badge variant={KIND_BADGE_VARIANT[lesson.kind]}>
+                      {t(KIND_LABEL_KEY[lesson.kind])}
+                    </Badge>
+                  ) : null}
+                  <Badge variant="secondary">
+                    {Math.round(lesson.progressPercent ?? 0)}%
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 <Button asChild size="sm" variant="outline">

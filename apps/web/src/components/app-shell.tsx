@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * Chrome for every authenticated screen: top bar + right nav rail.
+ * Chrome for every authenticated screen: top bar + left nav rail.
  * Nav is role-aware so students never hit teacher-only 403 pages.
  */
 export function AppShell({ children }: { children: ReactNode }) {
@@ -134,11 +134,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex flex-1">
+        {/* `children` stays first in the DOM (and thus first in keyboard/
+         * screen-reader tab order, right after the header) — `order-first`
+         * on the nav below pulls it left purely visually, so users don't
+         * have to tab through the whole nav list to reach the page content
+         * on every route. */}
         <div className="min-w-0 flex-1">{children}</div>
 
         <nav
           aria-label="Main"
-          className="sticky top-16 hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col gap-1 overflow-y-auto border-l bg-card/60 p-3 sm:flex"
+          className="sticky top-16 order-first hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-card/60 p-3 sm:flex"
         >
           {nav.map((item) => {
             const active =

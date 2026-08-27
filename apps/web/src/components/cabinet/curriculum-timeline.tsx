@@ -3,28 +3,15 @@
 import { useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { CalendarClock, Pencil, X } from 'lucide-react';
-import type { CurriculumLesson, LessonKind } from '@lms/shared';
+import type { CurriculumLesson } from '@lms/shared';
 import { useCurriculum, useUpdateLesson } from '@/lib/api/hooks';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
-
-const KIND_LABEL_KEY: Record<LessonKind, string> = {
-  intro: 'kindIntro',
-  workshop: 'kindWorkshop',
-  qa: 'kindQa',
-  demo_day: 'kindDemoDay',
-};
-
-const KIND_BADGE_VARIANT: Record<LessonKind, 'secondary' | 'outline' | 'default'> = {
-  intro: 'outline',
-  workshop: 'secondary',
-  qa: 'default',
-  demo_day: 'default',
-};
 
 /** `datetime-local` inputs read/write "YYYY-MM-DDTHH:mm" in the browser's
  * local time zone (no offset) — convert to/from the ISO string the API uses. */

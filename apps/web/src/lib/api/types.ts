@@ -6,6 +6,7 @@
  */
 import type {
   BlockDto,
+  LessonKind,
   LessonType,
   UserRole,
   CurriculumOutcome,
@@ -16,6 +17,7 @@ export interface Lesson {
   id: string;
   title: string;
   type: LessonType;
+  kind: LessonKind | null;
   moduleId: string | null;
   organizationId: string;
   createdAt?: string;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, Eye, Save, Sparkles, Upload } from 'lucide-react';
+import { ArrowLeft, Check, Eye, Save, Sparkles, Upload } from 'lucide-react';
 import {
   DndContext,
   PointerSensor,
@@ -105,7 +105,47 @@ export function EditorView({ lessonId }: { lessonId: string }) {
     };
   }, [blocks, hydrated, lessonId]);
 
+  // Flush a still-pending debounced save on unmount (e.g. the back button —
+  // a one-click, highly reachable navigation right next to the content
+  // someone just edited). Without this, leaving within the 500ms debounce
+  // window clears the pending write and silently drops the edit. Reads
+  // `blocks` via a ref so this effect only fires on real unmount, not on
+  // every keystroke.
+  const blocksRef = useRef(blocks);
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        try {
+          localStorage.setItem(draftKey(lessonId), JSON.stringify(blocksRef.current));
+        } catch {
+          /* storage may be full / unavailable */
+        }
+      }
+    };
+  }, [lessonId]);
+
   const ids = useMemo(() => blocks.map((b) => b.localId), [blocks]);
+
+  // `AddBlockMenu` lives above the block list so it's reachable without
+  // scrolling, but new blocks still append at the end — without this, a
+  // teacher adding a block to a long lesson would see no visible change
+  // (the new block lands off-screen below the fold). Scroll it into view
+  // whenever the list grows; deletes/reorders (length unchanged) don't fire.
+  const blocksContainerRef = useRef<HTMLDivElement>(null);
+  const prevBlockCountRef = useRef(blocks.length);
+  useEffect(() => {
+    if (blocks.length > prevBlockCountRef.current) {
+      blocksContainerRef.current?.lastElementChild?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+    prevBlockCountRef.current = blocks.length;
+  }, [blocks.length]);
 
   const markDirty = useCallback(() => {
     setDirty(true);
@@ -204,11 +244,20 @@ export function EditorView({ lessonId }: { lessonId: string }) {
   return (
     <main className="container max-w-3xl py-8">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t('title')}
-          </p>
-          <h1 className="text-2xl font-bold tracking-tight">{lesson.title}</h1>
+        <div className="flex items-start gap-3">
+          <Button asChild variant="outline" size="icon" aria-label={tc('back')}>
+            <Link href="/teacher/lessons">
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t('title')}
+            </p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {lesson.title}
+            </h1>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {dirty && draftSaved ? (
@@ -240,13 +289,17 @@ export function EditorView({ lessonId }: { lessonId: string }) {
         </div>
       </div>
 
+      <div className="mb-4">
+        <AddBlockMenu onAdd={addBlock} />
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={onDragEnd}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          <div className="flex flex-col gap-4">
+          <div ref={blocksContainerRef} className="flex flex-col gap-4">
             {blocks.map((block, index) => (
               <SortableBlock
                 key={block.localId}
@@ -259,10 +312,6 @@ export function EditorView({ lessonId }: { lessonId: string }) {
           </div>
         </SortableContext>
       </DndContext>
-
-      <div className="mt-4">
-        <AddBlockMenu onAdd={addBlock} />
-      </div>
 
       <div className="mt-8">
         <LessonMaterialsPanel lessonId={lessonId} />

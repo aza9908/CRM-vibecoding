@@ -21,6 +21,7 @@ import {
   useDeleteLesson,
   useUpdateLesson,
 } from '@/lib/api/hooks';
+import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -99,6 +100,11 @@ export function LessonCard({
               <TypeIcon className="size-3.5" />
               {t(labelKey)}
             </Badge>
+            {lesson.kind ? (
+              <Badge variant={KIND_BADGE_VARIANT[lesson.kind]} className="w-fit">
+                {t(KIND_LABEL_KEY[lesson.kind])}
+              </Badge>
+            ) : null}
             {activeSession ? (
               <Badge className="w-fit gap-1.5 border-transparent bg-destructive/10 text-destructive">
                 <span className="size-2 animate-pulse rounded-full bg-destructive" />

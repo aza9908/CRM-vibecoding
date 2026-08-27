@@ -36,6 +36,7 @@ import {
   useUpdateLesson,
   useUpsertCourse,
 } from '@/lib/api/hooks';
+import { KIND_LABEL_KEY } from '@/lib/lesson-kind';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,13 +49,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const KIND_LABEL_KEY: Record<LessonKind, string> = {
-  intro: 'kindIntro',
-  workshop: 'kindWorkshop',
-  qa: 'kindQa',
-  demo_day: 'kindDemoDay',
-};
 
 /** Sentinel value for "no kind selected" — Radix Select can't hold '' as an item value. */
 const KIND_NONE = '__none__';
