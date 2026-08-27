@@ -200,6 +200,8 @@
     "imageUrl": "Сурет URL",
     "options": "Нұсқалар",
     "dragToReorder": "Ретін өзгерту үшін сүйреңіз",
+    "moveUp": "Жоғары жылжыту",
+    "moveDown": "Төмен жылжыту",
     "uploadImage": "Сурет жүктеу",
     "uploading": "Жүктелуде…",
     "uploadFailed": "Суретті жүктеу мүмкін болмады",
@@ -511,6 +513,8 @@
     "assignKind": "Түрі",
     "assign": "Тағайындау",
     "noModulesYet": "Алдымен жоғарыда бөлім жасаңыз",
-    "chooseModule": "Бөлімді таңдаңыз"
+    "chooseModule": "Бөлімді таңдаңыз",
+    "dragToReorder": "Ретін өзгерту үшін сүйреңіз",
+    "noLessonsInModule": "Бұл бөлімде әлі сабақтар жоқ"
   }
 }

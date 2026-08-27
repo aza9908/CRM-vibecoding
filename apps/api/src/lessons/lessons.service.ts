@@ -71,6 +71,7 @@ export class LessonsService {
         kind: dto.kind ?? null,
         moduleId: dto.moduleId ?? null,
         teacherId,
+        ...(dto.order !== undefined ? { order: dto.order } : {}),
       })
       .returning();
 
@@ -110,6 +111,7 @@ export class LessonsService {
     if (dto.type !== undefined) patch.type = dto.type;
     if (dto.kind !== undefined) patch.kind = dto.kind;
     if (dto.moduleId !== undefined) patch.moduleId = dto.moduleId;
+    if (dto.order !== undefined) patch.order = dto.order;
 
     if (Object.keys(patch).length === 0) {
       // Nothing to change — return the current row.

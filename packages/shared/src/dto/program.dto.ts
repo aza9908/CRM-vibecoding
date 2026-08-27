@@ -30,6 +30,14 @@ export const updateModuleSchema = z.object({
 });
 export type UpdateModuleDto = z.infer<typeof updateModuleSchema>;
 
+/** Body for `PUT /program/modules/order` — the full ordered list of module
+ * ids belonging to the org's course; position in the array becomes the new
+ * `order`. */
+export const reorderModulesSchema = z.object({
+  moduleIds: z.array(z.string().uuid()).min(1),
+});
+export type ReorderModulesDto = z.infer<typeof reorderModulesSchema>;
+
 /** A course row as returned by the program endpoints. */
 export type CourseDto = {
   id: string;

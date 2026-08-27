@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Plus, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
 import type { EditorBlock } from './editor-block';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -101,6 +101,19 @@ function ChecklistItemsEditor({
   onChange: (next: ChecklistItem[]) => void;
 }) {
   const t = useTranslations('editor');
+
+  function moveItem(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= items.length) return;
+    const current = items[index];
+    const swapped = items[target];
+    if (!current || !swapped) return;
+    const next = [...items];
+    next[index] = swapped;
+    next[target] = current;
+    onChange(next);
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -108,6 +121,30 @@ function ChecklistItemsEditor({
       </Label>
       {items.map((item, i) => (
         <div key={i} className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-col">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+              onClick={() => moveItem(i, -1)}
+              disabled={i === 0}
+              aria-label={t('moveUp')}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+              onClick={() => moveItem(i, 1)}
+              disabled={i === items.length - 1}
+              aria-label={t('moveDown')}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </div>
           <Input
             value={item.text}
             placeholder={t('checklistItemPlaceholder')}

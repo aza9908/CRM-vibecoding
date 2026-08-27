@@ -3,7 +3,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import type { CreateModuleDto, UpdateModuleDto, UpsertCourseDto } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { courses, modules } from '../db/schema';
+import { courses, lessons, modules } from '../db/schema';
 
 type CourseRow = typeof courses.$inferSelect;
 type ModuleRow = typeof modules.$inferSelect;
@@ -110,6 +110,62 @@ export class ProgramService {
     await this.assertModuleInOrg(moduleId, orgId);
     await this.db.delete(modules).where(eq(modules.id, moduleId));
     return { id: moduleId };
+  }
+
+  /**
+   * Reorder the org's modules: `moduleIds` is the full new order, position in
+   * the array becomes the new `order`. Ids not belonging to the org's course
+   * are silently ignored (no-op update matches zero rows) rather than
+   * throwing, so a stale client list can't 404 the whole drag.
+   */
+  async reorderModules(orgId: string, moduleIds: string[]): Promise<ModuleRow[]> {
+    const course = await this.getCourse(orgId);
+    if (!course) {
+      throw new NotFoundException('course_not_found');
+    }
+
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < moduleIds.length; i++) {
+        await tx
+          .update(modules)
+          .set({ order: i })
+          .where(and(eq(modules.id, moduleIds[i]), eq(modules.courseId, course.id)));
+      }
+    });
+
+    return this.db
+      .select()
+      .from(modules)
+      .where(eq(modules.courseId, course.id))
+      .orderBy(asc(modules.order));
+  }
+
+  /**
+   * Reorder the lessons inside one module: `lessonIds` is the full new order,
+   * position in the array becomes the new `order`. Same ignore-stale-ids
+   * behavior as `reorderModules`.
+   */
+  async reorderLessons(
+    orgId: string,
+    moduleId: string,
+    lessonIds: string[],
+  ): Promise<Array<typeof lessons.$inferSelect>> {
+    await this.assertModuleInOrg(moduleId, orgId);
+
+    await this.db.transaction(async (tx) => {
+      for (let i = 0; i < lessonIds.length; i++) {
+        await tx
+          .update(lessons)
+          .set({ order: i })
+          .where(and(eq(lessons.id, lessonIds[i]), eq(lessons.moduleId, moduleId)));
+      }
+    });
+
+    return this.db
+      .select()
+      .from(lessons)
+      .where(eq(lessons.moduleId, moduleId))
+      .orderBy(asc(lessons.order));
   }
 
   /** Assert a module belongs to `orgId`; throws 404 (not 403) otherwise. */

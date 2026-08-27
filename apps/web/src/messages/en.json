@@ -200,6 +200,8 @@
     "imageUrl": "Image URL",
     "options": "Options",
     "dragToReorder": "Drag to reorder",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
     "uploadImage": "Upload image",
     "uploading": "Uploading…",
     "uploadFailed": "Could not upload the image",
@@ -511,6 +513,8 @@
     "assignKind": "Kind",
     "assign": "Assign",
     "noModulesYet": "Create a module above first",
-    "chooseModule": "Choose a module"
+    "chooseModule": "Choose a module",
+    "dragToReorder": "Drag to reorder",
+    "noLessonsInModule": "No lessons in this module yet"
   }
 }

@@ -49,12 +49,22 @@ export const createLessonSchema = z.object({
   /** Curriculum position (intro/workshop/qa/demo_day) — independent of `type`. */
   kind: lessonKindEnum.optional(),
   moduleId: z.string().uuid().optional(),
+  /** Position within its module's lesson list — lower sorts first. */
+  order: z.number().int().min(0).optional(),
 });
 export type CreateLessonDto = z.infer<typeof createLessonSchema>;
 
 /** Body for `PATCH /lessons/:id`. */
 export const updateLessonSchema = createLessonSchema.partial();
 export type UpdateLessonDto = z.infer<typeof updateLessonSchema>;
+
+/** Body for `PUT /program/modules/:id/lessons/order` — the full ordered list
+ * of lesson ids belonging to that module; position in the array becomes the
+ * new `order`. */
+export const reorderLessonsSchema = z.object({
+  lessonIds: z.array(z.string().uuid()).min(1),
+});
+export type ReorderLessonsDto = z.infer<typeof reorderLessonsSchema>;
 
 /** Body for `PUT /lessons/:id/blocks` — bulk save (upsert + orphan delete). */
 export const saveBlocksSchema = z.object({
