@@ -488,7 +488,12 @@
     "regenerate": "Regenerate code",
     "regenerateConfirm": "Regenerate the promo code for \"{name}\"? The old code will stop working.",
     "statusRevoked": "Revoked",
-    "noCompanies": "No companies yet"
+    "noCompanies": "No companies yet",
+    "addCompany": "Add company",
+    "addCompanyTitle": "New company",
+    "companyNameLabel": "Company name",
+    "contactNameLabel": "Contact name (optional)",
+    "contactEmailLabel": "Contact email (optional)"
   },
   "tools": {
     "title": "Tools & platforms",

@@ -63,7 +63,7 @@ const SESSION_RESPONSES_PREFIX = 'session-responses';
 /** Marker prefix stored in `responses.answerText` for a file/screenshot answer. */
 const FILE_ANSWER_PREFIX = 'file:';
 /** Roles allowed to review a student's `input_file` submission. */
-const TEACHER_LIKE_ROLES = new Set(['teacher', 'admin', 'team_lead']);
+const TEACHER_LIKE_ROLES = new Set(['teacher', 'methodist', 'admin', 'team_lead']);
 
 /**
  * REST surface for live sessions (docs/04 §3).
@@ -243,8 +243,8 @@ export class SessionsController {
         throw new NotFoundException('session_not_found');
       }
     } else {
-      // Teachers/admins in the org only — not every student JWT in the tenant.
-      if (principal.role !== 'teacher' && principal.role !== 'admin') {
+      // Staff in the org only — not every student JWT in the tenant.
+      if (!TEACHER_LIKE_ROLES.has(principal.role)) {
         throw new NotFoundException('session_not_found');
       }
       await this.sessions.assertSessionInOrg(id, principal.orgId);
@@ -568,7 +568,7 @@ export class SessionsController {
       role = 'participant';
     } else {
       await this.sessions.assertSessionInOrg(id, principal.orgId);
-      if (principal.role === 'teacher' || principal.role === 'admin') {
+      if (principal.role === 'teacher' || principal.role === 'methodist' || principal.role === 'admin') {
         role = 'teacher';
         senderName = 'Преподаватель';
       }

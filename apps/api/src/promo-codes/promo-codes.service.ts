@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { CompanyCodeDto, CreatePromoCodeDto, PromoCodeDto } from '@lms/shared';
+import type {
+  CompanyCodeDto,
+  CreateCompanyDto,
+  CreatePromoCodeDto,
+  PromoCodeDto,
+} from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
 import { organizations, promoCodes } from '../db/schema';
@@ -163,6 +168,32 @@ export class PromoCodesService {
       const code = await this.getOrCreateActiveCode(org.id, requestedBy);
       result.push({ organizationId: org.id, organizationName: org.name, code });
     }
+    return result;
+  }
+
+  /**
+   * Add a company to the catalog (TZ §4.1) and issue its first promo code in
+   * the same transaction, so it's immediately usable — mirrors the day-one
+   * code every self-registered org used to get before §5.2 removed that
+   * path. Platform-admin only (see `PlatformController`); there is no
+   * per-org "create my own company" endpoint by design.
+   */
+  async createCompany(dto: CreateCompanyDto, createdBy: string): Promise<CompanyCodeDto> {
+    const result = await this.db.transaction(async (tx) => {
+      const [org] = await tx
+        .insert(organizations)
+        .values({
+          name: dto.name,
+          contactName: dto.contactName ?? null,
+          contactEmail: dto.contactEmail ?? null,
+          contactPhone: dto.contactPhone ?? null,
+          notes: dto.notes ?? null,
+          createdBy,
+        })
+        .returning();
+      const code = await this.createInTx(tx, org.id, createdBy);
+      return { organizationId: org.id, organizationName: org.name, code };
+    });
     return result;
   }
 

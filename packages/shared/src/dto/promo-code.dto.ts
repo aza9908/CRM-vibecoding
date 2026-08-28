@@ -39,3 +39,18 @@ export type CompanyCodeDto = {
   organizationName: string;
   code: PromoCodeDto;
 };
+
+/**
+ * Body for `POST /platform/companies` — adds a company to the catalog
+ * (TZ_LMS_roles_promocodes.md §4.1/§7.3). A company is metadata only; it
+ * never gets a login of its own. A promo code is auto-issued for it in the
+ * same request, same as the day-one code every company already gets.
+ */
+export const createCompanySchema = z.object({
+  name: z.string().min(1).max(200),
+  contactName: z.string().min(1).max(200).optional(),
+  contactEmail: z.string().email().optional(),
+  contactPhone: z.string().min(1).max(40).optional(),
+  notes: z.string().max(2000).optional(),
+});
+export type CreateCompanyDto = z.infer<typeof createCompanySchema>;

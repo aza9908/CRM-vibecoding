@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CompanyCodeDto } from '@lms/shared';
+import type { CompanyCodeDto, CreateCompanyDto } from '@lms/shared';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 
@@ -17,6 +17,18 @@ export function usePlatformCompanies() {
   return useQuery({
     queryKey: queryKeys.platformCompanies,
     queryFn: () => api.get<CompanyCodeDto[]>('/platform/companies'),
+  });
+}
+
+/** POST /platform/companies — add a company to the catalog and issue its
+ * first promo code. The only "create a company" path in the product. */
+export function useCreateCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateCompanyDto) =>
+      api.post<CompanyCodeDto>('/platform/companies', dto),
+    onSuccess: () =>
+      void qc.invalidateQueries({ queryKey: queryKeys.platformCompanies }),
   });
 }
 

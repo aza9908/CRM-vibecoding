@@ -2,13 +2,20 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, Copy, RotateCw } from 'lucide-react';
+import { Check, Copy, Plus, RotateCw } from 'lucide-react';
 import type { CompanyCodeDto } from '@lms/shared';
-import { usePlatformCompanies, useRegenerateCompanyCode } from '@/lib/api/hooks';
+import {
+  useCreateCompany,
+  usePlatformCompanies,
+  useRegenerateCompanyCode,
+} from '@/lib/api/hooks';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Modal } from '@/components/lessons/modal';
 
 /**
  * Platform-admin screen: every company in the system, each with its current
@@ -22,9 +29,27 @@ export function PlatformCompaniesView() {
   const tc = useTranslations('common');
   const { data, isLoading, isError } = usePlatformCompanies();
   const regenerate = useRegenerateCompanyCode();
+  const createCompany = useCreateCompany();
 
   const [copiedOrgId, setCopiedOrgId] = useState<string | null>(null);
   const [regeneratingOrgId, setRegeneratingOrgId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactEmail, setNewContactEmail] = useState('');
+
+  async function handleCreate() {
+    if (!newName.trim()) return;
+    await createCompany.mutateAsync({
+      name: newName.trim(),
+      contactName: newContactName.trim() || undefined,
+      contactEmail: newContactEmail.trim() || undefined,
+    });
+    setNewName('');
+    setNewContactName('');
+    setNewContactEmail('');
+    setCreateOpen(false);
+  }
 
   async function copyCode(company: CompanyCodeDto) {
     try {
@@ -50,9 +75,15 @@ export function PlatformCompaniesView() {
 
   return (
     <main className="container flex flex-col gap-6 py-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-muted-foreground">{t('subtitle')}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <Button type="button" onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" />
+          {t('addCompany')}
+        </Button>
       </div>
 
       {isLoading ? (
@@ -126,6 +157,50 @@ export function PlatformCompaniesView() {
           </table>
         </Card>
       )}
+
+      <Modal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title={t('addCompanyTitle')}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="companyName">{t('companyNameLabel')}</Label>
+            <Input
+              id="companyName"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contactName">{t('contactNameLabel')}</Label>
+            <Input
+              id="contactName"
+              value={newContactName}
+              onChange={(e) => setNewContactName(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contactEmail">{t('contactEmailLabel')}</Label>
+            <Input
+              id="contactEmail"
+              type="email"
+              value={newContactEmail}
+              onChange={(e) => setNewContactEmail(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={handleCreate}
+            disabled={!newName.trim() || createCompany.isPending}
+            className="w-full"
+          >
+            {createCompany.isPending ? <Spinner /> : null}
+            {tc('create')}
+          </Button>
+        </div>
+      </Modal>
     </main>
   );
 }

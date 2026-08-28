@@ -64,6 +64,6 @@ export class AdminController {
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.admin.resetPassword(user.orgId, id);
+    return this.admin.resetPassword(user.orgId, id, user.role);
   }
 }

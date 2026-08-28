@@ -79,11 +79,25 @@ export class AdminService {
    * Generate a fresh random password for a user, hash it, persist the hash,
    * and return the plaintext exactly once so the admin can relay it. Nothing
    * plaintext is stored or logged.
+   *
+   * Same admin-target guard as `changeRole`: a teacher/methodist resetting
+   * an admin's password would be an equivalent takeover of that account, so
+   * it's restricted the same way — only an acting admin can reset another
+   * admin's password.
    */
   async resetPassword(
     orgId: string,
     userId: string,
+    actingUserRole: UserRole,
   ): Promise<ResetPasswordResult> {
+    const target = await this.users.findByIdInOrg(userId, orgId);
+    if (!target) {
+      throw new NotFoundException('user_not_found');
+    }
+    if (target.role === 'admin' && actingUserRole !== 'admin') {
+      throw new ForbiddenException('only_admin_can_manage_admin_role');
+    }
+
     const temporaryPassword = generatePassword();
     const passwordHash = await argon2.hash(temporaryPassword, {
       type: argon2.argon2id,

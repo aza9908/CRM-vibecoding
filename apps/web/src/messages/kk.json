@@ -488,7 +488,12 @@
     "regenerate": "Кодты жаңарту",
     "regenerateConfirm": "«{name}» үшін промокодты жаңарту керек пе? Ескі код жұмыс істемей қалады.",
     "statusRevoked": "Кері қайтарылған",
-    "noCompanies": "Компаниялар әлі жоқ"
+    "noCompanies": "Компаниялар әлі жоқ",
+    "addCompany": "Компания қосу",
+    "addCompanyTitle": "Жаңа компания",
+    "companyNameLabel": "Компания атауы",
+    "contactNameLabel": "Байланыс тұлғасы (міндетті емес)",
+    "contactEmailLabel": "Байланыс тұлғасының email (міндетті емес)"
   },
   "tools": {
     "title": "Құралдар мен платформалар",

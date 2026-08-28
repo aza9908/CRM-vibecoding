@@ -47,6 +47,12 @@ type LiveServer = Server<ClientToServerEvents, ServerToClientEvents>;
 const room = (sessionId: string) => `session:${sessionId}`;
 const teachersRoom = (sessionId: string) => `session:${sessionId}:teachers`;
 
+/** Teacher/Methodist/Admin have identical live-session permissions
+ * (TZ_LMS_roles_promocodes.md §3.1). Only checked on non-participant
+ * identities — callers must guard `isParticipant()` first. */
+const isStaffRole = (role: AuthUserPayload['role']): boolean =>
+  role === 'teacher' || role === 'methodist' || role === 'admin';
+
 const CHAT_MAX_LEN = 500;
 const CHAT_HISTORY_CAP = 100;
 
@@ -144,10 +150,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
 
     await socket.join(room(sessionId));
 
-    if (
-      !isParticipant(identity) &&
-      (identity.role === 'teacher' || identity.role === 'admin')
-    ) {
+    if (!isParticipant(identity) && isStaffRole(identity.role)) {
       await socket.join(teachersRoom(sessionId));
     }
 
@@ -193,7 +196,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
     if (!identity || isParticipant(identity)) {
       return { ok: false };
     }
-    if (identity.role !== 'teacher' && identity.role !== 'admin') {
+    if (!isStaffRole(identity.role)) {
       return { ok: false };
     }
 
@@ -267,10 +270,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
     // Auto-join if the client skipped/raced session:join.
     if (!socket.rooms.has(room(sessionId))) {
       await socket.join(room(sessionId));
-      if (
-        !isParticipant(identity) &&
-        (identity.role === 'teacher' || identity.role === 'admin')
-      ) {
+      if (!isParticipant(identity) && isStaffRole(identity.role)) {
         await socket.join(teachersRoom(sessionId));
       }
     }
@@ -283,7 +283,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
       senderName =
         (await this.sessions.getParticipantName(identity.sub)) ?? 'Участник';
       role = 'participant';
-    } else if (identity.role === 'teacher' || identity.role === 'admin') {
+    } else if (isStaffRole(identity.role)) {
       role = 'teacher';
       senderName = 'Преподаватель';
     }

@@ -143,17 +143,28 @@ export class AuthService {
    * issued `promoCode` (TZ §5.2 "или позже в профиле"). Only usable while
    * the account has no company yet — an existing membership is not silently
    * overwritten; ask staff to move the user instead.
+   *
+   * Locks the user row first (`SELECT ... FOR UPDATE`) before resolving the
+   * code, so two concurrent redemption attempts for the same account (a
+   * double-click, two tabs) serialize instead of both passing the
+   * `organizationId` check and one silently clobbering the other's write —
+   * the second waiter sees the already-set org and fails cleanly, without
+   * ever consuming a promo code use.
    */
   async redeemPromoCode(userId: string, promoCode: string): Promise<AuthResult> {
-    const user = await this.users.findById(userId);
-    if (!user) {
-      throw new UnauthorizedException('user_not_found');
-    }
-    if (user.organizationId) {
-      throw new ConflictException('already_has_organization');
-    }
-
     const updated = await this.db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .for('update');
+      if (!locked) {
+        throw new UnauthorizedException('user_not_found');
+      }
+      if (locked.organizationId) {
+        throw new ConflictException('already_has_organization');
+      }
+
       const organizationId = await this.promoCodes.resolveForJoin(tx, promoCode);
       if (!organizationId) {
         throw new NotFoundException('invalid_promo_code');

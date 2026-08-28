@@ -488,7 +488,12 @@
     "regenerate": "Обновить код",
     "regenerateConfirm": "Обновить промокод для «{name}»? Старый код перестанет работать.",
     "statusRevoked": "Отозван",
-    "noCompanies": "Компаний пока нет"
+    "noCompanies": "Компаний пока нет",
+    "addCompany": "Добавить компанию",
+    "addCompanyTitle": "Новая компания",
+    "companyNameLabel": "Название компании",
+    "contactNameLabel": "Контактное лицо (необязательно)",
+    "contactEmailLabel": "Email контактного лица (необязательно)"
   },
   "tools": {
     "title": "Инструменты и платформы",
