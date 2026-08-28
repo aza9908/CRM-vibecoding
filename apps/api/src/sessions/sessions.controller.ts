@@ -89,7 +89,7 @@ export class SessionsController {
   /** POST /sessions — teacher starts a live session for one of their lessons. */
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   async start(
     @CurrentUser() user: AuthUserPayload,
     @ZodBody(createSessionSchema) dto: CreateSessionDto,
@@ -150,7 +150,7 @@ export class SessionsController {
    */
   @Get('live')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   async live(@CurrentUser() user: AuthUserPayload) {
     return this.sessions.listLiveForOrg(user.orgId);
   }
@@ -358,7 +358,7 @@ export class SessionsController {
   /** GET /sessions/:id/participants — teacher-only roster, org-scoped. */
   @Get(':id/participants')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher', 'admin')
+  @Roles('teacher', 'methodist', 'admin')
   async participants(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -373,7 +373,7 @@ export class SessionsController {
   /** GET /sessions/:id/responses — teacher-only answer summary, org-scoped. */
   @Get(':id/responses')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher', 'admin')
+  @Roles('teacher', 'methodist', 'admin')
   async responsesSummary(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -602,7 +602,7 @@ export class SessionsController {
    */
   @Post(':id/end')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher', 'admin')
+  @Roles('teacher', 'methodist', 'admin')
   async end(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -618,7 +618,7 @@ export class SessionsController {
    */
   @Post(':id/focus')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher', 'admin')
+  @Roles('teacher', 'methodist', 'admin')
   async setFocus(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', new ParseUUIDPipe()) id: string,

@@ -71,7 +71,16 @@
     "role_teacher": "Учитель",
     "role_student": "Ученик",
     "role_admin": "Админ",
-    "role_team_lead": "Тимлид"
+    "role_team_lead": "Тимлид",
+    "role_methodist": "Методист",
+    "signInPrompt": "Войдите, чтобы увидеть свой личный кабинет",
+    "signIn": "Войти",
+    "loadError": "Не удалось загрузить данные",
+    "noCoursesTitle": "У вас пока нет курсов",
+    "noCoursesHint": "Введите промокод компании — курсы откроются сразу. Если кода ещё нет, спросите у координатора вашей компании.",
+    "promoCodePlaceholder": "Промокод",
+    "activateCode": "Активировать",
+    "invalidPromoCode": "Промокод недействителен или истёк"
   },
   "home": {
     "title": "AI Research Labs — live-уроки и рабочая тетрадь",
@@ -90,6 +99,7 @@
     "roleStudent": "Ученик",
     "roleAdmin": "Администратор",
     "roleTeamLead": "Руководитель группы",
+    "roleMethodist": "Методист",
     "loginButton": "Войти",
     "registerButton": "Зарегистрироваться",
     "noAccount": "Нет аккаунта?",
@@ -134,7 +144,8 @@
     "validationOccupation": "Укажите должность",
     "joinModeCompany": "Создать новую компанию",
     "joinModePromo": "У меня есть промокод компании",
-    "promoCode": "Промокод компании",
+    "promoCode": "Промокод (необязательно)",
+    "promoCodeHint": "Если вам выдали код от компании, введите его сейчас — курсы откроются сразу. Можно добавить позже в профиле.",
     "validationPromoCode": "Укажите промокод компании",
     "invalidPromoCode": "Промокод недействителен или истёк"
   },

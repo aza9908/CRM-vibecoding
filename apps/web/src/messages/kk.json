@@ -71,7 +71,16 @@
     "role_teacher": "Мұғалім",
     "role_student": "Оқушы",
     "role_admin": "Әкімші",
-    "role_team_lead": "Тимлид"
+    "role_team_lead": "Тимлид",
+    "role_methodist": "Әдіскер",
+    "signInPrompt": "Жеке кабинетіңізді көру үшін кіріңіз",
+    "signIn": "Кіру",
+    "loadError": "Деректерді жүктеу мүмкін болмады",
+    "noCoursesTitle": "Сізде әлі курстар жоқ",
+    "noCoursesHint": "Компанияңыздың промокодын енгізіңіз — курстар бірден ашылады. Кодыңыз жоқ па? Компанияңыздың үйлестірушісіне хабарласыңыз.",
+    "promoCodePlaceholder": "Промокод",
+    "activateCode": "Белсендіру",
+    "invalidPromoCode": "Промокод жарамсыз немесе мерзімі өткен"
   },
   "home": {
     "title": "AI Research Labs — live-сабақтар және жұмыс дәптері",
@@ -90,6 +99,7 @@
     "roleStudent": "Оқушы",
     "roleAdmin": "Әкімші",
     "roleTeamLead": "Топ жетекшісі",
+    "roleMethodist": "Әдіскер",
     "loginButton": "Кіру",
     "registerButton": "Тіркелу",
     "noAccount": "Аккаунт жоқ па?",
@@ -134,7 +144,8 @@
     "validationOccupation": "Лауазымыңызды енгізіңіз",
     "joinModeCompany": "Жаңа компания құру",
     "joinModePromo": "Менде компанияның промокоды бар",
-    "promoCode": "Компания промокоды",
+    "promoCode": "Промокод (міндетті емес)",
+    "promoCodeHint": "Егер сізге компаниядан код берілген болса, қазір енгізіңіз — курстар бірден ашылады. Кейін профильде де қосуға болады.",
     "validationPromoCode": "Компанияның промокодын енгізіңіз",
     "invalidPromoCode": "Промокод жарамсыз немесе мерзімі өткен"
   },

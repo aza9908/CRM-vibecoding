@@ -9,6 +9,7 @@ import type {
   ForgotPasswordDto,
   LoginDto,
   MessageResult,
+  RedeemPromoCodeDto,
   RegisterDto,
   ResetPasswordDto,
   ResetTokenStatus,
@@ -45,6 +46,26 @@ export function useRegister() {
     onSuccess: (data) => {
       setAuth(data.accessToken, data.user);
       qc.setQueryData(queryKeys.me, data.user);
+    },
+  });
+}
+
+/**
+ * POST /auth/redeem-promo-code — attaches the signed-in (org-less) account
+ * to a company. Used from the "У вас пока нет курсов" empty state (both at
+ * registration-without-a-code and later from the profile).
+ */
+export function useRedeemPromoCode() {
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (dto: RedeemPromoCodeDto) =>
+      api.post<AuthResult>('/auth/redeem-promo-code', dto),
+    onSuccess: (data) => {
+      setAuth(data.accessToken, data.user);
+      qc.setQueryData(queryKeys.me, data.user);
+      void qc.invalidateQueries({ queryKey: queryKeys.curriculum });
     },
   });
 }

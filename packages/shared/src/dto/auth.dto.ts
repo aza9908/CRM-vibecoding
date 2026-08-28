@@ -1,42 +1,42 @@
 import { z } from 'zod';
-import {
-  selfRegisterRoleEnum,
-  type UserRole,
-} from '../enums.js';
+import type { UserRole } from '../enums.js';
 
 /**
  * Auth DTOs and the JWT payload shapes shared between web and api.
  *
  * Two JWT audiences are modelled and MUST NOT be conflated:
- *  - `AuthUserPayload`     — a real account (aud=user): teacher/student/admin/team_lead.
+ *  - `AuthUserPayload`     — a real account (aud=user): teacher/student/admin/team_lead/methodist.
  *  - `ParticipantPayload`  — a session guest joined by code (aud=participant).
  */
 
 /**
- * Body for `POST /auth/register`. Either creates a new organization or joins
- * an existing one.
- *
- * `fullName` (ФИО) and `occupation` (должность) are always collected. Exactly
- * one of `companyName` / `promoCode` must be supplied: `companyName` creates a
- * brand-new organization (today's original flow); `promoCode` joins the
- * organization that issued that code instead (see `PromoCodesService`).
+ * Body for `POST /auth/register`. Per TZ_LMS_roles_promocodes.md §5.2/§12:
+ * self-registration always creates a `student` account with no company of
+ * its own — there is no "create a new company" path and no role picker here.
+ * `promoCode` is optional: supplying a valid one attaches the account to
+ * that company immediately; omitting it leaves `organizationId` null (the
+ * user sees an empty state and can redeem a code later via
+ * `POST /auth/redeem-promo-code`). `companyName`/`role` are deliberately not
+ * fields on this schema — any extra key a client sends is silently stripped
+ * by zod's default object parsing, satisfying acceptance criterion §14.12
+ * ("a role passed in the request is ignored by the server").
  */
-export const registerSchema = z
-  .object({
-    email: z.string().email(),
-    password: z.string().min(8),
-    fullName: z.string().min(1),
-    companyName: z.string().min(1).optional(),
-    promoCode: z.string().min(1).optional(),
-    occupation: z.string().min(1),
-    /** Only student/teacher — elevated roles are admin-granted only. */
-    role: selfRegisterRoleEnum.optional(),
-  })
-  .refine((v) => Boolean(v.companyName) !== Boolean(v.promoCode), {
-    message: 'provide_company_name_or_promo_code',
-    path: ['companyName'],
-  });
+export const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  fullName: z.string().min(1),
+  promoCode: z.string().min(1).optional(),
+  occupation: z.string().min(1),
+});
 export type RegisterDto = z.infer<typeof registerSchema>;
+
+/** Body for `POST /auth/redeem-promo-code` — an already-registered user
+ * (typically one with no company yet) attaches a promo code to their own
+ * account. Same resolution rules as at registration (§4.3). */
+export const redeemPromoCodeSchema = z.object({
+  promoCode: z.string().min(1),
+});
+export type RedeemPromoCodeDto = z.infer<typeof redeemPromoCodeSchema>;
 
 /** Body for `POST /auth/login`. */
 export const loginSchema = z.object({

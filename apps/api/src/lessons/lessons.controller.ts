@@ -35,7 +35,7 @@ import { LessonsService } from './lessons.service';
  *
  * Every route requires a valid User JWT (`JwtAuthGuard`) and is scoped to the
  * caller's organization via `@CurrentUser().orgId`. Mutations additionally
- * require the `teacher` role (`RolesGuard` + `@Roles('teacher')`).
+ * require the `teacher` role (`RolesGuard` + `@Roles('teacher', 'methodist', 'admin')`).
  *
  * `POST /lessons/:id/blocks/generate` is intentionally NOT defined here — it is
  * owned by the AI module, which reuses `BlocksService.saveBlocks`.
@@ -52,7 +52,7 @@ export class LessonsController {
   /** GET /lessons — list the organization's lessons (teacher). */
   @Get('lessons')
   @UseGuards(RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   list(@CurrentUser() user: AuthUserPayload) {
     return this.lessons.list(user.orgId);
   }
@@ -60,7 +60,7 @@ export class LessonsController {
   /** POST /lessons — create a lesson (teacher). */
   @Post('lessons')
   @UseGuards(RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   create(
     @CurrentUser() user: AuthUserPayload,
     @Body(new ZodValidationPipe(createLessonSchema)) dto: CreateLessonDto,
@@ -80,7 +80,7 @@ export class LessonsController {
   /** PATCH /lessons/:id — rename / move (teacher). */
   @Patch('lessons/:id')
   @UseGuards(RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   update(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -92,7 +92,7 @@ export class LessonsController {
   /** DELETE /lessons/:id — delete (teacher). */
   @Delete('lessons/:id')
   @UseGuards(RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   remove(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -103,7 +103,7 @@ export class LessonsController {
   /** PUT /lessons/:id/blocks — bulk save blocks, "Publish" semantics (teacher). */
   @Put('lessons/:id/blocks')
   @UseGuards(RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   saveBlocks(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) id: string,

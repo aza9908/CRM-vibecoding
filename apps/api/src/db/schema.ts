@@ -20,6 +20,7 @@ export const userRole = pgEnum('user_role', [
   'teacher',
   'admin',
   'team_lead',
+  'methodist',
 ]);
 export const lessonType = pgEnum('lesson_type', ['video', 'stream', 'text']);
 // Curriculum position, independent of `lessonType` (delivery medium). Nullable
@@ -62,6 +63,21 @@ export const taskStatus = pgEnum('task_status', ['todo', 'doing', 'done']);
 export const organizations = pgTable('organizations', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
+  // Catalog metadata (TZ_LMS_roles_promocodes.md §4.1) — a company is a
+  // directory entry, never a login. All nullable/optional: existing rows
+  // (created before this field existed) are unaffected.
+  slug: text('slug'),
+  contactName: text('contact_name'),
+  contactEmail: text('contact_email'),
+  contactPhone: text('contact_phone'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  // No FK to `users.id` here on purpose: `users.organizationId` already
+  // references `organizations.id`, and a reciprocal reference back would be
+  // a circular type between the two tables that TypeScript can't infer
+  // (Drizzle needs an explicit type break for that) — application code
+  // still enforces that this points at a real user id.
+  createdBy: uuid('created_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
@@ -115,6 +131,8 @@ export const promoCodes = pgTable(
     maxUses: integer('max_uses'), // null = unlimited
     useCount: integer('use_count').notNull().default(0),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+    // Human-readable label for the staff list (TZ §4.2), e.g. "Kaizen, 2nd cohort".
+    label: text('label'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({

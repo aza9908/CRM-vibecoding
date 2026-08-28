@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 import * as argon2 from 'argon2';
 import type { AdminUserDto, ResetPasswordResult, UserRole } from '@lms/shared';
@@ -31,11 +31,19 @@ export class AdminService {
    * Change a user's role within the caller's org. This is the ONLY way to
    * grant `admin` / `team_lead` — see `registerSchema` (`@lms/shared`), which
    * deliberately excludes those from public self-registration.
+   *
+   * Teacher/Methodist/Admin have identical permissions everywhere else in
+   * this controller (TZ_LMS_roles_promocodes.md §3.1), but granting `admin`
+   * or touching an existing admin's role is the one exception the doc's own
+   * recommended default carves out (§3.2, §15 Q1): only an acting `admin`
+   * may do either, so a teacher/methodist can't self-escalate or demote the
+   * platform owner.
    */
   async changeRole(
     orgId: string,
     userId: string,
     actingUserId: string,
+    actingUserRole: UserRole,
     role: UserRole,
   ): Promise<AdminUserDto> {
     if (userId === actingUserId) {
@@ -45,6 +53,15 @@ export class AdminService {
       // self-edits here entirely; ask another admin to do it instead.
       throw new NotFoundException('cannot_change_own_role');
     }
+
+    const target = await this.users.findByIdInOrg(userId, orgId);
+    if (!target) {
+      throw new NotFoundException('user_not_found');
+    }
+    if ((role === 'admin' || target.role === 'admin') && actingUserRole !== 'admin') {
+      throw new ForbiddenException('only_admin_can_manage_admin_role');
+    }
+
     const updated = await this.users.updateRole(userId, orgId, role);
     if (!updated) {
       throw new NotFoundException('user_not_found');

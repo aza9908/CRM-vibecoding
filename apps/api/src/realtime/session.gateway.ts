@@ -183,7 +183,7 @@ export class SessionGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(WsRolesGuard)
-  @Roles('teacher', 'admin')
+  @Roles('teacher', 'methodist', 'admin')
   @SubscribeMessage(WS_EVENTS.focusSet)
   async onFocus(
     @ConnectedSocket() socket: LiveSocket,

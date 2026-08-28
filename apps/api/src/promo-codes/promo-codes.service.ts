@@ -71,6 +71,7 @@ export class PromoCodesService {
         code,
         maxUses: dto.maxUses ?? null,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        label: dto.label ?? null,
       })
       .returning();
     return toDto(row);
@@ -193,6 +194,7 @@ function toDto(row: PromoCodeRow): PromoCodeDto {
     maxUses: row.maxUses,
     useCount: row.useCount,
     expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    label: row.label,
     createdAt: row.createdAt ? row.createdAt.toISOString() : null,
   };
 }

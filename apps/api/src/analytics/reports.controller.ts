@@ -33,7 +33,7 @@ import {
  */
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('teacher', 'admin')
+@Roles('teacher', 'methodist', 'admin')
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 

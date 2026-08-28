@@ -67,7 +67,7 @@ export class MaterialsController {
   /** POST /materials — create a material, optionally attached to lessons (teacher). */
   @Post('materials')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   create(
     @CurrentUser() user: AuthUserPayload,
     @ZodBody(createMaterialSchema) dto: CreateMaterialDto,
@@ -78,7 +78,7 @@ export class MaterialsController {
   /** PATCH /materials/:id — rename / re-point / re-attach to lessons (teacher). */
   @Patch('materials/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   update(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -90,7 +90,7 @@ export class MaterialsController {
   /** DELETE /materials/:id — delete (drops the S3 file for `file` type) (teacher). */
   @Delete('materials/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   async remove(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) id: string,

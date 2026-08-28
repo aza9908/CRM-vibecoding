@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import {
   forgotPasswordSchema,
   loginSchema,
+  redeemPromoCodeSchema,
   registerSchema,
   resetPasswordSchema,
   type AuthResult,
@@ -24,6 +25,7 @@ import {
   type LoginDto,
   type MessageResult,
   type PublicUser,
+  type RedeemPromoCodeDto,
   type RegisterDto,
   type ResetPasswordDto,
   type ResetTokenStatus,
@@ -74,6 +76,24 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
     const result = await this.auth.login(dto);
+    this.setRefreshCookie(res, result.refreshToken);
+    return result;
+  }
+
+  /**
+   * Attach the caller's (org-less) account to a company via promo code —
+   * the "или позже в профиле" path from TZ §5.2, for someone who registered
+   * without a code and is now on the empty "нет курсов" state.
+   */
+  @Post('redeem-promo-code')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async redeemPromoCode(
+    @CurrentUser() user: AuthUserPayload,
+    @Body(new ZodValidationPipe(redeemPromoCodeSchema)) dto: RedeemPromoCodeDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResult> {
+    const result = await this.auth.redeemPromoCode(user.sub, dto.promoCode);
     this.setRefreshCookie(res, result.refreshToken);
     return result;
   }

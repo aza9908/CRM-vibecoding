@@ -37,7 +37,7 @@ import { ProgramService } from './program.service';
  */
 @Controller('program')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('teacher', 'admin')
+@Roles('teacher', 'methodist', 'admin')
 export class ProgramController {
   constructor(private readonly program: ProgramService) {}
 

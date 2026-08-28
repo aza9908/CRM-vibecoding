@@ -71,7 +71,16 @@
     "role_teacher": "Teacher",
     "role_student": "Student",
     "role_admin": "Admin",
-    "role_team_lead": "Team lead"
+    "role_team_lead": "Team lead",
+    "role_methodist": "Methodist",
+    "signInPrompt": "Sign in to see your personal cabinet",
+    "signIn": "Sign in",
+    "loadError": "Couldn't load your data",
+    "noCoursesTitle": "You don't have any courses yet",
+    "noCoursesHint": "Enter your company's promo code and your courses open right away. No code yet? Ask your company's coordinator.",
+    "promoCodePlaceholder": "Promo code",
+    "activateCode": "Activate",
+    "invalidPromoCode": "This promo code is invalid or expired"
   },
   "home": {
     "title": "AI Research Labs — live lessons & workbook",
@@ -90,6 +99,7 @@
     "roleStudent": "Student",
     "roleAdmin": "Admin",
     "roleTeamLead": "Team lead",
+    "roleMethodist": "Methodist",
     "loginButton": "Log in",
     "registerButton": "Sign up",
     "noAccount": "No account?",
@@ -134,7 +144,8 @@
     "validationOccupation": "Enter your occupation",
     "joinModeCompany": "Create a new company",
     "joinModePromo": "I have a company promo code",
-    "promoCode": "Company promo code",
+    "promoCode": "Promo code (optional)",
+    "promoCodeHint": "If your company gave you a code, enter it now and your courses open right away. You can add it later in your profile too.",
     "validationPromoCode": "Enter your company's promo code",
     "invalidPromoCode": "This promo code is invalid or expired"
   },

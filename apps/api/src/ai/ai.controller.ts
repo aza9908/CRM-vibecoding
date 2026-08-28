@@ -138,7 +138,7 @@ export class AiController {
    */
   @Post('lessons/:id/blocks/generate')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   async generate(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) lessonId: string,
@@ -164,7 +164,7 @@ export class AiController {
    */
   @Post('lessons/:id/blocks/generate-from-file')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('teacher')
+  @Roles('teacher', 'methodist', 'admin')
   async generateFromFile(
     @CurrentUser() user: AuthUserPayload,
     @Param('id', ParseUUIDPipe) lessonId: string,

@@ -9,18 +9,21 @@ import { z } from 'zod';
  * so DTOs validate against the same vocabulary the database stores.
  */
 
-/** Application user roles (User JWT audience). */
-export const userRoleEnum = z.enum(['student', 'teacher', 'admin', 'team_lead']);
-export type UserRole = z.infer<typeof userRoleEnum>;
-
 /**
- * Roles a caller may pick for THEMSELVES on public self-registration.
- * `admin` / `team_lead` are deliberately excluded — those are elevated roles
- * and must only ever be granted by an existing admin (see `admin.controller`
- * `PATCH /admin/users/:id/role`), never chosen by an anonymous registrant.
+ * Application user roles (User JWT audience). Teacher/Methodist/Admin are
+ * intentionally equal in permissions everywhere except granting/touching the
+ * `admin` role itself (TZ_LMS_roles_promocodes.md §3.1/§3.2) — they differ
+ * only in the label shown in the UI. `team_lead` predates that document and
+ * is kept for backward compatibility with existing accounts/analytics.
  */
-export const selfRegisterRoleEnum = z.enum(['student', 'teacher']);
-export type SelfRegisterRole = z.infer<typeof selfRegisterRoleEnum>;
+export const userRoleEnum = z.enum([
+  'student',
+  'teacher',
+  'admin',
+  'team_lead',
+  'methodist',
+]);
+export type UserRole = z.infer<typeof userRoleEnum>;
 
 /** How a lesson is delivered. */
 export const lessonTypeEnum = z.enum(['video', 'stream', 'text']);

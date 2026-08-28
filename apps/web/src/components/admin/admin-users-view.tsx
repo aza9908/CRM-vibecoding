@@ -28,6 +28,7 @@ const ROLE_LABEL_KEY: Record<UserRole, string> = {
   student: 'roleStudent',
   admin: 'roleAdmin',
   team_lead: 'roleTeamLead',
+  methodist: 'roleMethodist',
 };
 
 /** Admin panel — org user list, role changes, password resets. Mirrors the

@@ -27,7 +27,7 @@ import { AnalyticsService } from './analytics.service';
  */
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'team_lead')
+@Roles('teacher', 'methodist', 'admin', 'team_lead')
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
 

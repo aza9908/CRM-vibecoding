@@ -24,7 +24,7 @@ import type {
 } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { organizations, passwordResetTokens, users } from '../db/schema';
+import { passwordResetTokens, users } from '../db/schema';
 import { UsersService, type UserRecord } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { PromoCodesService } from '../promo-codes/promo-codes.service';
@@ -81,15 +81,15 @@ export class AuthService {
    * Register a new account, then issue tokens. Email uniqueness is enforced
    * both by the unique index and an upfront check for a friendlier error.
    *
-   * Exactly one of `dto.companyName` / `dto.promoCode` is set (enforced by
-   * `registerSchema`'s refine):
-   *  - `companyName` — today's original flow: create a fresh organization and
-   *    its first user in one transaction.
-   *  - `promoCode` — join the organization that issued the code instead of
-   *    creating a new one. Resolution + the use-count increment happen inside
-   *    the same transaction as the user insert via
-   *    `PromoCodesService.resolveForJoin`, so an invalid/exhausted code never
-   *    leaves behind a half-created account.
+   * Per TZ_LMS_roles_promocodes.md §5.2: self-registration always creates a
+   * `student` account. A valid `dto.promoCode` attaches it to that code's
+   * company immediately; without one, `organizationId` stays null — the
+   * account exists but has no course access yet, and the client shows the
+   * "У вас пока нет курсов" empty state with a promo-code field (the user
+   * can redeem one later via `redeemPromoCode()` below). There is no
+   * "create a new company" path here any more — companies are catalog
+   * entries staff create in the admin panel (§4.1), never spun up by
+   * self-registration.
    */
   async register(dto: RegisterDto): Promise<AuthResult> {
     // Prod DBs that predate migration 0004 lack `occupation` — ensure it
@@ -108,7 +108,7 @@ export class AuthService {
     });
 
     const created = await this.db.transaction(async (tx) => {
-      let organizationId: string;
+      let organizationId: string | null = null;
       if (dto.promoCode) {
         const resolved = await this.promoCodes.resolveForJoin(
           tx,
@@ -118,28 +118,7 @@ export class AuthService {
           throw new NotFoundException('invalid_promo_code');
         }
         organizationId = resolved;
-      } else {
-        // `registerSchema`'s refine guarantees exactly one of companyName /
-        // promoCode is set, but that isn't visible to TS's narrowing here.
-        if (!dto.companyName) {
-          throw new BadRequestException('provide_company_name_or_promo_code');
-        }
-        const [org] = await tx
-          .insert(organizations)
-          .values({ name: dto.companyName })
-          .returning();
-        organizationId = org.id;
       }
-
-      // Joining an EXISTING org via promo code is a different trust level
-      // than creating a brand-new one: self-selecting `teacher` when
-      // creating your own org only grants you power over data you're about
-      // to create, but self-selecting `teacher` when joining someone else's
-      // established org would hand out teacher-level access (live sessions,
-      // rosters, every student's answers) to anyone who obtains the code.
-      // Force `student` on the promo-code path; an admin can still promote
-      // via the existing `PATCH /admin/users/:id/role`.
-      const role = dto.promoCode ? 'student' : (dto.role ?? 'student');
 
       const [user] = await tx
         .insert(users)
@@ -148,23 +127,46 @@ export class AuthService {
           passwordHash,
           fullName: dto.fullName,
           occupation: dto.occupation,
-          role,
+          role: 'student',
           organizationId,
         })
         .returning();
-
-      // A brand-new company should always have a code to hand out — the
-      // platform admin issues it, not the founder (see `PlatformController`);
-      // this just makes sure one exists from minute one instead of leaving
-      // the company invisible until someone remembers to create it by hand.
-      if (!dto.promoCode) {
-        await this.promoCodes.createInTx(tx, organizationId, user.id);
-      }
 
       return user as UserRecord;
     });
 
     return this.issueTokens(created);
+  }
+
+  /**
+   * Attach an already-registered, org-less account to the company that
+   * issued `promoCode` (TZ §5.2 "или позже в профиле"). Only usable while
+   * the account has no company yet — an existing membership is not silently
+   * overwritten; ask staff to move the user instead.
+   */
+  async redeemPromoCode(userId: string, promoCode: string): Promise<AuthResult> {
+    const user = await this.users.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('user_not_found');
+    }
+    if (user.organizationId) {
+      throw new ConflictException('already_has_organization');
+    }
+
+    const updated = await this.db.transaction(async (tx) => {
+      const organizationId = await this.promoCodes.resolveForJoin(tx, promoCode);
+      if (!organizationId) {
+        throw new NotFoundException('invalid_promo_code');
+      }
+      const [row] = await tx
+        .update(users)
+        .set({ organizationId })
+        .where(eq(users.id, userId))
+        .returning();
+      return row as UserRecord;
+    });
+
+    return this.issueTokens(updated);
   }
 
   /** Verify email + password and issue tokens. */

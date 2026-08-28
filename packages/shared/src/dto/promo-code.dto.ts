@@ -10,6 +10,8 @@ import { z } from 'zod';
 export const createPromoCodeSchema = z.object({
   maxUses: z.number().int().positive().optional(),
   expiresAt: z.string().datetime().optional(),
+  /** Friendly label for the staff list, e.g. "Kaizen, 2-й поток". */
+  label: z.string().min(1).max(120).optional(),
 });
 export type CreatePromoCodeDto = z.infer<typeof createPromoCodeSchema>;
 
@@ -21,6 +23,7 @@ export type PromoCodeDto = {
   maxUses: number | null;
   useCount: number;
   expiresAt: string | null;
+  label: string | null;
   createdAt: string | null;
 };
 

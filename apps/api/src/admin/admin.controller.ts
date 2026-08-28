@@ -24,13 +24,16 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { AdminService } from './admin.service';
 
 /**
- * Admin-only user management (docs/02). Every route requires a User JWT +
- * `admin` role and is scoped to `@CurrentUser().orgId` — an admin can only
- * see and manage users inside their own organization, never across tenants.
+ * Staff user management (docs/02). Every route requires a User JWT +
+ * `teacher`/`methodist`/`admin` role (identical permissions here, per
+ * TZ_LMS_roles_promocodes.md §3.1) and is scoped to `@CurrentUser().orgId` —
+ * staff can only see and manage users inside their own organization, never
+ * across tenants. The one exception is granting/touching the `admin` role
+ * itself, restricted to admins in `AdminService.changeRole`.
  */
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('teacher', 'methodist', 'admin')
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
@@ -47,7 +50,7 @@ export class AdminController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(changeUserRoleSchema)) dto: ChangeUserRoleDto,
   ) {
-    return this.admin.changeRole(user.orgId, id, user.sub, dto.role);
+    return this.admin.changeRole(user.orgId, id, user.sub, user.role, dto.role);
   }
 
   /**

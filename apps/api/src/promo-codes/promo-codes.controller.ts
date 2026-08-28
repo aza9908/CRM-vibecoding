@@ -24,13 +24,16 @@ import { ZodValidationPipe } from '../common/zod-validation.pipe';
 import { PromoCodesService } from './promo-codes.service';
 
 /**
- * Admin-only promo code management. Every route requires a User JWT + `admin`
- * role and is scoped to `@CurrentUser().orgId` — an admin can only see and
- * manage their own organization's codes, matching `AdminController`.
+ * Promo code management for a company's own program. Every route requires a
+ * User JWT + `teacher`/`methodist`/`admin` role (identical permissions,
+ * TZ_LMS_roles_promocodes.md §3.1/§3.2) and is scoped to
+ * `@CurrentUser().orgId` — staff can only see and manage their own
+ * organization's codes here, matching `AdminController`. Cross-org visibility
+ * for the platform operator stays on `PlatformController` instead.
  */
 @Controller('admin/promo-codes')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('teacher', 'methodist', 'admin')
 export class PromoCodesController {
   constructor(private readonly promoCodes: PromoCodesService) {}
 

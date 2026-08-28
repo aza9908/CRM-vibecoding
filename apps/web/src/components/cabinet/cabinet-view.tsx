@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { CurriculumTimeline } from './curriculum-timeline';
+import { PromoCodeEmptyState } from './promo-code-empty-state';
 
 /** Thin horizontal progress bar (0–100). */
 function ProgressBar({ value }: { value: number }) {
@@ -115,6 +116,12 @@ export function CabinetView() {
         </Button>
       </div>
     );
+  }
+
+  // No company yet (registered without a promo code) — TZ §5.2: this is the
+  // only thing on screen, not a half-empty normal cabinet with 0s everywhere.
+  if (!user.organizationId) {
+    return <PromoCodeEmptyState />;
   }
 
   const roleKey = `role_${user.role satisfies UserRole}` as const;
