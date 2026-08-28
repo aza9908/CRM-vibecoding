@@ -169,7 +169,10 @@ export class AiService {
         `LLM completion failed: ${err instanceof Error ? err.message : err}`,
         err instanceof Error ? err.stack : undefined,
       );
-      throw new BadGatewayException('ai_generation_unavailable');
+      // TEMP DIAGNOSTIC — remove after root-causing the production failure.
+      throw new BadGatewayException(
+        `TEMP_DIAG: ${err instanceof Error ? err.constructor.name : typeof err}: ${err instanceof Error ? err.message : String(err)} | keyLen=${(process.env.GROQ_API_KEY ?? '').length}`,
+      );
     }
     const json = this.extractJson(raw);
 
