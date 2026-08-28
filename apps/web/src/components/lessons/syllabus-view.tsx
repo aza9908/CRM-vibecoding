@@ -175,7 +175,8 @@ export function SyllabusView() {
   const tc = useTranslations('common');
   const { data, isLoading, isError, refetch } = useCurriculum();
   const user = useAuthStore((s) => s.user);
-  const canManage = user?.role === 'teacher' || user?.role === 'admin';
+  const canManage =
+    user?.role === 'teacher' || user?.role === 'methodist' || user?.role === 'admin';
 
   return (
     <main className="container py-8">

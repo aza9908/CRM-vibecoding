@@ -112,7 +112,8 @@ export function CurriculumTimeline() {
   const tc = useTranslations('common');
   const locale = useLocale();
   const user = useAuthStore((s) => s.user);
-  const canManage = user?.role === 'teacher' || user?.role === 'admin';
+  const canManage =
+    user?.role === 'teacher' || user?.role === 'methodist' || user?.role === 'admin';
   const { data, isLoading, isError } = useCurriculum();
 
   const dateFormatter = useMemo(

@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-  BarChart3,
   BookOpen,
   Building2,
   FolderOpen,
@@ -36,9 +35,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const clear = useAuthStore((s) => s.clear);
 
   const role = user?.role;
-  const isTeacher = role === 'teacher' || role === 'admin';
+  const isTeacher = role === 'teacher' || role === 'methodist' || role === 'admin';
   const isAdmin = role === 'admin';
-  const isAdminOrLead = role === 'admin' || role === 'team_lead';
 
   const nav = [
     { href: '/cabinet', label: t('cabinet'), icon: LayoutDashboard },
@@ -46,7 +44,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     ...(isTeacher
       ? [
           { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
-          { href: '/lessons/past', label: t('pastLessons'), icon: History },
           {
             href: '/teacher/materials',
             label: t('materials'),
@@ -59,19 +56,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           { href: '/materials', label: t('materials'), icon: FolderOpen },
         ]),
     { href: '/tools', label: t('tools'), icon: Wrench },
-    ...(isAdminOrLead
-      ? [{ href: '/dashboard/company', label: t('dashboard'), icon: BarChart3 }]
-      : []),
     ...(isAdmin
-      ? [
-          { href: '/admin', label: t('admin'), icon: ShieldCheck },
-          {
-            href: '/admin/promo-codes',
-            label: ta('promoCodesNavLabel'),
-            icon: Ticket,
-          },
-        ]
+      ? [{ href: '/admin', label: t('admin'), icon: ShieldCheck }]
       : []),
+    // Companies + their promo codes: one section, not two. A platform admin
+    // sees every company (superset of the per-org view); a regular org
+    // admin without platform access sees just their own org's codes.
     ...(user?.isPlatformAdmin
       ? [
           {
@@ -80,7 +70,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon: Building2,
           },
         ]
-      : []),
+      : isAdmin
+        ? [
+            {
+              href: '/admin/promo-codes',
+              label: ta('promoCodesNavLabel'),
+              icon: Ticket,
+            },
+          ]
+        : []),
   ];
 
   function logout() {
