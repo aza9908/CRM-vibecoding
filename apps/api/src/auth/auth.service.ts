@@ -430,6 +430,15 @@ export class AuthService {
     return this.users.toPublicUser(user);
   }
 
+  /** Mark the first-login onboarding tour done for one role (§6.4 layer 1). */
+  async completeTour(userId: string, tourId: string): Promise<PublicUser> {
+    const user = await this.users.completeTour(userId, tourId);
+    if (!user) {
+      throw new UnauthorizedException('user_not_found');
+    }
+    return this.users.toPublicUser(user);
+  }
+
   // ── token issuance ──────────────────────────────────────────────────────
 
   /**

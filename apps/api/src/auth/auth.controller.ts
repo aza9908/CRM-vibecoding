@@ -14,6 +14,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import {
+  completeTourSchema,
   forgotPasswordSchema,
   loginSchema,
   redeemPromoCodeSchema,
@@ -21,6 +22,7 @@ import {
   resetPasswordSchema,
   type AuthResult,
   type AuthUserPayload,
+  type CompleteTourDto,
   type ForgotPasswordDto,
   type LoginDto,
   type MessageResult,
@@ -96,6 +98,21 @@ export class AuthController {
     const result = await this.auth.redeemPromoCode(user.sub, dto.promoCode);
     this.setRefreshCookie(res, result.refreshToken);
     return result;
+  }
+
+  /**
+   * Mark the interactive first-login onboarding tour (§6.4 layer 1) done for
+   * one role. Idempotent — safe to call again from a "replay the tour"
+   * action without duplicating the completion record.
+   */
+  @Post('complete-tour')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  completeTour(
+    @CurrentUser() user: AuthUserPayload,
+    @Body(new ZodValidationPipe(completeTourSchema)) dto: CompleteTourDto,
+  ): Promise<PublicUser> {
+    return this.auth.completeTour(user.sub, dto.tourId);
   }
 
   /**

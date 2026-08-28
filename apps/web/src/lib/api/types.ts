@@ -97,6 +97,7 @@ export interface MeResponse {
   role: UserRole;
   organizationId: string | null;
   isPlatformAdmin: boolean;
+  toursCompleted: string[];
 }
 
 /** POST /uploads/presign response. */

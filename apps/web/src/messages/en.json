@@ -47,6 +47,21 @@
     "account": "Account",
     "navigation": "Navigation"
   },
+  "tour": {
+    "cabinet": "This is your personal cabinet — your courses, materials, and (for admins) account management.",
+    "lessonsStudent": "Here are your lessons. Open one and go through it at your own pace.",
+    "lessonsTeacher": "Here are your lessons: create them, add blocks, and start live sessions.",
+    "join": "When a live session starts, you'll get a code — enter it here to join.",
+    "pastLessons": "Lessons you've already completed live here.",
+    "materials": "Useful links and course files, always within reach.",
+    "tools": "Tools and platforms you'll need along the way.",
+    "companiesOrg": "Create the promo codes students and staff use to join your company.",
+    "companiesPlatform": "Manage every company on the platform and their promo codes.",
+    "next": "Next",
+    "skip": "Skip tour",
+    "finish": "Done",
+    "replay": "Show tour again"
+  },
   "cabinet": {
     "title": "Personal cabinet",
     "subtitle": "Your progress through the learning program",

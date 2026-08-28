@@ -38,6 +38,17 @@ export const redeemPromoCodeSchema = z.object({
 });
 export type RedeemPromoCodeDto = z.infer<typeof redeemPromoCodeSchema>;
 
+/**
+ * Body for `POST /auth/complete-tour` — marks the interactive first-login
+ * tour (§6.4 layer 1) done for one role. `tourId` is the role the tour was
+ * shown for, not necessarily the caller's *current* role, since a role
+ * change mid-session is what should re-trigger a fresh tour later.
+ */
+export const completeTourSchema = z.object({
+  tourId: z.string().min(1),
+});
+export type CompleteTourDto = z.infer<typeof completeTourSchema>;
+
 /** Body for `POST /auth/login`. */
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -118,6 +129,8 @@ export type PublicUser = {
   organizationId: string | null;
   /** Platform-wide operator: sees/issues promo codes across every org. */
   isPlatformAdmin: boolean;
+  /** Roles for which the first-login onboarding tour has been completed. */
+  toursCompleted: string[];
 };
 
 /** Result returned by register/login/refresh. */

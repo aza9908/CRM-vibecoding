@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { PublicUser, UserRole } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
@@ -16,6 +16,7 @@ export type UserRecord = {
   avatarUrl: string | null;
   role: UserRole;
   isPlatformAdmin: boolean;
+  toursCompleted: string[] | null;
   createdAt: Date | null;
 };
 
@@ -96,6 +97,7 @@ export class UsersService {
       role: user.role,
       organizationId: user.organizationId,
       isPlatformAdmin: user.isPlatformAdmin,
+      toursCompleted: user.toursCompleted ?? [],
     };
   }
 
@@ -143,5 +145,27 @@ export class UsersService {
       .where(and(eq(users.id, id), eq(users.organizationId, orgId)))
       .returning();
     return (row as UserRecord | undefined) ?? null;
+  }
+
+  /**
+   * Mark the first-login onboarding tour done for one role. Idempotent: a
+   * repeat call for a `tourId` already in the array is a no-op (the `WHERE`
+   * clause only matches rows that don't have it yet), so it's safe to call
+   * from a "replay the tour" action too, not just on first completion.
+   */
+  async completeTour(userId: string, tourId: string): Promise<UserRecord | null> {
+    const [row] = await this.db
+      .update(users)
+      .set({
+        toursCompleted: sql`array_append(coalesce(${users.toursCompleted}, '{}'::text[]), ${tourId})`,
+      })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`NOT (${tourId} = ANY(coalesce(${users.toursCompleted}, '{}'::text[])))`,
+        ),
+      )
+      .returning();
+    return (row as UserRecord | undefined) ?? this.findById(userId);
   }
 }

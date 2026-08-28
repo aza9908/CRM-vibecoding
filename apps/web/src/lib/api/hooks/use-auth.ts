@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import type {
+  CompleteTourDto,
   ForgotPasswordDto,
   LoginDto,
   MessageResult,
@@ -127,12 +128,32 @@ export function useMe() {
         role: me.role,
         organizationId: me.organizationId,
         isPlatformAdmin: me.isPlatformAdmin,
+        toursCompleted: me.toursCompleted ?? [],
       };
       setUser(user);
       return user;
     },
     enabled: !!accessToken,
     staleTime: 60_000,
+  });
+}
+
+/**
+ * POST /auth/complete-tour — marks the interactive first-login onboarding
+ * tour (§6.4 layer 1) done for one role, so it isn't shown again unless the
+ * user's role changes or they explicitly replay it.
+ */
+export function useCompleteTour() {
+  const setUser = useAuthStore((s) => s.setUser);
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (dto: CompleteTourDto) =>
+      api.post<PublicUser>('/auth/complete-tour', dto),
+    onSuccess: (user) => {
+      setUser(user);
+      qc.setQueryData(queryKeys.me, user);
+    },
   });
 }
 

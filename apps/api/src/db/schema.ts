@@ -100,6 +100,11 @@ export const users = pgTable(
     // (teacher/admin/etc.) for everything else. Granted by direct DB write
     // only; there is no self-service or admin-panel path to set it.
     isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
+    // First-login onboarding tour completion, one entry per role (the role
+    // string itself is used as the tour id) — a role change makes the array
+    // no longer contain the new role, which naturally re-triggers a fresh
+    // tour. See `UsersService.completeTour`.
+    toursCompleted: text('tours_completed').array(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({
