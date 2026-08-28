@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Check, Copy, KeyRound, Plus, UserPlus } from 'lucide-react';
 import {
@@ -17,6 +17,7 @@ import {
   useAdminResetPassword,
   useCreateUser,
 } from '@/lib/api/hooks';
+import { ApiError } from '@/lib/api/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -114,7 +115,8 @@ export function AdminUsersView() {
     setTempPassword(result.temporaryPassword);
   }
 
-  async function handleCreate() {
+  async function handleCreate(e: FormEvent) {
+    e.preventDefault();
     if (!newEmail.trim() || !newFullName.trim()) return;
     setCreateError(null);
     try {
@@ -127,12 +129,20 @@ export function AdminUsersView() {
       setNewEmail('');
       setNewFullName('');
       setNewRole('student');
-    } catch {
-      setCreateError(t('createUserError'));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setCreateError(t('createUserErrorTaken'));
+      } else {
+        setCreateError(t('createUserError'));
+      }
     }
   }
 
   function closeCreateDialog() {
+    // Closing while the request is in flight would lose the one-time
+    // temporary password the instant it comes back — the submit button is
+    // the only way out until the mutation settles.
+    if (createUser.isPending) return;
     setCreateOpen(false);
     setCreated(null);
     setCreateError(null);
@@ -277,13 +287,14 @@ export function AdminUsersView() {
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <form onSubmit={handleCreate} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="newUserFullName">{t('colName')}</Label>
               <Input
                 id="newUserFullName"
                 value={newFullName}
                 onChange={(e) => setNewFullName(e.target.value)}
+                required
                 autoFocus
               />
             </div>
@@ -294,6 +305,7 @@ export function AdminUsersView() {
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
+                required
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -320,8 +332,7 @@ export function AdminUsersView() {
               <p className="text-sm text-destructive">{createError}</p>
             ) : null}
             <Button
-              type="button"
-              onClick={handleCreate}
+              type="submit"
               disabled={
                 !newEmail.trim() || !newFullName.trim() || createUser.isPending
               }
@@ -330,7 +341,7 @@ export function AdminUsersView() {
               {createUser.isPending ? <Spinner /> : <Plus className="h-4 w-4" />}
               {t('createUser')}
             </Button>
-          </div>
+          </form>
         )}
       </Modal>
     </div>

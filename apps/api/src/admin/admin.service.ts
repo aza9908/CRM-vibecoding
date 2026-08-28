@@ -48,13 +48,25 @@ export class AdminService {
     const passwordHash = await argon2.hash(temporaryPassword, {
       type: argon2.argon2id,
     });
-    const created = await this.users.create({
-      email: dto.email,
-      passwordHash,
-      fullName: dto.fullName,
-      role: dto.role,
-      organizationId: orgId,
-    });
+
+    let created;
+    try {
+      created = await this.users.create({
+        email: dto.email,
+        passwordHash,
+        fullName: dto.fullName,
+        role: dto.role,
+        organizationId: orgId,
+      });
+    } catch (err) {
+      // The findByEmail check above can't stop a second concurrent request
+      // for the same address — the unique index is the real guard. Surface
+      // that as the same 409 a synchronous duplicate gets, not a raw 500.
+      if (isUniqueViolation(err)) {
+        throw new ConflictException('email_taken');
+      }
+      throw err;
+    }
 
     return {
       id: created.id,
@@ -169,4 +181,15 @@ function generatePassword(): string {
     out += PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)];
   }
   return out;
+}
+
+const PG_UNIQUE_VIOLATION = '23505';
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'code' in err &&
+    (err as { code?: unknown }).code === PG_UNIQUE_VIOLATION
+  );
 }
