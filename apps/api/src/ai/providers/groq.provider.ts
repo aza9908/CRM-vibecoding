@@ -33,8 +33,14 @@ export class GroqProvider implements LlmProvider {
       apiKey,
       baseURL: 'https://api.groq.com/openai/v1',
     });
+    // `llama-3.3-70b-versatile` (the previous default) has been retired from
+    // Groq's catalog — GET /openai/v1/models no longer lists it, and every
+    // completion call 404s with "model_not_found". Verified against the
+    // live API on 2026-08-29 that `openai/gpt-oss-120b` is available and
+    // produces well-formed Russian JSON output for this app's block-
+    // generation prompts.
     this.defaultModel =
-      this.config.get<string>('GROQ_MODEL') ?? 'llama-3.3-70b-versatile';
+      this.config.get<string>('GROQ_MODEL') ?? 'openai/gpt-oss-120b';
   }
 
   /** Stream completion tokens as they are generated. */
