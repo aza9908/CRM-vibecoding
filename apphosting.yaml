@@ -30,6 +30,13 @@ env:
     secret: DATABASE_URL
     availability:
       - RUNTIME
+  # LLM provider for AI block generation (topic-based and upload-from-file)
+  # — GroqProvider reads this at boot; without it every AI generation call
+  # fails (see AiService.runBlockGeneration's error handling).
+  - variable: GROQ_API_KEY
+    secret: GROQ_API_KEY
+    availability:
+      - RUNTIME
   # CORS/WS origins of the deployed frontend (comma-separated).
   - variable: WEB_ORIGIN
     value: https://lms.magauin.kz,https://lms-web--lms-ai-a2fd7.europe-west4.hosted.app
