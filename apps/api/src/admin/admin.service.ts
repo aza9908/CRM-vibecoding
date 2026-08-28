@@ -1,7 +1,18 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomInt } from 'node:crypto';
 import * as argon2 from 'argon2';
-import type { AdminUserDto, ResetPasswordResult, UserRole } from '@lms/shared';
+import type {
+  AdminUserDto,
+  CreateUserDto,
+  CreateUserResult,
+  ResetPasswordResult,
+  UserRole,
+} from '@lms/shared';
 
 import { UsersService } from '../users/users.service';
 
@@ -15,6 +26,44 @@ const PASSWORD_LENGTH = 12;
 @Injectable()
 export class AdminService {
   constructor(private readonly users: UsersService) {}
+
+  /**
+   * Create an account directly in the caller's org — for onboarding a
+   * teacher/methodist, or a student who can't self-register some other way.
+   * Admin-only (enforced at the controller with `@Roles('admin')`, not the
+   * wider teacher/methodist/admin group everything else here uses): minting
+   * new accounts with a chosen role is a stronger action than the
+   * role-change/reset-password guards already carve out for admin-touching
+   * cases, so it stays admin-exclusive across the board, not just for the
+   * `admin` role choice (which isn't even offered here — see
+   * `createUserRoleEnum`).
+   */
+  async createUser(orgId: string, dto: CreateUserDto): Promise<CreateUserResult> {
+    const existing = await this.users.findByEmail(dto.email);
+    if (existing) {
+      throw new ConflictException('email_taken');
+    }
+
+    const temporaryPassword = generatePassword();
+    const passwordHash = await argon2.hash(temporaryPassword, {
+      type: argon2.argon2id,
+    });
+    const created = await this.users.create({
+      email: dto.email,
+      passwordHash,
+      fullName: dto.fullName,
+      role: dto.role,
+      organizationId: orgId,
+    });
+
+    return {
+      id: created.id,
+      email: created.email,
+      fullName: created.fullName,
+      role: created.role,
+      temporaryPassword,
+    };
+  }
 
   async listUsers(orgId: string): Promise<AdminUserDto[]> {
     const rows = await this.users.listByOrg(orgId);

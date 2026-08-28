@@ -11,7 +11,9 @@ export default async function AdminUsersPage({
   setRequestLocale(locale);
   return (
     <AppShell>
-      <AdminUsersView />
+      <main className="container py-8">
+        <AdminUsersView />
+      </main>
     </AppShell>
   );
 }

@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AdminUserDto,
   ChangeUserRoleDto,
+  CreateUserDto,
+  CreateUserResult,
   ResetPasswordResult,
 } from '@lms/shared';
 import { api } from '@/lib/api/client';
@@ -14,6 +16,17 @@ export function useAdminUsers() {
   return useQuery({
     queryKey: queryKeys.adminUsers,
     queryFn: () => api.get<AdminUserDto[]>('/admin/users'),
+  });
+}
+
+/** POST /admin/users — create a teacher/methodist/student account directly.
+ * Admin-only; returns a one-time plaintext temporary password. */
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateUserDto) =>
+      api.post<CreateUserResult>('/admin/users', dto),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.adminUsers }),
   });
 }
 

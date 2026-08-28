@@ -12,8 +12,10 @@ import {
 } from '@nestjs/common';
 import {
   changeUserRoleSchema,
+  createUserSchema,
   type AuthUserPayload,
   type ChangeUserRoleDto,
+  type CreateUserDto,
 } from '@lms/shared';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -41,6 +43,22 @@ export class AdminController {
   @Get()
   list(@CurrentUser() user: AuthUserPayload) {
     return this.admin.listUsers(user.orgId);
+  }
+
+  /**
+   * POST /admin/users — create a teacher/methodist/student account directly
+   * (instead of the person self-registering with a promo code). Admin-only:
+   * overrides the controller's class-level `teacher`/`methodist`/`admin`
+   * group, unlike every other route here.
+   */
+  @Post()
+  @Roles('admin')
+  @HttpCode(HttpStatus.CREATED)
+  createUser(
+    @CurrentUser() user: AuthUserPayload,
+    @Body(new ZodValidationPipe(createUserSchema)) dto: CreateUserDto,
+  ) {
+    return this.admin.createUser(user.orgId, dto);
   }
 
   /** PATCH /admin/users/:id/role — grant/revoke a role (incl. admin/team_lead). */

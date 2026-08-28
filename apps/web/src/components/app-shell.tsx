@@ -10,7 +10,6 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
-  ShieldCheck,
   Ticket,
   Wrench,
 } from 'lucide-react';
@@ -39,26 +38,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAdmin = role === 'admin';
 
   const nav = [
+    // "Личный кабинет" now also holds Полезные ссылки/файлы and (for admins)
+    // user management as tabs — see PersonalCabinetView — so staff no longer
+    // gets separate top-level nav entries for either.
     { href: '/cabinet', label: t('cabinet'), icon: LayoutDashboard },
+    ...(isTeacher
+      ? [{ href: '/teacher/lessons', label: t('lessons'), icon: BookOpen }]
+      : [{ href: '/lessons', label: t('lessons'), icon: BookOpen }]),
     { href: '/join', label: t('join'), icon: KeyRound },
     ...(isTeacher
-      ? [
-          { href: '/teacher/lessons', label: t('lessons'), icon: BookOpen },
-          {
-            href: '/teacher/materials',
-            label: t('materials'),
-            icon: FolderOpen,
-          },
-        ]
+      ? []
       : [
-          { href: '/lessons', label: t('lessons'), icon: BookOpen },
           { href: '/lessons/past', label: t('pastLessons'), icon: History },
           { href: '/materials', label: t('materials'), icon: FolderOpen },
         ]),
     { href: '/tools', label: t('tools'), icon: Wrench },
-    ...(isAdmin
-      ? [{ href: '/admin', label: t('admin'), icon: ShieldCheck }]
-      : []),
     // Companies + their promo codes: one section, not two. A platform admin
     // sees every company (superset of the per-org view); a regular org
     // admin without platform access sees just their own org's codes.

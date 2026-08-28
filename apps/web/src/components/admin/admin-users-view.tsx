@@ -2,17 +2,26 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, Copy, KeyRound } from 'lucide-react';
-import { userRoleEnum, type AdminUserDto, type UserRole } from '@lms/shared';
+import { Check, Copy, KeyRound, Plus, UserPlus } from 'lucide-react';
+import {
+  createUserRoleEnum,
+  userRoleEnum,
+  type AdminUserDto,
+  type CreateUserResult,
+  type UserRole,
+} from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 import {
   useAdminUsers,
   useChangeUserRole,
   useAdminResetPassword,
+  useCreateUser,
 } from '@/lib/api/hooks';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import {
   Select,
@@ -31,8 +40,51 @@ const ROLE_LABEL_KEY: Record<UserRole, string> = {
   methodist: 'roleMethodist',
 };
 
-/** Admin panel — org user list, role changes, password resets. Mirrors the
- * self-registration guard: an admin can't change their own role here either. */
+/** A shared "here's the one-time password, copy it now" panel — used for
+ * both password resets and freshly created accounts. */
+function TemporaryPasswordPanel({
+  password,
+  hint,
+}: {
+  password: string;
+  hint: string;
+}) {
+  const t = useTranslations('admin');
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+    } catch {
+      /* clipboard unavailable — the password is still visible to select/copy manually */
+    }
+  }
+
+  return (
+    <>
+      <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 font-mono text-base">
+        <span className="flex-1 select-all">{password}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={copy}
+          aria-label={t('copy')}
+        >
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </>
+  );
+}
+
+/**
+ * Admin panel — org user list, role changes, password resets, and creating
+ * new accounts directly (admin-only; see `POST /admin/users`). Mirrors the
+ * self-registration guard: an admin can't change their own role here either.
+ */
 export function AdminUsersView() {
   const t = useTranslations('admin');
   const ta = useTranslations('auth');
@@ -41,34 +93,62 @@ export function AdminUsersView() {
   const { data, isLoading, isError } = useAdminUsers();
   const changeRole = useChangeUserRole();
   const resetPassword = useAdminResetPassword();
+  const createUser = useCreateUser();
 
   const [resetTarget, setResetTarget] = useState<AdminUserDto | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newFullName, setNewFullName] = useState('');
+  const [newRole, setNewRole] = useState<(typeof createUserRoleEnum.options)[number]>(
+    'student',
+  );
+  const [created, setCreated] = useState<CreateUserResult | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   async function handleReset(u: AdminUserDto) {
     setResetTarget(u);
     setTempPassword(null);
-    setCopied(false);
     const result = await resetPassword.mutateAsync(u.id);
     setTempPassword(result.temporaryPassword);
   }
 
-  async function copyPassword() {
-    if (!tempPassword) return;
+  async function handleCreate() {
+    if (!newEmail.trim() || !newFullName.trim()) return;
+    setCreateError(null);
     try {
-      await navigator.clipboard.writeText(tempPassword);
-      setCopied(true);
+      const result = await createUser.mutateAsync({
+        email: newEmail.trim(),
+        fullName: newFullName.trim(),
+        role: newRole,
+      });
+      setCreated(result);
+      setNewEmail('');
+      setNewFullName('');
+      setNewRole('student');
     } catch {
-      /* clipboard unavailable — the password is still visible to select/copy manually */
+      setCreateError(t('createUserError'));
     }
   }
 
+  function closeCreateDialog() {
+    setCreateOpen(false);
+    setCreated(null);
+    setCreateError(null);
+  }
+
   return (
-    <main className="container flex flex-col gap-6 py-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-muted-foreground">{t('subtitle')}</p>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <Button type="button" onClick={() => setCreateOpen(true)}>
+          <UserPlus className="h-4 w-4" />
+          {t('createUser')}
+        </Button>
       </div>
 
       {isLoading ? (
@@ -159,27 +239,10 @@ export function AdminUsersView() {
               {resetTarget.email}
             </p>
             {tempPassword ? (
-              <>
-                <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 font-mono text-base">
-                  <span className="flex-1 select-all">{tempPassword}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={copyPassword}
-                    aria-label={t('copy')}
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('resetPasswordHint')}
-                </p>
-              </>
+              <TemporaryPasswordPanel
+                password={tempPassword}
+                hint={t('resetPasswordHint')}
+              />
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Spinner />
@@ -196,6 +259,80 @@ export function AdminUsersView() {
           </div>
         ) : null}
       </Modal>
-    </main>
+
+      <Modal
+        open={createOpen}
+        onClose={closeCreateDialog}
+        title={t('createUserTitle')}
+      >
+        {created ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">{created.email}</p>
+            <TemporaryPasswordPanel
+              password={created.temporaryPassword}
+              hint={t('resetPasswordHint')}
+            />
+            <Button type="button" variant="secondary" onClick={closeCreateDialog}>
+              {t('close')}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="newUserFullName">{t('colName')}</Label>
+              <Input
+                id="newUserFullName"
+                value={newFullName}
+                onChange={(e) => setNewFullName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="newUserEmail">{t('colEmail')}</Label>
+              <Input
+                id="newUserEmail"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="newUserRole">{t('colRole')}</Label>
+              <Select
+                value={newRole}
+                onValueChange={(v) =>
+                  setNewRole(v as (typeof createUserRoleEnum.options)[number])
+                }
+              >
+                <SelectTrigger id="newUserRole">
+                  <SelectValue>{ta(ROLE_LABEL_KEY[newRole])}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {createUserRoleEnum.options.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {ta(ROLE_LABEL_KEY[r])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {createError ? (
+              <p className="text-sm text-destructive">{createError}</p>
+            ) : null}
+            <Button
+              type="button"
+              onClick={handleCreate}
+              disabled={
+                !newEmail.trim() || !newFullName.trim() || createUser.isPending
+              }
+              className="w-full"
+            >
+              {createUser.isPending ? <Spinner /> : <Plus className="h-4 w-4" />}
+              {t('createUser')}
+            </Button>
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 }
