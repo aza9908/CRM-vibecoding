@@ -6,14 +6,10 @@ import {
   BarChart3,
   BookOpen,
   Building2,
-  CalendarClock,
-  CheckCircle2,
-  ClipboardList,
   FolderOpen,
   History,
   KeyRound,
   LayoutDashboard,
-  ListChecks,
   LogOut,
   ShieldCheck,
   Ticket,
@@ -62,10 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           { href: '/lessons/past', label: t('pastLessons'), icon: History },
           { href: '/materials', label: t('materials'), icon: FolderOpen },
         ]),
-    { href: '/syllabus', label: t('syllabus'), icon: ListChecks },
-    { href: '/schedule', label: t('schedule'), icon: CalendarClock },
     { href: '/tools', label: t('tools'), icon: Wrench },
-    { href: '/onboarding', label: t('onboarding'), icon: CheckCircle2 },
     ...(isAdminOrLead
       ? [{ href: '/dashboard/company', label: t('dashboard'), icon: BarChart3 }]
       : []),
@@ -77,7 +70,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             label: ta('promoCodesNavLabel'),
             icon: Ticket,
           },
-          { href: '/admin/tasks', label: t('tasks'), icon: ClipboardList },
         ]
       : []),
     ...(user?.isPlatformAdmin
