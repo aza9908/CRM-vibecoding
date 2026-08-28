@@ -3,6 +3,7 @@ import * as path from 'node:path';
 
 import {
   BadGatewayException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -149,7 +150,27 @@ export class AiService {
       { role: 'user', content: userMessage },
     ];
 
-    const raw = await this.llm.complete(messages, { temperature: 0.3 });
+    let raw: string;
+    try {
+      raw = await this.llm.complete(messages, { temperature: 0.3 });
+    } catch (err) {
+      // A provider can throw a deliberate HttpException of its own (e.g.
+      // ClaudeProvider's 503 "not configured") — pass those through
+      // unchanged, same as `AllExceptionsFilter` does, so a real deployment
+      // mistake isn't masked as a generic "try again" outage. Anything else
+      // is a raw SDK error (auth failure, rate limit, network fault, ...)
+      // that would otherwise surface to the client as an opaque
+      // "internal_error" with nothing actionable to fix — log the real
+      // cause and return a clear 502 instead.
+      if (err instanceof HttpException) {
+        throw err;
+      }
+      this.logger.error(
+        `LLM completion failed: ${err instanceof Error ? err.message : err}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      throw new BadGatewayException('ai_generation_unavailable');
+    }
     const json = this.extractJson(raw);
 
     const parsed = generatedBlocksSchema.safeParse(json);

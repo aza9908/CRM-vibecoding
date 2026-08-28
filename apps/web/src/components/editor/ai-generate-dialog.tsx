@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Sparkles } from 'lucide-react';
 import { generateBlocksSchema } from '@lms/shared';
 import { useGenerateBlocks } from '@/lib/api/hooks';
+import { commonApiErrorKey } from '@/lib/api-error-message';
 import type { Block } from '@/lib/api/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,7 +52,17 @@ export function AiGenerateDialog({
       setTopic('');
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
+      // Never show the raw backend code (TZ_LMS_roles_promocodes.md §14.11).
+      // Same shape as `UploadGenerateDialog.friendlyError` — this dialog has
+      // no file-specific codes of its own, so it's just the shared cases.
+      const commonKey = commonApiErrorKey(err);
+      if (commonKey === 'sessionExpired') {
+        setError(tc('sessionExpired'));
+      } else if (commonKey === 'aiGenerationUnavailable') {
+        setError(t('aiGenerationUnavailable'));
+      } else {
+        setError(t('genericError'));
+      }
     }
   }
 

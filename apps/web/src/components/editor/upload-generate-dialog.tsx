@@ -8,6 +8,8 @@ import {
   useGenerateBlocksFromFile,
   useUploadMaterialFile,
 } from '@/lib/api/hooks';
+import { ApiError } from '@/lib/api/client';
+import { commonApiErrorKey } from '@/lib/api-error-message';
 import type { Block } from '@/lib/api/types';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -53,6 +55,33 @@ export function UploadGenerateDialog({
   const isPending =
     upload.isPending || createMaterial.isPending || generate.isPending;
 
+  /**
+   * Maps the API's error codes to a human-readable message — showing the
+   * raw code (e.g. "internal_error", "file_has_no_extractable_text") is
+   * exactly the class of bug TZ_LMS_roles_promocodes.md §14.11 calls out.
+   * Checks the common cases (session expiry, the shared AI-unavailable
+   * code) first, then this flow's own file-specific codes; upload/
+   * create-material can fail for other reasons too, so an unrecognized code
+   * falls back to a neutral message instead of presumptively blaming the AI
+   * step.
+   */
+  function friendlyError(err: unknown): string {
+    const commonKey = commonApiErrorKey(err);
+    if (commonKey === 'sessionExpired') return tc('sessionExpired');
+    if (commonKey === 'aiGenerationUnavailable') return t('aiGenerationUnavailable');
+    if (err instanceof ApiError) {
+      switch (err.code) {
+        case 'unsupported_file_type':
+          return t('unsupportedFileType');
+        case 'file_has_no_extractable_text':
+          return t('fileHasNoText');
+        case 'file_could_not_be_read':
+          return t('fileCouldNotBeRead');
+      }
+    }
+    return t('genericError');
+  }
+
   async function onSubmit() {
     if (!file) return;
     setError(null);
@@ -70,7 +99,7 @@ export function UploadGenerateDialog({
       setFile(null);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
+      setError(friendlyError(err));
     }
   }
 

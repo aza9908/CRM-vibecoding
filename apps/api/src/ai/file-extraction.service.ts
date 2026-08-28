@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
 import * as mammoth from 'mammoth';
 
@@ -14,11 +14,13 @@ import * as mammoth from 'mammoth';
  */
 @Injectable()
 export class FileExtractionService {
+  private readonly logger = new Logger(FileExtractionService.name);
+
   async extractText(buffer: Buffer, contentType: string): Promise<string> {
     const type = contentType.toLowerCase();
 
     if (type.includes('pdf')) {
-      const { text } = await pdfParse(buffer);
+      const { text } = await this.safeParse('pdf', () => pdfParse(buffer));
       return this.assertNonEmpty(text);
     }
 
@@ -26,7 +28,9 @@ export class FileExtractionService {
       type.includes('officedocument.wordprocessingml') || // .docx
       type === 'application/msword'
     ) {
-      const { value } = await mammoth.extractRawText({ buffer });
+      const { value } = await this.safeParse('docx', () =>
+        mammoth.extractRawText({ buffer }),
+      );
       return this.assertNonEmpty(value);
     }
 
@@ -35,6 +39,25 @@ export class FileExtractionService {
     }
 
     throw new BadRequestException('unsupported_file_type');
+  }
+
+  /**
+   * `pdf-parse`/`mammoth` throw raw errors on a malformed, encrypted, or
+   * otherwise-unparseable file (e.g. a PDF exported by an unusual tool) —
+   * left uncaught that surfaces to the client as an opaque "internal_error"
+   * with nothing actionable to fix. Log the real cause and return a clear
+   * 400 instead.
+   */
+  private async safeParse<T>(kind: string, run: () => Promise<T>): Promise<T> {
+    try {
+      return await run();
+    } catch (err) {
+      this.logger.error(
+        `${kind} extraction failed: ${err instanceof Error ? err.message : err}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      throw new BadRequestException('file_could_not_be_read');
+    }
   }
 
   private assertNonEmpty(text: string): string {
