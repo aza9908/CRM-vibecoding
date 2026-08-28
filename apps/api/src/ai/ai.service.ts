@@ -170,8 +170,19 @@ export class AiService {
         err instanceof Error ? err.stack : undefined,
       );
       // TEMP DIAGNOSTIC — remove after root-causing the production failure.
+      const cause = err instanceof Error ? (err.cause as { code?: string; message?: string; errno?: unknown } | undefined) : undefined;
+      let rawFetchResult = 'not_attempted';
+      try {
+        const r = await fetch('https://api.groq.com/openai/v1/models', {
+          headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY ?? ''}` },
+        });
+        rawFetchResult = `status=${r.status}`;
+      } catch (fetchErr) {
+        const fc = fetchErr instanceof Error ? (fetchErr.cause as { code?: string } | undefined) : undefined;
+        rawFetchResult = `FAILED: ${fetchErr instanceof Error ? fetchErr.constructor.name + ':' + fetchErr.message : String(fetchErr)} cause=${fc?.code ?? 'none'}`;
+      }
       throw new BadGatewayException(
-        `TEMP_DIAG: ${err instanceof Error ? err.constructor.name : typeof err}: ${err instanceof Error ? err.message : String(err)} | keyLen=${(process.env.GROQ_API_KEY ?? '').length}`,
+        `TEMP_DIAG3: ${err instanceof Error ? err.constructor.name : typeof err}: ${err instanceof Error ? err.message : String(err)} | cause=${cause ? `${cause.code ?? ''}:${cause.message ?? String(cause)}:errno=${cause.errno}` : 'none'} | keyLen=${(process.env.GROQ_API_KEY ?? '').length} | rawFetch=${rawFetchResult}`,
       );
     }
     const json = this.extractJson(raw);
