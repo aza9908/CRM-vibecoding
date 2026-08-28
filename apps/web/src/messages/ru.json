@@ -98,7 +98,14 @@
     "noCoursesHint": "Введите промокод компании — курсы откроются сразу. Если кода ещё нет, спросите у координатора вашей компании.",
     "promoCodePlaceholder": "Промокод",
     "activateCode": "Активировать",
-    "invalidPromoCode": "Промокод недействителен или истёк"
+    "invalidPromoCode": "Промокод недействителен или истёк",
+    "staffTotalStudents": "Учеников",
+    "staffActive30d": "Активны за 30 дней",
+    "staffAvgProgress": "Средний прогресс",
+    "staffCompletedLessons": "Пройдено уроков",
+    "staffQuickActionsTitle": "Быстрые действия",
+    "staffGoToLessons": "Мои занятия",
+    "staffGoToCompanies": "Компании и промокоды"
   },
   "home": {
     "title": "AI Research Labs — live-уроки и рабочая тетрадь",
@@ -517,6 +524,27 @@
     "contactNameLabel": "Контактное лицо (необязательно)",
     "contactEmailLabel": "Email контактного лица (необязательно)"
   },
+  "tasks": {
+    "title": "Задачи",
+    "subtitle": "Внутренняя доска команды: Сделать → В работе → Готово",
+    "empty": "Пока нет задач",
+    "newTaskTitle": "Новая задача",
+    "telegramOn": "Уведомления в Telegram включены",
+    "telegramOff": "Уведомления в Telegram выключены",
+    "columnTodo": "Сделать",
+    "columnDoing": "В работе",
+    "columnDone": "Готово",
+    "titlePlaceholder": "Название задачи",
+    "description": "Описание",
+    "descriptionPlaceholder": "Что нужно сделать",
+    "assignee": "Исполнитель",
+    "noAssignee": "Без исполнителя",
+    "deadline": "Срок",
+    "status": "Статус",
+    "add": "Добавить",
+    "delete": "Удалить",
+    "deleteConfirm": "Удалить задачу «{title}»?"
+  },
   "tools": {
     "title": "Инструменты и платформы",
     "subtitle": "Сервисы, которые используются на программе обучения",
@@ -524,32 +552,38 @@
       {
         "name": "Zoom",
         "description": "Видеосвязь для live-уроков и созвонов с наставником",
-        "url": "https://zoom.us"
+        "url": "https://zoom.us",
+        "icon": "video"
       },
       {
         "name": "Telegram",
         "description": "Общий чат группы и объявления",
-        "url": "https://telegram.org"
+        "url": "https://telegram.org",
+        "icon": "send"
       },
       {
         "name": "GitHub",
         "description": "Хранение кода и практических заданий",
-        "url": "https://github.com"
+        "url": "https://github.com",
+        "icon": "github"
       },
       {
         "name": "Google Drive",
         "description": "Общие материалы, шаблоны и презентации",
-        "url": "https://drive.google.com"
+        "url": "https://drive.google.com",
+        "icon": "drive"
       },
       {
         "name": "Canva",
         "description": "Дизайн-материалы и слайды к урокам",
-        "url": "https://www.canva.com/design/DAHTSaVJFFs/XyFll8PgqItkz-D1OP6fyg/edit"
+        "url": "https://www.canva.com/design/DAHTSaVJFFs/XyFll8PgqItkz-D1OP6fyg/edit",
+        "icon": "palette"
       },
       {
         "name": "Miro",
         "description": "Доска планирования программы обучения",
-        "url": "https://miro.com/welcomeonboard/clVOLzAxS1F3VlJZazliRk13b0pEb0hlU3NJQ2FFeUJtcjBUVnE4MlZmbzVab1dnbnZlSjJpc3YrR0N4OGppWWlhWko2ZXVyUFJjMmxGME1TOFpFcGdLRTVjbzBVd0g2YTc4RjlCcTFBZVE3ZUNrS1dHWTk3Q05UbW1JNTV4blBhWWluRVAxeXRuUUgwWDl3Mk1qRGVRPT0hdjE=?share_link_id=728690006097"
+        "url": "https://miro.com/welcomeonboard/clVOLzAxS1F3VlJZazliRk13b0pEb0hlU3NJQ2FFeUJtcjBUVnE4MlZmbzVab1dnbnZlSjJpc3YrR0N4OGppWWlhWko2ZXVyUFJjMmxGME1TOFpFcGdLRTVjbzBVd0g2YTc4RjlCcTFBZVE3ZUNrS1dHWTk3Q05UbW1JNTV4blBhWWluRVAxeXRuUUgwWDl3Mk1qRGVRPT0hdjE=?share_link_id=728690006097",
+        "icon": "board"
       }
     ]
   },

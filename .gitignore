@@ -1,6 +1,10 @@
 # dependencies
 node_modules/
 .pnpm-store/
+# This repo deliberately uses npm workspaces, not pnpm — Firebase App
+# Hosting's buildpack detects pnpm from this lockfile's mere presence and
+# crashes on this monorepo (see commit 2652db5). Never let a stray one in.
+pnpm-lock.yaml
 
 # build output
 dist/

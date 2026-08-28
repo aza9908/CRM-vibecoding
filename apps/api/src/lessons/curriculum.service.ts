@@ -69,10 +69,23 @@ export class CurriculumService {
         kind: lessons.kind,
         order: lessons.order,
         scheduledAt: lessons.scheduledAt,
+        createdAt: lessons.createdAt,
       })
       .from(lessons)
       .where(eq(lessons.organizationId, orgId))
-      .orderBy(asc(lessons.order));
+      // `order` defaults to 0 for every lesson until a teacher explicitly
+      // drags one to reorder it, so most lessons tie on `order` — without a
+      // tiebreaker Postgres doesn't guarantee which one comes first, and the
+      // student-facing "Мои уроки"/timeline list can render lessons out of
+      // sequence (0, 1, 2, ...) on any given fetch. `createdAt` matches the
+      // creation order, same tiebreaker `LessonsService.list` already uses.
+      // (The additional "kind='intro' always first" rule from TZ §6.2.1 is
+      // applied only in `curriculumForStudent`, not here — this same query
+      // also backs the teacher's own drag-and-drop reorder UI, and pinning
+      // it here would make that UI silently snap the intro lesson back to
+      // the front on every refetch, including when a teacher deliberately
+      // reorders lessons around it.)
+      .orderBy(asc(lessons.order), asc(lessons.createdAt));
 
     const lessonIds = lessonRows.map((l) => l.id);
 
@@ -198,6 +211,16 @@ export class CurriculumService {
             progressPercent: p?.progressPercent ?? 0,
           } satisfies CurriculumLesson;
         });
+
+        // "Урок 0" (kind='intro') is always the first card for a student —
+        // TZ_LMS_roles_promocodes.md §6.2.1 — regardless of its `order`
+        // value, since some orgs have older lessons still sitting at the
+        // same default `order=0`. A stable sort only moves intro lessons to
+        // the front; everything else keeps the order the query returned.
+        // Applied here (student view only), not in `getCurriculumTree`
+        // itself, so the teacher's own drag-and-drop reorder UI — which
+        // reads the same tree — isn't fighting a forced re-sort on refetch.
+        lessons.sort((a, b) => (a.kind === 'intro' ? 0 : 1) - (b.kind === 'intro' ? 0 : 1));
 
         // Module percent = average of its lessons' percents (0 when empty).
         const moduleProgress = lessons.length

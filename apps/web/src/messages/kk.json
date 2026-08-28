@@ -98,7 +98,14 @@
     "noCoursesHint": "Компанияңыздың промокодын енгізіңіз — курстар бірден ашылады. Кодыңыз жоқ па? Компанияңыздың үйлестірушісіне хабарласыңыз.",
     "promoCodePlaceholder": "Промокод",
     "activateCode": "Белсендіру",
-    "invalidPromoCode": "Промокод жарамсыз немесе мерзімі өткен"
+    "invalidPromoCode": "Промокод жарамсыз немесе мерзімі өткен",
+    "staffTotalStudents": "Оқушылар",
+    "staffActive30d": "30 күнде белсенді",
+    "staffAvgProgress": "Орташа прогресс",
+    "staffCompletedLessons": "Өтілген сабақтар",
+    "staffQuickActionsTitle": "Жылдам әрекеттер",
+    "staffGoToLessons": "Менің сабақтарым",
+    "staffGoToCompanies": "Компаниялар мен промокодтар"
   },
   "home": {
     "title": "AI Research Labs — live-сабақтар және жұмыс дәптері",
@@ -517,6 +524,27 @@
     "contactNameLabel": "Байланыс тұлғасы (міндетті емес)",
     "contactEmailLabel": "Байланыс тұлғасының email (міндетті емес)"
   },
+  "tasks": {
+    "title": "Тапсырмалар",
+    "subtitle": "Команданың ішкі тақтасы: Істеу керек → Жұмыста → Дайын",
+    "empty": "Әзірге тапсырмалар жоқ",
+    "newTaskTitle": "Жаңа тапсырма",
+    "telegramOn": "Telegram хабарламалары қосулы",
+    "telegramOff": "Telegram хабарламалары өшірулі",
+    "columnTodo": "Істеу керек",
+    "columnDoing": "Жұмыста",
+    "columnDone": "Дайын",
+    "titlePlaceholder": "Тапсырма атауы",
+    "description": "Сипаттама",
+    "descriptionPlaceholder": "Не істеу керек",
+    "assignee": "Орындаушы",
+    "noAssignee": "Орындаушысыз",
+    "deadline": "Мерзімі",
+    "status": "Мәртебесі",
+    "add": "Қосу",
+    "delete": "Жою",
+    "deleteConfirm": "«{title}» тапсырмасын жою керек пе?"
+  },
   "tools": {
     "title": "Құралдар мен платформалар",
     "subtitle": "Оқу бағдарламасында қолданылатын қызметтер",
@@ -524,32 +552,38 @@
       {
         "name": "Zoom",
         "description": "Live-сабақтар мен наставникпен байланыс үшін бейне қоңырау",
-        "url": "https://zoom.us"
+        "url": "https://zoom.us",
+        "icon": "video"
       },
       {
         "name": "Telegram",
         "description": "Топтың ортақ чаты және хабарландырулар",
-        "url": "https://telegram.org"
+        "url": "https://telegram.org",
+        "icon": "send"
       },
       {
         "name": "GitHub",
         "description": "Код пен практикалық тапсырмаларды сақтау",
-        "url": "https://github.com"
+        "url": "https://github.com",
+        "icon": "github"
       },
       {
         "name": "Google Drive",
         "description": "Ортақ материалдар, үлгілер және презентациялар",
-        "url": "https://drive.google.com"
+        "url": "https://drive.google.com",
+        "icon": "drive"
       },
       {
         "name": "Canva",
         "description": "Сабақтарға арналған дизайн материалдары мен слайдтар",
-        "url": "https://www.canva.com/design/DAHTSaVJFFs/XyFll8PgqItkz-D1OP6fyg/edit"
+        "url": "https://www.canva.com/design/DAHTSaVJFFs/XyFll8PgqItkz-D1OP6fyg/edit",
+        "icon": "palette"
       },
       {
         "name": "Miro",
         "description": "Оқу бағдарламасын жоспарлау тақтасы",
-        "url": "https://miro.com/welcomeonboard/clVOLzAxS1F3VlJZazliRk13b0pEb0hlU3NJQ2FFeUJtcjBUVnE4MlZmbzVab1dnbnZlSjJpc3YrR0N4OGppWWlhWko2ZXVyUFJjMmxGME1TOFpFcGdLRTVjbzBVd0g2YTc4RjlCcTFBZVE3ZUNrS1dHWTk3Q05UbW1JNTV4blBhWWluRVAxeXRuUUgwWDl3Mk1qRGVRPT0hdjE=?share_link_id=728690006097"
+        "url": "https://miro.com/welcomeonboard/clVOLzAxS1F3VlJZazliRk13b0pEb0hlU3NJQ2FFeUJtcjBUVnE4MlZmbzVab1dnbnZlSjJpc3YrR0N4OGppWWlhWko2ZXVyUFJjMmxGME1TOFpFcGdLRTVjbzBVd0g2YTc4RjlCcTFBZVE3ZUNrS1dHWTk3Q05UbW1JNTV4blBhWWluRVAxeXRuUUgwWDl3Mk1qRGVRPT0hdjE=?share_link_id=728690006097",
+        "icon": "board"
       }
     ]
   },

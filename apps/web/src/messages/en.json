@@ -98,7 +98,14 @@
     "noCoursesHint": "Enter your company's promo code and your courses open right away. No code yet? Ask your company's coordinator.",
     "promoCodePlaceholder": "Promo code",
     "activateCode": "Activate",
-    "invalidPromoCode": "This promo code is invalid or expired"
+    "invalidPromoCode": "This promo code is invalid or expired",
+    "staffTotalStudents": "Students",
+    "staffActive30d": "Active in 30 days",
+    "staffAvgProgress": "Average progress",
+    "staffCompletedLessons": "Lessons completed",
+    "staffQuickActionsTitle": "Quick actions",
+    "staffGoToLessons": "My lessons",
+    "staffGoToCompanies": "Companies & promo codes"
   },
   "home": {
     "title": "AI Research Labs — live lessons & workbook",
@@ -517,6 +524,27 @@
     "contactNameLabel": "Contact name (optional)",
     "contactEmailLabel": "Contact email (optional)"
   },
+  "tasks": {
+    "title": "Tasks",
+    "subtitle": "Internal team board: To do → In progress → Done",
+    "empty": "No tasks yet",
+    "newTaskTitle": "New task",
+    "telegramOn": "Telegram notifications on",
+    "telegramOff": "Telegram notifications off",
+    "columnTodo": "To do",
+    "columnDoing": "In progress",
+    "columnDone": "Done",
+    "titlePlaceholder": "Task title",
+    "description": "Description",
+    "descriptionPlaceholder": "What needs to be done",
+    "assignee": "Assignee",
+    "noAssignee": "Unassigned",
+    "deadline": "Deadline",
+    "status": "Status",
+    "add": "Add",
+    "delete": "Delete",
+    "deleteConfirm": "Delete task \"{title}\"?"
+  },
   "tools": {
     "title": "Tools & platforms",
     "subtitle": "Services used throughout the program",
@@ -524,32 +552,38 @@
       {
         "name": "Zoom",
         "description": "Video calls for live lessons and mentor check-ins",
-        "url": "https://zoom.us"
+        "url": "https://zoom.us",
+        "icon": "video"
       },
       {
         "name": "Telegram",
         "description": "Group chat and announcements",
-        "url": "https://telegram.org"
+        "url": "https://telegram.org",
+        "icon": "send"
       },
       {
         "name": "GitHub",
         "description": "Code and assignment storage",
-        "url": "https://github.com"
+        "url": "https://github.com",
+        "icon": "github"
       },
       {
         "name": "Google Drive",
         "description": "Shared materials, templates and slides",
-        "url": "https://drive.google.com"
+        "url": "https://drive.google.com",
+        "icon": "drive"
       },
       {
         "name": "Canva",
         "description": "Design materials and lesson slides",
-        "url": "https://www.canva.com/design/DAHTSaVJFFs/XyFll8PgqItkz-D1OP6fyg/edit"
+        "url": "https://www.canva.com/design/DAHTSaVJFFs/XyFll8PgqItkz-D1OP6fyg/edit",
+        "icon": "palette"
       },
       {
         "name": "Miro",
         "description": "Program planning board",
-        "url": "https://miro.com/welcomeonboard/clVOLzAxS1F3VlJZazliRk13b0pEb0hlU3NJQ2FFeUJtcjBUVnE4MlZmbzVab1dnbnZlSjJpc3YrR0N4OGppWWlhWko2ZXVyUFJjMmxGME1TOFpFcGdLRTVjbzBVd0g2YTc4RjlCcTFBZVE3ZUNrS1dHWTk3Q05UbW1JNTV4blBhWWluRVAxeXRuUUgwWDl3Mk1qRGVRPT0hdjE=?share_link_id=728690006097"
+        "url": "https://miro.com/welcomeonboard/clVOLzAxS1F3VlJZazliRk13b0pEb0hlU3NJQ2FFeUJtcjBUVnE4MlZmbzVab1dnbnZlSjJpc3YrR0N4OGppWWlhWko2ZXVyUFJjMmxGME1TOFpFcGdLRTVjbzBVd0g2YTc4RjlCcTFBZVE3ZUNrS1dHWTk3Q05UbW1JNTV4blBhWWluRVAxeXRuUUgwWDl3Mk1qRGVRPT0hdjE=?share_link_id=728690006097",
+        "icon": "board"
       }
     ]
   },

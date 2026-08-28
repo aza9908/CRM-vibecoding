@@ -1,13 +1,40 @@
 'use client';
 
+import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { ExternalLink } from 'lucide-react';
+import {
+  ExternalLink,
+  Github,
+  HardDrive,
+  Palette,
+  Send,
+  StickyNote,
+  Video,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type ToolItem = {
   name: string;
   description: string;
   url: string;
+  icon?: string;
+};
+
+/**
+ * Maps the `icon` string stored per item in `tools.items` (locale data, not
+ * code) to a Lucide icon. Keeping the mapping keyed by a short slug — rather
+ * than storing a component reference directly in the JSON, which isn't
+ * serializable — means Персонал can add a new tool with an icon by editing
+ * copy, as long as the slug is one already wired up here.
+ */
+const ICON_BY_SLUG: Record<string, LucideIcon> = {
+  video: Video,
+  send: Send,
+  github: Github,
+  drive: HardDrive,
+  palette: Palette,
+  board: StickyNote,
 };
 
 /**
@@ -29,29 +56,41 @@ export function ToolsView() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {items.map((item) => (
-          <Card key={item.name}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{item.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                {item.description}
-              </p>
-              {item.url ? (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-muted-foreground hover:text-foreground"
-                  aria-label={item.name}
+        {items.map((item) => {
+          const Icon = item.icon ? ICON_BY_SLUG[item.icon] : undefined;
+          return (
+            <Card key={item.name}>
+              <CardHeader className="flex-row items-center gap-3 space-y-0 pb-2">
+                <div
+                  className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                    'bg-primary/10 text-primary text-sm font-semibold',
+                  )}
+                  aria-hidden="true"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              ) : null}
-            </CardContent>
-          </Card>
-        ))}
+                  {Icon ? <Icon className="h-4 w-4" /> : item.name[0]}
+                </div>
+                <CardTitle className="text-base">{item.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {item.description}
+                </p>
+                {item.url ? (
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label={item.name}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                ) : null}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
