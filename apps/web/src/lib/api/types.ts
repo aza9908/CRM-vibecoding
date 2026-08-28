@@ -20,6 +20,8 @@ export interface Lesson {
   kind: LessonKind | null;
   moduleId: string | null;
   organizationId: string;
+  order: number;
+  scheduledAt: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

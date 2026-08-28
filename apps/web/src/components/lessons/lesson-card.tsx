@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   BarChart3,
+  CalendarClock,
   Check,
   FileText,
   Pencil,
@@ -21,7 +22,7 @@ import {
   useDeleteLesson,
   useUpdateLesson,
 } from '@/lib/api/hooks';
-import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
+import { KIND_BADGE_VARIANT, KIND_LABEL_KEY, formatLessonDate } from '@/lib/lesson-kind';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -43,13 +44,17 @@ const TYPE_META: Record<LessonType, { icon: LucideIcon; labelKey: string }> = {
 export function LessonCard({
   lesson,
   activeSession,
+  dateFormatter,
 }: {
   lesson: Lesson;
   activeSession?: LiveSessionSummary;
+  /** Shared across the whole list — built once by the parent, not per card. */
+  dateFormatter: Intl.DateTimeFormat;
 }) {
   const t = useTranslations('lessons');
   const tCommon = useTranslations('common');
   const tReports = useTranslations('reports');
+  const tSchedule = useTranslations('schedule');
   const router = useRouter();
   const startSession = useStartSession();
   const deleteLesson = useDeleteLesson();
@@ -90,11 +95,20 @@ export function LessonCard({
   }
 
   const { icon: TypeIcon, labelKey } = TYPE_META[lesson.type];
+  const scheduledLabel = formatLessonDate(lesson.scheduledAt, dateFormatter);
 
   return (
     <Card className="flex flex-col transition-shadow hover:shadow-md">
       <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <CalendarClock className="size-3.5 shrink-0 text-muted-foreground" />
+            {scheduledLabel ? (
+              <span className="font-medium">{scheduledLabel}</span>
+            ) : (
+              <span className="text-muted-foreground">{tSchedule('dateTbd')}</span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="w-fit gap-1.5">
               <TypeIcon className="size-3.5" />

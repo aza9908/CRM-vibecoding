@@ -1,12 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { CalendarClock, Pencil, X } from 'lucide-react';
 import type { CurriculumLesson } from '@lms/shared';
 import { useCurriculum, useUpdateLesson } from '@/lib/api/hooks';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
+import {
+  KIND_BADGE_VARIANT,
+  KIND_LABEL_KEY,
+  compareLessons,
+  formatLessonDate,
+  useLessonDateFormatter,
+} from '@/lib/lesson-kind';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,43 +106,37 @@ function ScheduleEditor({ lesson }: { lesson: CurriculumLesson }) {
 
 /**
  * Per-company class schedule — every lesson from first to last, including QA
- * sessions and Demo day, sorted by the date/time the teacher scheduled it
- * (unscheduled lessons sort last, by curriculum order). Reuses `useCurriculum()`
- * (already fetched by the cabinet / syllabus / lessons views, so TanStack
- * Query dedupes the request). Teachers/admins get an inline date/time editor
- * on each row; students see a read-only formatted date.
+ * sessions and Demo day. Урок 0 (onboarding) always leads; after that,
+ * lessons are in true chronological order by the date/time the teacher
+ * scheduled them, across every module, not grouped by module first —
+ * unscheduled lessons sort last, by curriculum order (`compareLessons`,
+ * shared with the teacher's own lesson dashboard so the two views can't
+ * drift into disagreeing on order). Reuses `useCurriculum()` (already
+ * fetched by the cabinet / syllabus / lessons views, so TanStack Query
+ * dedupes the request). Teachers/admins get an inline date/time editor on
+ * each row; students see a read-only formatted date.
  */
 export function CurriculumTimeline() {
   const t = useTranslations('lessons');
   const ts = useTranslations('schedule');
   const tc = useTranslations('common');
-  const locale = useLocale();
   const user = useAuthStore((s) => s.user);
   const canManage =
     user?.role === 'teacher' || user?.role === 'methodist' || user?.role === 'admin';
   const { data, isLoading, isError } = useCurriculum();
+  const dateFormatter = useLessonDateFormatter();
 
-  const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        day: 'numeric',
-        month: 'long',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  );
-
+  // A single global sort, not "sort within each module then concatenate
+  // by module order" — this is the real class schedule, so two *scheduled*
+  // lessons must compare by true date regardless of which module either is
+  // in (see `compareLessons`'s doc comment). `moduleOrder` only matters as
+  // a tiebreak between two lessons that are both still unscheduled, and the
+  // curriculum tree gives us the module's real `order` for that.
   const lessons = useMemo(() => {
-    const all = (data?.modules ?? []).flatMap((m) => m.lessons);
-    return [...all].sort((a, b) => {
-      if (a.scheduledAt && b.scheduledAt) {
-        return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
-      }
-      if (a.scheduledAt) return -1;
-      if (b.scheduledAt) return 1;
-      return a.order - b.order;
-    });
+    const withModuleOrder = (data?.modules ?? []).flatMap((m) =>
+      m.lessons.map((l) => ({ ...l, moduleOrder: m.order })),
+    );
+    return withModuleOrder.sort(compareLessons);
   }, [data]);
 
   if (isLoading) {
@@ -156,16 +156,16 @@ export function CurriculumTimeline() {
 
   return (
     <div className="flex flex-col gap-3">
-      {lessons.map((lesson: CurriculumLesson) => (
+      {lessons.map((lesson: CurriculumLesson) => {
+        const scheduledLabel = formatLessonDate(lesson.scheduledAt, dateFormatter);
+        return (
         <Card key={lesson.id}>
           <CardContent className="flex flex-col gap-2 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm">
                 <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
-                {lesson.scheduledAt ? (
-                  <span className="font-medium">
-                    {dateFormatter.format(new Date(lesson.scheduledAt))}
-                  </span>
+                {scheduledLabel ? (
+                  <span className="font-medium">{scheduledLabel}</span>
                 ) : (
                   <span className="text-muted-foreground">{ts('dateTbd')}</span>
                 )}
@@ -190,7 +190,8 @@ export function CurriculumTimeline() {
             {canManage ? <ScheduleEditor lesson={lesson} /> : null}
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }
