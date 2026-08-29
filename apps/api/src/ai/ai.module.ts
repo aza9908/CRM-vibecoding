@@ -7,6 +7,7 @@ import { StorageModule } from '../storage/storage.module';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { FileExtractionService } from './file-extraction.service';
+import { PdfSlidesService } from './pdf-slides.service';
 import { LLM_PROVIDER } from './providers/llm-provider.interface';
 import { GroqProvider } from './providers/groq.provider';
 import { ClaudeProvider } from './providers/claude.provider';
@@ -36,6 +37,7 @@ import { ClaudeProvider } from './providers/claude.provider';
   providers: [
     AiService,
     FileExtractionService,
+    PdfSlidesService,
     ClaudeProvider,
     { provide: LLM_PROVIDER, useClass: GroqProvider },
   ],

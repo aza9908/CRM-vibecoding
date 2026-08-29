@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Controller,
@@ -6,14 +7,16 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import {
   chatSchema,
   generateBlocksFromFileSchema,
   generateBlocksSchema,
+  type BlockDto,
   type ChatDto,
   type GenerateBlocksDto,
   type GenerateBlocksFromFileDto,
@@ -32,6 +35,7 @@ import { MaterialsService } from '../materials/materials.service';
 import { StorageService } from '../storage/storage.service';
 import { AiService, type PromptRole } from './ai.service';
 import { FileExtractionService } from './file-extraction.service';
+import { PdfSlidesService } from './pdf-slides.service';
 import {
   LLM_PROVIDER,
   type LlmProvider,
@@ -55,6 +59,7 @@ export class AiController {
     private readonly blocks: BlocksService,
     private readonly storage: StorageService,
     private readonly fileExtraction: FileExtractionService,
+    private readonly pdfSlides: PdfSlidesService,
     private readonly materials: MaterialsService,
     @Inject(LLM_PROVIDER) private readonly llm: LlmProvider,
   ) {}
@@ -220,6 +225,76 @@ export class AiController {
     // problem, unrelated to the AI call) must stay outside the try/catch
     // to surface as a normal error instead of silently vanishing.
     return this.blocks.appendBlocks(user.orgId, lessonId, blocks);
+  }
+
+  /**
+   * `POST /lessons/:id/blocks/generate-from-file-as-slides` — same input as
+   * `generate-from-file` (a `materialId`), but for presentation-style PDFs
+   * where the slides themselves ARE the lesson content: renders every page
+   * to a PNG and inserts one `image` block per page, verbatim, instead of
+   * extracting text and asking the AI to restructure it. No LLM call, so
+   * nothing here can fail the way `generate-from-file` can — a slide that
+   * fails to render is a `file_could_not_be_read` 400, not a silent
+   * fallback (there's no lesser alternative to fall back to for an image).
+   */
+  @Post('lessons/:id/blocks/generate-from-file-as-slides')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher', 'methodist', 'admin')
+  async generateSlidesFromFile(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', ParseUUIDPipe) lessonId: string,
+    @ZodBody(generateBlocksFromFileSchema) dto: GenerateBlocksFromFileDto,
+    @Req() req: Request,
+  ): Promise<unknown> {
+    const material = await this.materials.assertMaterialInOrg(
+      dto.materialId,
+      user.orgId,
+    );
+    if (material.type !== 'file') {
+      throw new BadRequestException('material_not_a_file');
+    }
+    if (contentTypeFromFilename(material.title) !== 'application/pdf') {
+      throw new BadRequestException('unsupported_file_type');
+    }
+    const buffer = await this.storage.getObjectBuffer(material.url);
+    const pages = await this.pdfSlides.renderPages(buffer);
+    const requestOrigin = this.requestApiOrigin(req);
+
+    // Uploads sequentially, not Promise.all: `putObject` in DB-storage mode
+    // writes through the same Postgres pool the rest of the request uses,
+    // and N concurrent large-object writes is worse than one at a time for
+    // a background/non-latency-critical bulk upload like this.
+    const blocks: BlockDto[] = [];
+    const uploadedKeys: string[] = [];
+    try {
+      for (const [i, png] of pages.entries()) {
+        const key = `lesson-media/${lessonId}/slide-${i + 1}-${randomUUID()}.png`;
+        await this.storage.putObject(key, png, 'image/png');
+        uploadedKeys.push(key);
+        blocks.push({
+          type: 'image',
+          imageUrl: this.storage.publicUrl(key, { requestOrigin }),
+          generatedBy: 'extracted',
+        });
+      }
+    } catch (err) {
+      // A mid-loop upload failure must not strand already-uploaded slide
+      // images in storage with nothing ever pointing at them.
+      await Promise.allSettled(
+        uploadedKeys.map((key) => this.storage.deleteObject(key)),
+      );
+      throw err;
+    }
+    return this.blocks.appendBlocks(user.orgId, lessonId, blocks);
+  }
+
+  private requestApiOrigin(req: Request): string {
+    const proto = String(req.headers['x-forwarded-proto'] ?? req.protocol);
+    const host = String(
+      req.headers['x-forwarded-host'] ?? req.headers.host ?? '',
+    );
+    if (!host) return '';
+    return `${proto}://${host}`;
   }
 }
 

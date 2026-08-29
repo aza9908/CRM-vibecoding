@@ -117,6 +117,26 @@ export function useGenerateBlocksFromFile(lessonId: string) {
   });
 }
 
+/**
+ * POST /lessons/:id/blocks/generate-from-file-as-slides — for a PDF
+ * presentation upload where the slides themselves are the lesson: renders
+ * each page to an image block, verbatim, instead of asking the AI to
+ * restructure the text.
+ */
+export function useGenerateSlidesFromFile(lessonId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { materialId: string }) =>
+      api.post<Block[]>(
+        `/lessons/${lessonId}/blocks/generate-from-file-as-slides`,
+        dto,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.lesson(lessonId) });
+    },
+  });
+}
+
 /** GET /curriculum — module/lesson tree (with per-lesson progress for students). */
 export function useCurriculum() {
   return useQuery({
