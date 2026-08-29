@@ -145,16 +145,25 @@ export class AiController {
     @ZodBody(generateBlocksSchema) dto: GenerateBlocksDto,
   ): Promise<unknown> {
     const blocks = await this.ai.generateBlocks(dto.topic);
-    return this.blocks.saveBlocks(user.orgId, lessonId, blocks);
+    // `appendBlocks`, not `saveBlocks`: AI-generated blocks never carry an
+    // `id` (the model is instructed not to emit one), and `saveBlocks`
+    // treats "no incoming ids" as "this is the full lesson, delete
+    // anything else" — correct for the editor's own Publish (which always
+    // sends the complete current list) but not for this endpoint, whose
+    // client-side contract (`EditorView.onAiGenerated`) has always been
+    // "append these new blocks to what's already there." A lesson that
+    // already has hand-authored content must not be silently wiped just
+    // because a teacher asked to generate more.
+    return this.blocks.appendBlocks(user.orgId, lessonId, blocks);
   }
 
   /**
    * `POST /lessons/:id/blocks/generate-from-file` — teacher uploads a
    * material (PDF/DOCX/TXT/MD, via the existing materials upload flow) and
    * gets it turned into a full block-based lesson. Lands through the SAME
-   * `saveBlocks` path as topic-based generation, so the result opens directly
-   * in the already-built drag-and-drop editor for review before publishing —
-   * this endpoint never writes lesson content on its own.
+   * `appendBlocks` path as topic-based generation, so the result opens
+   * directly in the already-built drag-and-drop editor for review before
+   * publishing — this endpoint never touches a lesson's existing content.
    *
    * Takes a `materialId`, not a raw storage key: `MaterialsService.assertMaterialInOrg`
    * is the SAME org-scoping check every other material read in the app goes
@@ -182,8 +191,35 @@ export class AiController {
       buffer,
       contentTypeFromFilename(material.title),
     );
-    const blocks = await this.ai.generateBlocksFromText(text);
-    return this.blocks.saveBlocks(user.orgId, lessonId, blocks);
+    // Falls back to a plain, non-AI transcription of the file's text if the
+    // LLM call fails, instead of leaving the teacher with only an error —
+    // an editable lesson (even if it needs manual cleanup) is always more
+    // useful than nothing, and the fallback is easy to spot and fix in the
+    // editor (plain text blocks tagged generatedBy:'extracted', badged
+    // "From file (no AI)" — see SortableBlock). Both branches persist via
+    // `appendBlocks`, never `saveBlocks` — see the comment on `generate`
+    // above for why: neither a successful nor a failed generation may wipe
+    // a lesson's existing content.
+    let blocks;
+    try {
+      blocks = await this.ai.generateBlocksFromText(text);
+    } catch (err) {
+      // error, not warn: a 200 response here hides the failure from the
+      // teacher (they see plain-text blocks, not an error) — this is the
+      // only signal that AI generation is actually broken (misconfigured
+      // key, provider outage, ...), and it must be loud enough to alert on.
+      this.logger.error(
+        `AI block generation failed, falling back to raw text blocks: ${err instanceof Error ? err.message : err}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+      blocks = this.ai.buildRawTextBlocks(text);
+    }
+    // Not `return`ed from inside the `try`: a rejection from a `return`ed
+    // (un-awaited) promise does not run the enclosing `catch` — it would
+    // propagate straight past it — so a persistence failure here (a DB
+    // problem, unrelated to the AI call) must stay outside the try/catch
+    // to surface as a normal error instead of silently vanishing.
+    return this.blocks.appendBlocks(user.orgId, lessonId, blocks);
   }
 }
 

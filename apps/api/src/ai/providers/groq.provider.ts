@@ -22,7 +22,13 @@ export class GroqProvider implements LlmProvider {
   private readonly defaultModel: string;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = this.config.get<string>('GROQ_API_KEY') ?? '';
+    // .trim(): a secret set via `echo "$key" | secrets:set` (rather than
+    // `printf '%s'`) picks up a trailing newline that Secret Manager stores
+    // verbatim — the key still "looks right" everywhere (length off by one
+    // is easy to miss) but every request fails, since a raw \n in a header
+    // value gets rejected outright by fetch/undici with "not a legal HTTP
+    // header value". Cheap insurance against that class of mistake.
+    const apiKey = (this.config.get<string>('GROQ_API_KEY') ?? '').trim();
     if (!apiKey) {
       // Don't crash boot — fail loudly only when a call is actually attempted.
       this.logger.warn(

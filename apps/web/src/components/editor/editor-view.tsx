@@ -195,11 +195,14 @@ export function EditorView({ lessonId }: { lessonId: string }) {
 
   const onAiGenerated = useCallback(
     (generated: Block[]) => {
+      // `toEditorBlocks` already preserves each block's server-assigned
+      // `generatedBy` ('ai', or generate-from-file's 'extracted' fallback)
+      // — don't re-touch it here, or the fallback badge in SortableBlock
+      // never gets a chance to render.
       const editorBlocks = toEditorBlocks(generated).map((b) => ({
         ...b,
         // Strip server ids — these are AI suggestions to append, not existing rows.
         id: undefined,
-        generatedBy: 'ai' as const,
       }));
       setBlocks((prev) => [...prev, ...editorBlocks]);
       markDirty();

@@ -249,7 +249,7 @@ export const lessonBlocks = pgTable(
       onDelete: 'set null',
     }),
     blockRole: text('block_role'), // 'system'|'agenda'|'intro'|'reflection'
-    generatedBy: text('generated_by').default('manual'), // 'manual'|'ai'
+    generatedBy: text('generated_by').default('manual'), // 'manual'|'ai'|'extracted'
   },
   (t) => ({
     lessonIdx: index('blocks_lesson_idx').on(t.lessonId, t.orderIndex),

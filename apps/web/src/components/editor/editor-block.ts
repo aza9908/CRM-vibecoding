@@ -19,7 +19,7 @@ export interface EditorBlock {
   options?: unknown;
   outcomeId?: string | null;
   blockRole?: string | null;
-  generatedBy?: 'manual' | 'ai';
+  generatedBy?: BlockDto['generatedBy'];
 }
 
 let counter = 0;

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, notInArray } from 'drizzle-orm';
+import { and, asc, eq, notInArray, sql } from 'drizzle-orm';
 import type { BlockDto } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
@@ -108,6 +108,61 @@ export class BlocksService {
       .from(lessonBlocks)
       .where(eq(lessonBlocks.lessonId, lessonId))
       .orderBy(asc(lessonBlocks.orderIndex));
+  }
+
+  /**
+   * Insert new blocks after a lesson's existing ones, touching nothing
+   * already there — unlike `saveBlocks`, which treats "no incoming ids" as
+   * "this is the full lesson, delete anything else" (correct for the
+   * editor's Publish, which always sends the complete current list; wrong
+   * for a caller that only has *new* content to add, like the AI-
+   * generation fallback in `AiController.generateFromFile`).
+   *
+   * The existing-count read and the inserts happen in one transaction, and
+   * the tenant check runs before either, so this can't race a concurrent
+   * edit into deleting/overwriting it (the earlier version of this fallback
+   * fetched existing blocks outside a transaction, in a separate query from
+   * the eventual save) and can't leak another org's block content (the
+   * check runs before any read). Returns only the newly inserted rows — not
+   * the lesson's full block list — matching the same "response = new
+   * blocks to append" contract `AiService.generateBlocks`'s callers rely on
+   * (`EditorView.onAiGenerated` appends the response onto existing editor
+   * state; if this returned the whole lesson, every pre-existing block
+   * would show up duplicated).
+   */
+  async appendBlocks(
+    orgId: string,
+    lessonId: string,
+    newBlocks: BlockDto[],
+  ): Promise<BlockRow[]> {
+    await this.assertLessonInOrg(lessonId, orgId);
+
+    return this.db.transaction(async (tx) => {
+      const [{ count }] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(lessonBlocks)
+        .where(eq(lessonBlocks.lessonId, lessonId));
+
+      const inserted: BlockRow[] = [];
+      for (const [i, b] of newBlocks.entries()) {
+        const [row] = await tx
+          .insert(lessonBlocks)
+          .values({
+            lessonId,
+            type: b.type,
+            content: b.content ?? null,
+            imageUrl: b.imageUrl ?? null,
+            options: b.options ?? null,
+            orderIndex: count + i,
+            outcomeId: b.outcomeId ?? null,
+            blockRole: b.blockRole ?? null,
+            generatedBy: b.generatedBy ?? 'manual',
+          })
+          .returning();
+        inserted.push(row);
+      }
+      return inserted;
+    });
   }
 
   /**

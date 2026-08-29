@@ -62,7 +62,7 @@ export class GroqProvider implements LlmProvider {
 
   async *stream(messages: ChatMessage[], opts?) {
     const res = await this.client.chat.completions.create({
-      model: opts?.model ?? 'llama-3.3-70b-versatile',
+      model: opts?.model ?? 'openai/gpt-oss-120b', // llama-3.3-70b-versatile was retired from Groq's catalog
       temperature: opts?.temperature ?? 0.4,
       messages,
       stream: true,

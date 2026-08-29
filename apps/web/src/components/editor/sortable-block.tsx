@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Sparkles } from 'lucide-react';
+import { GripVertical, Trash2, Sparkles, FileText } from 'lucide-react';
 import type { EditorBlock } from './editor-block';
 import { blockLabelKey } from '@/lib/blocks';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -68,6 +68,11 @@ export function SortableBlock({
             <Badge variant="secondary" className="gap-1">
               <Sparkles className="h-3 w-3" />
               AI
+            </Badge>
+          ) : block.generatedBy === 'extracted' ? (
+            <Badge variant="outline" className="gap-1" title={t('extractedHint')}>
+              <FileText className="h-3 w-3" />
+              {t('extractedBadge')}
             </Badge>
           ) : null}
         </div>

@@ -38,7 +38,10 @@ export const blockSchema = z.object({
   options: z.unknown().nullable().optional(),
   outcomeId: z.string().uuid().nullable().optional(),
   blockRole: z.string().nullable().optional(),
-  generatedBy: z.enum(['manual', 'ai']).optional(),
+  // 'extracted': verbatim from an uploaded file's text, not authored by a
+  // person or structured by the AI — the non-AI fallback for
+  // generate-from-file when the LLM call fails.
+  generatedBy: z.enum(['manual', 'ai', 'extracted']).optional(),
 });
 export type BlockDto = z.infer<typeof blockSchema>;
 
