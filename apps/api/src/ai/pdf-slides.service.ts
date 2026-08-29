@@ -1,5 +1,18 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import * as mupdf from 'mupdf';
+// Type-only import: `mupdf`'s package is pure ESM with top-level await, so a
+// static value import compiles to a `require('mupdf')` in this project's
+// CommonJS build output, which throws `ERR_REQUIRE_ASYNC_MODULE` the moment
+// this module loads — crashing the whole process before it can bind to its
+// port. A dynamic `import()` (see `loadMupdf` below) is the one form Node's
+// CJS/ESM interop allows for an async ESM graph; the type-only import here
+// is erased at compile time and never reaches `require`.
+import type * as MupdfModule from 'mupdf';
+
+let mupdfPromise: Promise<typeof MupdfModule> | undefined;
+function loadMupdf(): Promise<typeof MupdfModule> {
+  mupdfPromise ??= import('mupdf');
+  return mupdfPromise;
+}
 
 /**
  * Rasterizes PDF pages to PNG images — the "slides as images" alternative
@@ -33,7 +46,8 @@ export class PdfSlidesService {
    * gateway, and mupdf rendering is fully synchronous) and destroys each
    * WASM page/pixmap as it's consumed to avoid leaking WASM heap memory. */
   async renderPages(buffer: Buffer): Promise<Buffer[]> {
-    let doc: mupdf.Document;
+    const mupdf = await loadMupdf();
+    let doc: MupdfModule.Document;
     try {
       doc = mupdf.Document.openDocument(buffer, 'application/pdf');
     } catch (err) {
@@ -55,8 +69,8 @@ export class PdfSlidesService {
 
       const images: Buffer[] = [];
       for (let i = 0; i < totalPages; i++) {
-        let page: mupdf.Page | undefined;
-        let pixmap: mupdf.Pixmap | undefined;
+        let page: MupdfModule.Page | undefined;
+        let pixmap: MupdfModule.Pixmap | undefined;
         try {
           page = doc.loadPage(i);
           pixmap = page.toPixmap(
