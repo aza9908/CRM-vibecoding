@@ -216,6 +216,11 @@ export const lessons = pgTable(
     order: integer('order').notNull().default(0),
     /** Teacher-set class time shown to students on the schedule; null until scheduled. */
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    // Hides a lesson from the default curriculum/past-lessons views without
+    // deleting it — old draft/superseded lessons (e.g. an early "vibe coding"
+    // lesson later replaced by a properly numbered one) can be tucked away
+    // without losing their content or any student progress tied to them.
+    archived: boolean('archived').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({

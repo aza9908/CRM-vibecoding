@@ -5,6 +5,7 @@ import {
   lessonTypeEnum,
   type LessonKind,
   type ProgressStatus,
+  type SessionStatus,
 } from '../enums.js';
 
 /**
@@ -56,6 +57,8 @@ export const createLessonSchema = z.object({
   order: z.number().int().min(0).optional(),
   /** When the class happens — shown to students on the schedule. `null` clears it. */
   scheduledAt: z.string().datetime().nullable().optional(),
+  /** Hides the lesson from curriculum/past-lessons views without deleting it. */
+  archived: z.boolean().optional(),
 });
 export type CreateLessonDto = z.infer<typeof createLessonSchema>;
 
@@ -119,6 +122,19 @@ export type CurriculumLesson = {
   progressStatus?: ProgressStatus;
   /** 0–100 lesson progress (student view); absent for the teacher view. */
   progressPercent?: number;
+  /** Hides the lesson from curriculum/past-lessons views without deleting it. */
+  archived: boolean;
+  /**
+   * Status of this lesson's most recent live session, or `null` if it has
+   * never had one. Drives the "прошлые/будущие уроки" split cohort-wide
+   * (`ended` = already delivered) — independent of any one student's own
+   * progress, which stays a per-lesson percent alongside this.
+   */
+  sessionStatus: SessionStatus | null;
+  /** Id of that same most-recent session, for linking straight into
+   * `/live/:id` (an ended session there renders read-only, no join code
+   * needed) — `null` when `sessionStatus` is `null`. */
+  lastSessionId: string | null;
 };
 
 /** A module (M1/M2/...) grouping ordered lessons. */

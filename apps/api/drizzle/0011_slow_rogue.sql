@@ -1,0 +1,1 @@
+ALTER TABLE "lessons" ADD COLUMN "archived" boolean DEFAULT false NOT NULL;

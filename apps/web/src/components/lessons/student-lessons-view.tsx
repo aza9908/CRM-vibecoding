@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { BookOpen, KeyRound } from 'lucide-react';
+import { BookOpen, KeyRound, PlayCircle } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useCurriculum } from '@/lib/api/hooks';
 import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
@@ -19,8 +19,10 @@ import { Spinner } from '@/components/ui/spinner';
  * Student-safe lesson list from curriculum (no teacher CRUD).
  *
  * `variant="past"` (used by the "Прошлые уроки" nav page) filters down to
- * completed lessons only — same data source (`useCurriculum()`), no new
- * endpoint, just a different slice of the same list.
+ * lessons whose most recent live session has already ended — a cohort-wide
+ * split, not this student's own progress — same data source
+ * (`useCurriculum()`), no new endpoint, just a different slice of the same
+ * list.
  */
 export function StudentLessonsView({
   variant = 'upcoming',
@@ -37,9 +39,12 @@ export function StudentLessonsView({
       m.lessons.map((l) => ({ ...l, moduleTitle: m.title })),
     ) ?? []
   ).filter((l) =>
+    // Cohort-wide split, not per-student: a lesson whose most recent live
+    // session already ended is "past" for everyone, regardless of whether
+    // this particular student finished their own workbook responses.
     variant === 'past'
-      ? l.progressStatus === 'completed'
-      : l.progressStatus !== 'completed',
+      ? l.sessionStatus === 'ended'
+      : l.sessionStatus !== 'ended',
   );
 
   return (
@@ -110,11 +115,30 @@ export function StudentLessonsView({
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent>
-                <Button asChild size="sm" variant="outline">
-                  <Link href="/join">{tj('joinButton')}</Link>
-                </Button>
-              </CardContent>
+              {/* No per-card join code here — a code is only ever needed to
+                  enter a live class happening right now (the top "Войти по
+                  коду" button above covers that, once per visit). A past
+                  lesson's most recent session already ended, so it opens
+                  straight through as an authenticated read view, no code. */}
+              {lesson.sessionStatus === 'ended' && lesson.lastSessionId ? (
+                <CardContent>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={`/live/${lesson.lastSessionId}`}>
+                      <PlayCircle className="h-4 w-4" />
+                      {t('openLesson')}
+                    </Link>
+                  </Button>
+                </CardContent>
+              ) : lesson.sessionStatus === 'live' ? (
+                <CardContent>
+                  <Button asChild size="sm">
+                    <Link href="/join">
+                      <KeyRound className="h-4 w-4" />
+                      {tj('joinNowButton')}
+                    </Link>
+                  </Button>
+                </CardContent>
+              ) : null}
             </Card>
           ))}
         </div>

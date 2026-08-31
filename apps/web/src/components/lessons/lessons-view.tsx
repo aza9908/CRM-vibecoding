@@ -28,7 +28,13 @@ export function LessonsView() {
   const { data: curriculum } = useCurriculum();
   const { data: liveSessions } = useLiveSessions();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const dateFormatter = useLessonDateFormatter();
+
+  const archivedCount = lessons?.filter((l) => l.archived).length ?? 0;
+  const visibleLessons = showArchived
+    ? lessons
+    : lessons?.filter((l) => !l.archived);
 
   const liveByLesson = new Map<string, LiveSessionSummary>(
     (liveSessions ?? [])
@@ -49,22 +55,40 @@ export function LessonsView() {
   }, [curriculum]);
 
   const orderedLessons = useMemo(() => {
-    if (!lessons) return lessons;
-    const withModuleOrder = lessons.map((l) => ({
+    if (!visibleLessons) return visibleLessons;
+    const withModuleOrder = visibleLessons.map((l) => ({
       ...l,
-      moduleOrder: moduleOrderById.get(l.moduleId ?? 'unassigned'),
+      // `getCurriculumTree` excludes archived lessons, so the synthetic
+      // 'unassigned' module (and any real module whose only lessons are
+      // now archived) may not appear in `curriculum.modules` at all once
+      // "Show archived" reveals a lesson like that. A missing lookup here
+      // must NOT fall through to `compareLessons`'s own `moduleOrder ?? 0`
+      // — that reads as "first module" — so an actual miss is pinned last
+      // instead of masquerading as module order 0.
+      moduleOrder: moduleOrderById.get(l.moduleId ?? 'unassigned') ?? Number.MAX_SAFE_INTEGER,
     }));
     return [...withModuleOrder].sort(compareLessons);
-  }, [lessons, moduleOrderById]);
+  }, [visibleLessons, moduleOrderById]);
 
   return (
     <>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus />
-          {t('newLesson')}
-        </Button>
+        <div className="flex items-center gap-2">
+          {archivedCount > 0 ? (
+            <Button
+              variant="outline"
+              onClick={() => setShowArchived((v) => !v)}
+            >
+              {showArchived ? t('hideArchived') : t('showArchived')} (
+              {archivedCount})
+            </Button>
+          ) : null}
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus />
+            {t('newLesson')}
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

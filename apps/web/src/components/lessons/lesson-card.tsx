@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
+  Archive,
+  ArchiveRestore,
   BarChart3,
   CalendarClock,
   Check,
@@ -78,6 +80,16 @@ export function LessonCard({
     deleteLesson.mutate(lesson.id);
   }
 
+  function toggleArchived() {
+    // Archiving hides the card (and its "Resume Live" link) from the
+    // default list, which would otherwise strand a teacher mid-class with
+    // no obvious way back to an active session — confirm only for that case.
+    if (!lesson.archived && activeSession) {
+      if (!window.confirm(t('archiveLiveConfirm'))) return;
+    }
+    updateLesson.mutate({ archived: !lesson.archived });
+  }
+
   async function saveTitle() {
     const next = titleDraft.trim();
     if (!next || next === lesson.title) {
@@ -98,7 +110,9 @@ export function LessonCard({
   const scheduledLabel = formatLessonDate(lesson.scheduledAt, dateFormatter);
 
   return (
-    <Card className="flex flex-col transition-shadow hover:shadow-md">
+    <Card
+      className={`flex flex-col transition-shadow hover:shadow-md${lesson.archived ? ' opacity-60' : ''}`}
+    >
       <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -123,6 +137,12 @@ export function LessonCard({
               <Badge className="w-fit gap-1.5 border-transparent bg-destructive/10 text-destructive">
                 <span className="size-2 animate-pulse rounded-full bg-destructive" />
                 {t('liveNow')} · {activeSession.code}
+              </Badge>
+            ) : null}
+            {lesson.archived ? (
+              <Badge variant="outline" className="w-fit gap-1.5">
+                <Archive className="size-3.5" />
+                {t('archived')}
               </Badge>
             ) : null}
           </div>
@@ -186,16 +206,29 @@ export function LessonCard({
             </div>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="-mr-2 -mt-1 shrink-0 text-muted-foreground hover:text-destructive"
-          onClick={onDelete}
-          disabled={deleteLesson.isPending}
-          aria-label={t('deleteConfirm')}
-        >
-          <Trash2 />
-        </Button>
+        <div className="-mr-2 -mt-1 flex shrink-0 items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            onClick={toggleArchived}
+            disabled={updateLesson.isPending}
+            aria-label={lesson.archived ? t('unarchive') : t('archive')}
+            title={lesson.archived ? t('unarchive') : t('archive')}
+          >
+            {lesson.archived ? <ArchiveRestore /> : <Archive />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+            disabled={deleteLesson.isPending}
+            aria-label={t('deleteConfirm')}
+          >
+            <Trash2 />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="mt-auto flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-2">

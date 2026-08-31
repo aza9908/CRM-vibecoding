@@ -22,6 +22,7 @@ export interface Lesson {
   organizationId: string;
   order: number;
   scheduledAt: string | null;
+  archived: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

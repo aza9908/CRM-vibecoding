@@ -75,6 +75,7 @@ export class LessonsService {
         ...(dto.scheduledAt !== undefined
           ? { scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null }
           : {}),
+        ...(dto.archived !== undefined ? { archived: dto.archived } : {}),
       })
       .returning();
 
@@ -118,6 +119,7 @@ export class LessonsService {
     if (dto.scheduledAt !== undefined) {
       patch.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     }
+    if (dto.archived !== undefined) patch.archived = dto.archived;
 
     if (Object.keys(patch).length === 0) {
       // Nothing to change — return the current row.

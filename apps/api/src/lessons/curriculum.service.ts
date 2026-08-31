@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import type {
   CurriculumLesson,
   CurriculumModule,
@@ -12,6 +12,7 @@ import {
   courses,
   lessonOutcomes,
   lessons,
+  liveSessions,
   modules,
   userProgress,
 } from '../db/schema';
@@ -70,9 +71,14 @@ export class CurriculumService {
         order: lessons.order,
         scheduledAt: lessons.scheduledAt,
         createdAt: lessons.createdAt,
+        archived: lessons.archived,
       })
       .from(lessons)
-      .where(eq(lessons.organizationId, orgId))
+      // Archived lessons are hidden from every curriculum-tree consumer
+      // (student cabinet, syllabus, schedule, teacher's program editor) —
+      // a teacher restores one via `PATCH /lessons/:id` from the plain
+      // `GET /lessons` list (`LessonsService.list`), which is unaffected.
+      .where(and(eq(lessons.organizationId, orgId), eq(lessons.archived, false)))
       // `order` defaults to 0 for every lesson until a teacher explicitly
       // drags one to reorder it, so most lessons tie on `order` — without a
       // tiebreaker Postgres doesn't guarantee which one comes first, and the
@@ -89,17 +95,36 @@ export class CurriculumService {
 
     const lessonIds = lessonRows.map((l) => l.id);
 
-    // Outcomes for all those lessons in one query, grouped by lessonId.
-    const outcomeRows = lessonIds.length
-      ? await this.db
-          .select({
-            id: lessonOutcomes.id,
-            lessonId: lessonOutcomes.lessonId,
-            title: lessonOutcomes.title,
-          })
-          .from(lessonOutcomes)
-          .where(inArray(lessonOutcomes.lessonId, lessonIds))
-      : [];
+    // Outcomes and live-session status are independent lookups keyed only
+    // on `lessonIds` — run them in parallel instead of paying two
+    // sequential round trips on a query both the student cabinet and the
+    // teacher's program editor hit on every load.
+    const [outcomeRows, sessionRows] = await Promise.all([
+      lessonIds.length
+        ? this.db
+            .select({
+              id: lessonOutcomes.id,
+              lessonId: lessonOutcomes.lessonId,
+              title: lessonOutcomes.title,
+            })
+            .from(lessonOutcomes)
+            .where(inArray(lessonOutcomes.lessonId, lessonIds))
+        : Promise.resolve([]),
+      // Most recent live session per lesson (by createdAt) drives the
+      // cohort-wide "прошлые/будущие" split: `ended` = already delivered,
+      // `scheduled`/`live` = not yet, `null` = no session created at all.
+      lessonIds.length
+        ? this.db
+            .select({
+              id: liveSessions.id,
+              lessonId: liveSessions.lessonId,
+              status: liveSessions.status,
+              createdAt: liveSessions.createdAt,
+            })
+            .from(liveSessions)
+            .where(inArray(liveSessions.lessonId, lessonIds))
+        : Promise.resolve([]),
+    ]);
 
     const outcomesByLesson = new Map<string, { id: string; title: string }[]>();
     for (const o of outcomeRows) {
@@ -107,6 +132,24 @@ export class CurriculumService {
       const list = outcomesByLesson.get(o.lessonId) ?? [];
       list.push({ id: o.id, title: o.title });
       outcomesByLesson.set(o.lessonId, list);
+    }
+    const latestSessionByLesson = new Map<
+      string,
+      {
+        id: string;
+        status: (typeof sessionRows)[number]['status'];
+        createdAt: Date | null;
+      }
+    >();
+    for (const s of sessionRows) {
+      if (!s.lessonId) continue;
+      const prev = latestSessionByLesson.get(s.lessonId);
+      if (
+        !prev ||
+        (s.createdAt && (!prev.createdAt || s.createdAt > prev.createdAt))
+      ) {
+        latestSessionByLesson.set(s.lessonId, s);
+      }
     }
 
     /** Synthetic module id for lessons with no real `moduleId`. Never sent
@@ -124,6 +167,9 @@ export class CurriculumService {
         order: l.order,
         scheduledAt: l.scheduledAt ? l.scheduledAt.toISOString() : null,
         outcomes: outcomesByLesson.get(l.id) ?? [],
+        archived: l.archived,
+        sessionStatus: latestSessionByLesson.get(l.id)?.status ?? null,
+        lastSessionId: latestSessionByLesson.get(l.id)?.id ?? null,
       };
       const bucketId = l.moduleId ?? UNASSIGNED_MODULE_ID;
       const list = lessonsByModule.get(bucketId) ?? [];
