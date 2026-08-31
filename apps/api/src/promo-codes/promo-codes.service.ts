@@ -94,6 +94,22 @@ export class PromoCodesService {
   }
 
   /**
+   * Permanently remove a code — unlike `revoke`, no row survives at all.
+   * Safe to hard-delete: nothing else in the schema has a foreign key onto
+   * `promo_codes.id` (a join only ever copies the resolved `organization_id`
+   * onto the new user, never the code row itself), so there's no usage
+   * history or audit trail tied to this id to lose. Tenant-scoped like
+   * `revoke`: 404 if the code belongs to another org.
+   */
+  async remove(orgId: string, id: string): Promise<void> {
+    const [row] = await this.db
+      .delete(promoCodes)
+      .where(and(eq(promoCodes.id, id), eq(promoCodes.organizationId, orgId)))
+      .returning({ id: promoCodes.id });
+    if (!row) throw new NotFoundException('promo_code_not_found');
+  }
+
+  /**
    * Resolve a raw code to the organization it grants access to, incrementing
    * its use count in the same atomic statement. Must be called with the
    * caller's registration transaction handle (`tx`) so two concurrent

@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Check, Copy, Plus } from 'lucide-react';
+import { Check, Copy, Plus, Trash2 } from 'lucide-react';
 import type { PromoCodeDto } from '@lms/shared';
 import {
   usePromoCodes,
   useCreatePromoCode,
   useRevokePromoCode,
+  useDeletePromoCode,
 } from '@/lib/api/hooks';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ export function PromoCodesView() {
   const { data, isLoading, isError } = usePromoCodes();
   const createCode = useCreatePromoCode();
   const revokeCode = useRevokePromoCode();
+  const deleteCode = useDeletePromoCode();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [maxUses, setMaxUses] = useState('');
@@ -133,15 +135,32 @@ export function PromoCodesView() {
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={!c.active || revokeCode.isPending}
-                      onClick={() => revokeCode.mutate(c.id)}
-                    >
-                      {t('revoke')}
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!c.active || revokeCode.isPending}
+                        onClick={() => revokeCode.mutate(c.id)}
+                      >
+                        {t('revoke')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        disabled={deleteCode.isPending}
+                        onClick={() => {
+                          if (!window.confirm(t('deleteCodeConfirm'))) return;
+                          deleteCode.mutate(c.id);
+                        }}
+                        aria-label={t('deleteCode')}
+                        title={t('deleteCode')}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

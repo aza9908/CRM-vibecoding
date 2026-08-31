@@ -32,3 +32,13 @@ export function useRevokePromoCode() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.promoCodes }),
   });
 }
+
+/** DELETE /admin/promo-codes/:id — permanently remove a code. */
+export function useDeletePromoCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.del<{ id: string }>(`/admin/promo-codes/${id}`),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.promoCodes }),
+  });
+}

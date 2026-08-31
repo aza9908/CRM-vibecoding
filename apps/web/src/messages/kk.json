@@ -521,6 +521,8 @@
     "statusActive": "Белсенді",
     "statusRevoked": "Тоқтатылған",
     "revoke": "Тоқтату",
+    "deleteCode": "Жою",
+    "deleteCodeConfirm": "Промокодты біржола жою керек пе? Бұл әрекетті болдырмау мүмкін емес.",
     "createDialogTitle": "Жаңа промокод",
     "maxUsesLabel": "Максималды қолдану саны (міндетті емес)",
     "expiresAtLabel": "Дейін жарамды (міндетті емес)",

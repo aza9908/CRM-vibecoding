@@ -521,6 +521,8 @@
     "statusActive": "Active",
     "statusRevoked": "Revoked",
     "revoke": "Revoke",
+    "deleteCode": "Delete",
+    "deleteCodeConfirm": "Permanently delete this promo code? This can't be undone.",
     "createDialogTitle": "New promo code",
     "maxUsesLabel": "Max uses (optional)",
     "expiresAtLabel": "Expires at (optional)",

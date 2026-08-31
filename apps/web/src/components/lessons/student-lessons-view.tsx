@@ -56,12 +56,16 @@ export function StudentLessonsView({
           </h1>
           <p className="text-sm text-muted-foreground">{t('studentHint')}</p>
         </div>
-        <Button asChild>
-          <Link href="/join">
-            <KeyRound className="h-4 w-4" />
-            {tj('joinButton')}
-          </Link>
-        </Button>
+        {/* Only on the upcoming tab — a past lesson's session already ended,
+            so there's nothing here a join code could ever unlock. */}
+        {variant === 'past' ? null : (
+          <Button asChild>
+            <Link href="/join">
+              <KeyRound className="h-4 w-4" />
+              {tj('joinButton')}
+            </Link>
+          </Button>
+        )}
       </div>
 
       {isLoading && (

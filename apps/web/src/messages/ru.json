@@ -521,6 +521,8 @@
     "statusActive": "Активен",
     "statusRevoked": "Отозван",
     "revoke": "Отозвать",
+    "deleteCode": "Удалить",
+    "deleteCodeConfirm": "Удалить промокод навсегда? Это действие нельзя отменить.",
     "createDialogTitle": "Новый промокод",
     "maxUsesLabel": "Максимум использований (необязательно)",
     "expiresAtLabel": "Действует до (необязательно)",

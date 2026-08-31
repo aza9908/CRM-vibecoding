@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -52,7 +53,8 @@ export class PromoCodesController {
     return this.promoCodes.create(user.orgId, user.sub, dto);
   }
 
-  /** PATCH /admin/promo-codes/:id/revoke — deactivate a code. */
+  /** PATCH /admin/promo-codes/:id/revoke — deactivate a code (keeps the row,
+   * e.g. so its use count stays visible). */
   @Patch(':id/revoke')
   @HttpCode(HttpStatus.OK)
   async revoke(
@@ -60,6 +62,17 @@ export class PromoCodesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.promoCodes.revoke(user.orgId, id);
+    return { id };
+  }
+
+  /** DELETE /admin/promo-codes/:id — permanently remove a code. */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async remove(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.promoCodes.remove(user.orgId, id);
     return { id };
   }
 }
