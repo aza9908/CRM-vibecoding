@@ -160,6 +160,11 @@ export function SessionCelebration({ homeHref = '/' }: { homeHref?: string }) {
           <p className="mt-4 text-pretty text-base leading-relaxed text-white/85 sm:text-lg">
             {t('celebrateBody')}
           </p>
+          {/* No "join again" code prompt here — this screen also serves as
+              the read view for reviewing a past lesson (opened directly from
+              "Прошлые уроки", no code involved), where a join-code CTA is a
+              dead end. Anyone who does want to join a live class has the one
+              entry point at the top of "Мои уроки" already. */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button
               asChild
@@ -167,14 +172,6 @@ export function SessionCelebration({ homeHref = '/' }: { homeHref?: string }) {
               className="bg-white text-[#0b1020] hover:bg-white/90"
             >
               <Link href={homeHref}>{tc('back')}</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
-            >
-              <Link href="/join">{t('celebrateJoinAgain')}</Link>
             </Button>
           </div>
         </div>
