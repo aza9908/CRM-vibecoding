@@ -115,14 +115,22 @@ export function useSessionResponses(id: string | undefined) {
 /**
  * GET /sessions/:id/my-responses — the calling participant's own answers.
  * Seeds the navigation tab's "answered" set on entry so previously answered
- * blocks show as completed. Uses the participant token.
+ * blocks show as completed. Uses the participant token by default (a guest
+ * who joined by code has no other credential); an authenticated user opening
+ * a session they never joined via `/join` (e.g. reviewing a past lesson) has
+ * no participant token at all, so `opts.participant: false` sends their own
+ * user token instead — the API accepts either and maps a user with no
+ * participant row for this session to an empty list, not an error.
  */
-export function useMyResponses(id: string | undefined) {
+export function useMyResponses(
+  id: string | undefined,
+  opts?: { participant?: boolean },
+) {
   return useQuery({
     queryKey: id ? queryKeys.myResponses(id) : queryKeys.lessons,
     queryFn: () =>
       api.get<MyResponse[]>(`/sessions/${id}/my-responses`, {
-        participant: true,
+        participant: opts?.participant ?? true,
       }),
     enabled: !!id,
   });

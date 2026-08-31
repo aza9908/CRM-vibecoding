@@ -55,12 +55,40 @@ export default function StudentLivePage() {
   const user = useAuthStore((s) => s.user);
   const isAuthedUser = !!user;
 
+  // A logged-in user opening this page without ever having gone through
+  // /join (e.g. reviewing a past lesson from "Мои уроки", which links here
+  // directly with no join code) has no participant token for THIS session —
+  // use their own user token instead, which both endpoints accept just as
+  // well. But `/join` deliberately has no org restriction (a user can join
+  // a live session hosted by a different org via a code), so an authed user
+  // who DID join this exact session still needs their participant token —
+  // switching them to the user token would 403 on `assertSessionInOrg`.
+  // Decode the (session-scoped) participant token's own `sessionId` claim
+  // and only prefer it when it actually matches the session being viewed;
+  // a guest has no other credential, so always uses it regardless.
+  const participantTokenSessionId = React.useMemo(() => {
+    if (!participantToken) return null;
+    try {
+      const b64 = participantToken.split('.')[1] ?? '';
+      const payload = JSON.parse(
+        atob(b64.replace(/-/g, '+').replace(/_/g, '/')),
+      ) as { sessionId?: string };
+      return payload.sessionId ?? null;
+    } catch {
+      return null;
+    }
+  }, [participantToken]);
+  const useParticipantToken =
+    !isAuthedUser || participantTokenSessionId === sessionId;
+
   // Poll focus/status lightly — full blocks stay cached; WS carries focus/chat.
   const sessionQuery = useSession(sessionId, {
-    participant: true,
+    participant: useParticipantToken,
     pollMs: 8_000,
   });
-  const myResponsesQuery = useMyResponses(sessionId);
+  const myResponsesQuery = useMyResponses(sessionId, {
+    participant: useParticipantToken,
+  });
 
   const {
     status,
