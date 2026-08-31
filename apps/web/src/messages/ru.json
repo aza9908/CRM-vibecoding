@@ -266,6 +266,7 @@
     "uploadStorageMissing": "Хранилище файлов не настроено на сервере (S3). Обратитесь к администратору — это не ошибка 500.",
     "preview": "Предварительный просмотр",
     "previewBadge": "Вид студента",
+    "pastLessonBadge": "Прошлый урок",
     "previewHint": "как видит участник live-сессии",
     "previewMeta": "{blocks} блоков · {inputs} заданий для ответа",
     "previewDemoFocus": "Показать фокус",

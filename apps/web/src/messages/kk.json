@@ -266,6 +266,7 @@
     "uploadStorageMissing": "Серверде файл қоймасы бапталмаған (S3). Әкімшіге хабарласыңыз — бұл 500 емес.",
     "preview": "Алдын ала қарау",
     "previewBadge": "Студент көрінісі",
+    "pastLessonBadge": "Өткен сабақ",
     "previewHint": "қатысушы live-сессияда қалай көреді",
     "previewMeta": "{blocks} блок · {inputs} жауап өрісі",
     "previewDemoFocus": "Фокусты көрсету",

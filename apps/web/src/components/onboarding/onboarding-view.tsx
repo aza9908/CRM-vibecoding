@@ -43,7 +43,7 @@ export function OnboardingView() {
               <div className="font-medium">{introLesson.title}</div>
             </div>
             <Button asChild>
-              <Link href={`/editor/${introLesson.id}/preview`}>
+              <Link href={`/editor/${introLesson.id}/preview?from=onboarding`}>
                 <PlayCircle className="h-4 w-4" />
                 {t('openLesson')}
               </Link>

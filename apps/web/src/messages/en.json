@@ -266,6 +266,7 @@
     "uploadStorageMissing": "File storage is not configured on the server (S3). Ask an admin — this is not a 500.",
     "preview": "Student preview",
     "previewBadge": "Student view",
+    "pastLessonBadge": "Past lesson",
     "previewHint": "as a live session participant sees it",
     "previewMeta": "{blocks} blocks · {inputs} answer fields",
     "previewDemoFocus": "Show focus",

@@ -122,12 +122,14 @@ export function StudentLessonsView({
               {/* No per-card join code here — a code is only ever needed to
                   enter a live class happening right now (the top "Войти по
                   коду" button above covers that, once per visit). A past
-                  lesson's most recent session already ended, so it opens
-                  straight through as an authenticated read view, no code. */}
-              {lesson.sessionStatus === 'ended' && lesson.lastSessionId ? (
+                  lesson opens straight into its actual content (the same
+                  read-only workbook view the teacher's own preview uses),
+                  not the live session — no code, and no celebration screen
+                  standing in for the real material. */}
+              {lesson.sessionStatus === 'ended' ? (
                 <CardContent>
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/live/${lesson.lastSessionId}`}>
+                    <Link href={`/editor/${lesson.id}/preview?from=past`}>
                       <PlayCircle className="h-4 w-4" />
                       {t('openLesson')}
                     </Link>
