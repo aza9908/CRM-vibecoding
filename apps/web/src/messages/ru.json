@@ -285,6 +285,7 @@
   },
   "schedule": {
     "dateTbd": "Дата уточняется",
+    "lessonPast": "Урок прошёл",
     "setDate": "Назначить дату",
     "editDate": "Изменить дату",
     "clearDate": "Убрать дату",

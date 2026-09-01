@@ -166,6 +166,11 @@ export function CurriculumTimeline() {
                 <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
                 {scheduledLabel ? (
                   <span className="font-medium">{scheduledLabel}</span>
+                ) : lesson.sessionStatus === 'ended' ? (
+                  // No teacher-set schedule date, but a live session for this
+                  // lesson already ran and ended — "Date TBD" would read as
+                  // "not scheduled yet" for something that already happened.
+                  <span className="text-muted-foreground">{ts('lessonPast')}</span>
                 ) : (
                   <span className="text-muted-foreground">{ts('dateTbd')}</span>
                 )}
@@ -179,7 +184,19 @@ export function CurriculumTimeline() {
 
             <p className="font-semibold tracking-tight">{lesson.title}</p>
 
-            {lesson.progressStatus ? (
+            {lesson.sessionStatus === 'ended' ? (
+              // Once the cohort's session has ended, that's the fact that
+              // matters here — not this one student's own workbook
+              // progress, which is what "Прошлые уроки" also keys off of.
+              // Showing per-student progressStatus instead ("Начато") for
+              // an already-ended lesson contradicted that other view. Only
+              // repeated here when the date line above showed a real date
+              // instead of this same "lessonPast" text, to avoid saying it
+              // twice on one card.
+              scheduledLabel ? (
+                <p className="text-sm text-muted-foreground">{ts('lessonPast')}</p>
+              ) : null
+            ) : lesson.progressStatus ? (
               <p className="text-sm text-muted-foreground">
                 {lesson.progressStatus === 'completed'
                   ? ts('progressCompleted')

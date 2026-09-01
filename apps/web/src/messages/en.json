@@ -285,6 +285,7 @@
   },
   "schedule": {
     "dateTbd": "Date to be announced",
+    "lessonPast": "Lesson has passed",
     "setDate": "Set date",
     "editDate": "Edit date",
     "clearDate": "Clear date",
