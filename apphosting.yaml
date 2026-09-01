@@ -3,10 +3,12 @@
 # and injects PORT=8080 at runtime; main.ts already reads process.env.PORT.
 
 runConfig:
-  # Workshop day: keep API warm and roomy for 15+ concurrent live clients.
   cpu: 2
   memoryMiB: 2048
-  minInstances: 1
+  # Scaled to 0: the live site now runs on the VPS (lms-api.magauin.kz).
+  # Kept as a cold-start fallback rather than deleted outright — a rollback
+  # here just needs a rollout, not reprovisioning the backend from scratch.
+  minInstances: 0
   # Keep a single instance while REDIS_URL is unset: the Socket.IO adapter
   # falls back to in-memory, so rooms/broadcasts only work within one instance.
   maxInstances: 1

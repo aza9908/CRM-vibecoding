@@ -7,7 +7,10 @@ runConfig:
   # Workshop day: warm Next.js for 15+ concurrent live tabs.
   cpu: 2
   memoryMiB: 2048
-  minInstances: 1
+  # Scaled to 0: the live site now runs on the VPS (lms.magauin.kz). Kept
+  # as a cold-start fallback rather than deleted outright — a rollback here
+  # just needs a rollout, not reprovisioning the backend from scratch.
+  minInstances: 0
   maxInstances: 4
   concurrency: 120
 
