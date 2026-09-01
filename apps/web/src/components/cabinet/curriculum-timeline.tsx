@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { CalendarClock, Pencil, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Pencil, X } from 'lucide-react';
 import type { CurriculumLesson } from '@lms/shared';
 import { useCurriculum, useUpdateLesson } from '@/lib/api/hooks';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -158,15 +158,30 @@ export function CurriculumTimeline() {
     <div className="flex flex-col gap-3">
       {lessons.map((lesson: CurriculumLesson) => {
         const scheduledLabel = formatLessonDate(lesson.scheduledAt, dateFormatter);
+        const isPast = lesson.sessionStatus === 'ended';
+        const isLiveNow = lesson.sessionStatus === 'live';
         return (
-        <Card key={lesson.id}>
+        <Card
+          key={lesson.id}
+          className={
+            isPast
+              ? 'opacity-60'
+              : isLiveNow
+                ? 'border-destructive/40 bg-destructive/5'
+                : undefined
+          }
+        >
           <CardContent className="flex flex-col gap-2 py-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 text-sm">
-                <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {isPast ? (
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <CalendarClock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
                 {scheduledLabel ? (
                   <span className="font-medium">{scheduledLabel}</span>
-                ) : lesson.sessionStatus === 'ended' ? (
+                ) : isPast ? (
                   // No teacher-set schedule date, but a live session for this
                   // lesson already ran and ended — "Date TBD" would read as
                   // "not scheduled yet" for something that already happened.
@@ -175,16 +190,24 @@ export function CurriculumTimeline() {
                   <span className="text-muted-foreground">{ts('dateTbd')}</span>
                 )}
               </div>
-              {lesson.kind ? (
-                <Badge variant={KIND_BADGE_VARIANT[lesson.kind]}>
-                  {t(KIND_LABEL_KEY[lesson.kind])}
-                </Badge>
-              ) : null}
+              <div className="flex items-center gap-2">
+                {isLiveNow ? (
+                  <Badge className="gap-1.5 border-transparent bg-destructive/10 text-destructive">
+                    <span className="size-2 animate-pulse rounded-full bg-destructive" />
+                    {t('liveNow')}
+                  </Badge>
+                ) : null}
+                {lesson.kind ? (
+                  <Badge variant={KIND_BADGE_VARIANT[lesson.kind]}>
+                    {t(KIND_LABEL_KEY[lesson.kind])}
+                  </Badge>
+                ) : null}
+              </div>
             </div>
 
             <p className="font-semibold tracking-tight">{lesson.title}</p>
 
-            {lesson.sessionStatus === 'ended' ? (
+            {isPast ? (
               // Once the cohort's session has ended, that's the fact that
               // matters here — not this one student's own workbook
               // progress, which is what "Прошлые уроки" also keys off of.
