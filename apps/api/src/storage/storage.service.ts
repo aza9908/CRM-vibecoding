@@ -57,6 +57,12 @@ export class StorageService implements OnModuleInit {
   private mode: StorageMode = 'db';
   private client?: S3Client;
   private endpoint = '';
+  /** Browser-facing base URL for reading an object back, when it differs
+   * from `endpoint` (the address the API's own S3 SDK client connects to —
+   * e.g. MinIO's internal Docker-network address, unreachable from a
+   * browser). Falls back to `endpoint` for providers like R2 where the
+   * endpoint itself is already public. */
+  private publicEndpoint = '';
   private bucket = '';
   private apiPublicUrl = '';
   private signingSecret = '';
@@ -85,6 +91,9 @@ export class StorageService implements OnModuleInit {
 
     if (endpoint && bucket && accessKeyId && secretAccessKey) {
       this.endpoint = endpoint.replace(/\/+$/, '');
+      this.publicEndpoint = (
+        this.config.get<string>('S3_PUBLIC_URL') ?? this.endpoint
+      ).replace(/\/+$/, '');
       this.bucket = bucket;
       this.client = new S3Client({
         endpoint: this.endpoint,
@@ -347,7 +356,7 @@ export class StorageService implements OnModuleInit {
         return key;
       }
     }
-    return `${this.endpoint}/${this.bucket}/${encodeURI(key)}`;
+    return `${this.publicEndpoint}/${this.bucket}/${encodeURI(key)}`;
   }
 
   /** Persist bytes from a DB-mode direct PUT (HMAC-authenticated). */
