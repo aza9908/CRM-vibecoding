@@ -103,6 +103,84 @@ export class StorageService implements OnModuleInit {
       'Storage mode=db (S3_* missing). Uploads persist in Postgres stored_objects. ' +
         'Set S3_ENDPOINT/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY for S3/R2, and API_PUBLIC_URL for absolute upload URLs.',
     );
+    // Not awaited: this repair pass can touch every lesson_blocks row in a
+    // sequential per-row UPDATE loop, and awaiting it here would make boot
+    // time (and the platform's health check) scale with row count — this
+    // app already had one deploy fail its health check from a slow/blocked
+    // boot path, so nothing non-essential belongs in front of the port
+    // bind. Runs in the background instead; a request racing it just reads
+    // a still-expired URL until its own row gets repaired moments later.
+    void this.resignExpiredLessonMediaUrls();
+  }
+
+  /**
+   * One-time-per-boot repair pass: `publicUrl()`'s signed GET URL is baked
+   * verbatim into `lesson_blocks.image_url` at authoring time and expected
+   * to work indefinitely (10-year TTL), but rows written before that TTL was
+   * lengthened still carry their old, already-expired signature — those
+   * images 404 forever with no way to self-heal, since nothing re-signs a
+   * URL that's just read as-is on every block fetch. Cheap and idempotent:
+   * only rows whose `exp` has actually passed get rewritten, so a healthy
+   * row (10-year TTL) is untouched on every subsequent boot.
+   *
+   * Matched by path (`/uploads/file?...key=...`), not by the currently
+   * configured `apiPublicUrl` host — `API_PUBLIC_URL` is optional and a row
+   * signed while it was unset carries a request-derived origin instead
+   * (see `apiOrigin()`), which would never match a same-origin `LIKE`
+   * filter once `API_PUBLIC_URL` is later set to the canonical domain.
+   * Anything that isn't this app's own signed-URL shape (e.g. an external
+   * image URL a teacher pasted into a block) is left alone.
+   */
+  private async resignExpiredLessonMediaUrls(): Promise<void> {
+    let rows: { id: string; image_url: string }[];
+    try {
+      const result = await this.pool.query<{ id: string; image_url: string }>(
+        `SELECT id, image_url FROM lesson_blocks WHERE image_url LIKE $1`,
+        [`%/uploads/file?%key=%`],
+      );
+      rows = result.rows;
+    } catch (err) {
+      this.logger.warn(
+        `Skipping lesson-media URL repair pass (query failed): ${err instanceof Error ? err.message : err}`,
+      );
+      return;
+    }
+    const now = Math.floor(Date.now() / 1000);
+    let repaired = 0;
+    for (const row of rows) {
+      let key: string | null;
+      let exp: number;
+      try {
+        const parsed = new URL(row.image_url);
+        key = parsed.searchParams.get('key');
+        exp = Number(parsed.searchParams.get('exp'));
+      } catch {
+        continue;
+      }
+      if (!key || !Number.isFinite(exp) || exp > now) continue;
+      let fresh: string;
+      try {
+        fresh = this.publicUrl(key);
+      } catch {
+        continue;
+      }
+      try {
+        await this.pool.query(
+          `UPDATE lesson_blocks SET image_url = $1 WHERE id = $2`,
+          [fresh, row.id],
+        );
+        repaired++;
+      } catch (err) {
+        this.logger.warn(
+          `Failed to repair expired lesson-media URL for block ${row.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+    if (repaired > 0) {
+      this.logger.log(
+        `Repaired ${repaired} expired lesson-media URL(s) out of ${rows.length} checked.`,
+      );
+    }
   }
 
   private async ensureDbStore(): Promise<void> {
