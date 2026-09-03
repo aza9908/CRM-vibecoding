@@ -31,6 +31,14 @@ export class CurriculumService {
 
   /** Full curriculum tree for `orgId` (teacher / generic view, no progress). */
   async getCurriculumTree(orgId: string): Promise<CurriculumTree> {
+    // A registered-but-org-less user (signed up without a promo code, meant
+    // to join a company later from their profile — see
+    // `AuthService.redeemPromoCode`) carries `orgId: ''` in their token, not
+    // a real UUID. Treat that the same as "no course found yet" instead of
+    // sending '' into a uuid column and 500ing.
+    if (!orgId) {
+      return { course: null, modules: [] };
+    }
     const [course] = await this.db
       .select({ id: courses.id, title: courses.title })
       .from(courses)
