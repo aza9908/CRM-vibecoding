@@ -44,35 +44,32 @@ export function blockLabelKey(type: BlockType): string {
 }
 
 /**
- * Maps each `image` block's id to its position within its own *contiguous*
- * run of image blocks, plus that run's sibling list — so a run inserted
- * together (e.g. a PDF added as slides) pages through as one gallery in the
- * fullscreen lightbox, without pooling unrelated images from elsewhere in
- * the lesson into the same gallery just because they're also type 'image'.
- * Pass the result's lookup for a given block as `WorkbookBlock`'s
- * `imageNav` prop.
+ * Maps each `image` block's id to its position within the lesson's full
+ * image sequence, plus that sequence's sibling list — so the whole deck
+ * (e.g. a PDF added as slides) pages through as one gallery in the
+ * fullscreen lightbox. Images are pooled across the *entire* lesson, not
+ * just contiguous runs: real lessons interleave input/text blocks between
+ * slides (e.g. an artifact-link field after a batch of slides), and
+ * breaking the gallery at every such block turned one deck into several
+ * disconnected mini-galleries that each wrapped around independently
+ * instead of continuing into the next segment. Pass the result's lookup
+ * for a given block as `WorkbookBlock`'s `imageNav` prop.
  */
 export function buildImageNavMap(
   blocks: Block[],
 ): Map<string, { images: ZoomableImageSibling[]; index: number }> {
-  const map = new Map<string, { images: ZoomableImageSibling[]; index: number }>();
-  let run: { id: string; sib: ZoomableImageSibling }[] = [];
-
-  const flushRun = () => {
-    if (run.length === 0) return;
-    const images = run.map((r) => r.sib);
-    run.forEach((r, i) => map.set(r.id, { images, index: i }));
-    run = [];
-  };
+  const images: ZoomableImageSibling[] = [];
+  const ids: string[] = [];
 
   for (const b of blocks) {
     if (b.type === 'image' && b.imageUrl) {
-      run.push({ id: b.id, sib: { src: b.imageUrl, alt: b.content ?? '' } });
-    } else {
-      flushRun();
+      images.push({ src: b.imageUrl, alt: b.content ?? '' });
+      ids.push(b.id);
     }
   }
-  flushRun();
+
+  const map = new Map<string, { images: ZoomableImageSibling[]; index: number }>();
+  ids.forEach((id, i) => map.set(id, { images, index: i }));
   return map;
 }
 
