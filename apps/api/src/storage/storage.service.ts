@@ -56,6 +56,16 @@ export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
   private mode: StorageMode = 'db';
   private client?: S3Client;
+  /** Client configured against `publicEndpoint` instead of `endpoint`, used
+   * only to *sign* presigned URLs handed to the browser (PUT for uploads,
+   * GET for private downloads). Presigning is a local cryptographic
+   * computation — it never actually connects — so this client's endpoint
+   * never needs to be network-reachable from here, only from wherever the
+   * resulting URL is actually used. Signing with the internal endpoint
+   * instead would bake e.g. MinIO's Docker-network address into the
+   * signature (via the signed Host header), which a browser can never
+   * reach and no amount of rewriting the URL string afterward can fix. */
+  private publicSigningClient?: S3Client;
   private endpoint = '';
   /** Browser-facing base URL for reading an object back, when it differs
    * from `endpoint` (the address the API's own S3 SDK client connects to —
@@ -101,6 +111,15 @@ export class StorageService implements OnModuleInit {
         forcePathStyle: true,
         credentials: { accessKeyId, secretAccessKey },
       });
+      this.publicSigningClient =
+        this.publicEndpoint === this.endpoint
+          ? this.client
+          : new S3Client({
+              endpoint: this.publicEndpoint,
+              region,
+              forcePathStyle: true,
+              credentials: { accessKeyId, secretAccessKey },
+            });
       this.mode = 's3';
       this.logger.log(`Storage mode=s3 bucket=${this.bucket}`);
       return;
@@ -213,6 +232,17 @@ export class StorageService implements OnModuleInit {
     return this.client;
   }
 
+  /** Client used to sign presigned URLs handed to the browser — see the
+   * field doc on `publicSigningClient` for why this must not be `client`. */
+  private requirePublicSigningClient(): S3Client {
+    if (!this.publicSigningClient) {
+      throw new ServiceUnavailableException(
+        'storage_not_configured: set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY and S3_SECRET_KEY on the API service',
+      );
+    }
+    return this.publicSigningClient;
+  }
+
   /** Absolute API origin used for DB-mode signed URLs. */
   private apiOrigin(fallbackOrigin?: string): string {
     const origin = (this.apiPublicUrl || fallbackOrigin || '').replace(
@@ -282,7 +312,7 @@ export class StorageService implements OnModuleInit {
         opts?.requestOrigin,
       );
     }
-    const client = this.requireS3();
+    const client = this.requirePublicSigningClient();
     const command = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
@@ -321,7 +351,9 @@ export class StorageService implements OnModuleInit {
       Bucket: this.bucket,
       Key: key,
     });
-    return getSignedUrl(this.requireS3(), command, { expiresIn: ttlSeconds });
+    return getSignedUrl(this.requirePublicSigningClient(), command, {
+      expiresIn: ttlSeconds,
+    });
   }
 
   /** Hard-delete an object (e.g. when a material file is removed). */
