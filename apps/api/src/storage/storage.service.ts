@@ -110,6 +110,15 @@ export class StorageService implements OnModuleInit {
         region,
         forcePathStyle: true,
         credentials: { accessKeyId, secretAccessKey },
+        // Newer SDK versions default to always attaching a flexible
+        // checksum (x-amz-checksum-crc32) to S3 requests, including
+        // presigned URLs. A presigned URL is handed to a plain browser
+        // PUT/fetch that has no way to compute or send that header, so the
+        // checksum ends up in the signed query string but never in the
+        // actual request — MinIO (and S3) then reports
+        // SignatureDoesNotMatch. WHEN_REQUIRED restores the old behavior:
+        // only add a checksum when the caller explicitly asks for one.
+        requestChecksumCalculation: 'WHEN_REQUIRED',
       });
       this.publicSigningClient =
         this.publicEndpoint === this.endpoint
@@ -119,6 +128,7 @@ export class StorageService implements OnModuleInit {
               region,
               forcePathStyle: true,
               credentials: { accessKeyId, secretAccessKey },
+              requestChecksumCalculation: 'WHEN_REQUIRED',
             });
       this.mode = 's3';
       this.logger.log(`Storage mode=s3 bucket=${this.bucket}`);
