@@ -16,7 +16,7 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/api/query-keys';
 import type { Block } from '@/lib/api/types';
-import { isInputBlock } from '@/lib/blocks';
+import { buildImageNavMap, isInputBlock } from '@/lib/blocks';
 import { progressPercent } from '@/lib/progress';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
@@ -127,6 +127,7 @@ export default function StudentLivePage() {
 
   const blocks: Block[] = sessionQuery.data?.blocks ?? [];
   const lessonId = sessionQuery.data?.lessonId;
+  const imageNavMap = React.useMemo(() => buildImageNavMap(blocks), [blocks]);
 
   // Local answer state per block, mirrored to the server via saveResponse.
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
@@ -454,6 +455,7 @@ export default function StudentLivePage() {
               onAnswerSubmit={handleSubmit}
               onFileUpload={handleFileUpload}
               onResolveFileUrl={handleResolveFileUrl}
+              imageNav={imageNavMap.get(block.id)}
             />
           ))}
         </section>

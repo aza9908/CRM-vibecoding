@@ -17,7 +17,7 @@ import {
 } from '@/lib/ws/useSessionSocket';
 import { useAuthStore } from '@/lib/store/auth-store';
 import type { Block } from '@/lib/api/types';
-import { isInputBlock } from '@/lib/blocks';
+import { buildImageNavMap, isInputBlock } from '@/lib/blocks';
 import { SessionCode } from '@/components/live/SessionCode';
 import { ParticipantsList } from '@/components/live/ParticipantsList';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
@@ -125,6 +125,7 @@ export default function TeacherLivePage() {
     () => blocks.filter((b) => isInputBlock(b.type)),
     [blocks],
   );
+  const imageNavMap = React.useMemo(() => buildImageNavMap(blocks), [blocks]);
 
   const effectiveFocus =
     focusedBlockId ?? sessionQuery.data?.focusedBlockId ?? null;
@@ -231,6 +232,7 @@ export default function TeacherLivePage() {
                 focused={block.id === effectiveFocus}
                 readOnly
                 onFocusClick={sendFocus}
+                imageNav={imageNavMap.get(block.id)}
               />
             ))}
           </section>

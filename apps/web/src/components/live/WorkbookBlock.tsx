@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { RichBlockText } from './RichBlockText';
-import { ZoomableImage } from './ZoomableImage';
+import { ZoomableImage, type ZoomableImageSibling } from './ZoomableImage';
 
 /** Convention for `input_file` answers stored as plain text in `answerText`. */
 const FILE_ANSWER_PREFIX = 'file:';
@@ -94,6 +94,11 @@ export interface WorkbookBlockProps {
   onFileUpload?: (blockId: string, file: File) => Promise<void>;
   /** `input_file` blocks only: resolve a download URL for a `file:` answer. */
   onResolveFileUrl?: (blockId: string) => Promise<string>;
+  /** `image` blocks only: every image block in the same lesson plus this
+   * one's position among them, so the fullscreen lightbox can page to the
+   * next/previous slide instead of only showing this single image. Pass
+   * `undefined` (the default) for single-image contexts. */
+  imageNav?: { images: ZoomableImageSibling[]; index: number };
 }
 
 /**
@@ -113,6 +118,7 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
       onFocusClick,
       onFileUpload,
       onResolveFileUrl,
+      imageNav,
     },
     ref,
   ) {
@@ -167,6 +173,7 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
           onSubmit={submit}
           onFileUpload={onFileUpload}
           onResolveFileUrl={onResolveFileUrl}
+          imageNav={imageNav}
         />
       </div>
     );
@@ -183,6 +190,7 @@ interface BlockBodyProps {
   onSubmit: (next: string) => void;
   onFileUpload?: (blockId: string, file: File) => Promise<void>;
   onResolveFileUrl?: (blockId: string) => Promise<string>;
+  imageNav?: { images: ZoomableImageSibling[]; index: number };
 }
 
 function BlockBody({
@@ -195,6 +203,7 @@ function BlockBody({
   onSubmit,
   onFileUpload,
   onResolveFileUrl,
+  imageNav,
 }: BlockBodyProps) {
   const t = useTranslations('live');
   const [pending, setPending] = React.useState(value);
@@ -223,7 +232,12 @@ function BlockBody({
 
     case 'image':
       return block.imageUrl ? (
-        <ZoomableImage src={block.imageUrl} alt={block.content ?? ''} />
+        <ZoomableImage
+          src={block.imageUrl}
+          alt={block.content ?? ''}
+          siblings={imageNav?.images}
+          index={imageNav?.index}
+        />
       ) : (
         <p className="text-sm text-muted-foreground">{block.content}</p>
       );

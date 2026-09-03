@@ -8,7 +8,7 @@ import { Link } from '@/i18n/routing';
 import { useLesson } from '@/lib/api/hooks';
 import { ApiError } from '@/lib/api/client';
 import type { Block } from '@/lib/api/types';
-import { isInputBlock } from '@/lib/blocks';
+import { buildImageNavMap, isInputBlock } from '@/lib/blocks';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { Brand } from '@/components/brand';
@@ -55,6 +55,7 @@ export function LessonPreviewView({ lessonId }: { lessonId: string }) {
     () => blocks.filter((b) => isInputBlock(b.type)).length,
     [blocks],
   );
+  const imageNavMap = useMemo(() => buildImageNavMap(blocks), [blocks]);
 
   if (isLoading) {
     return (
@@ -173,6 +174,7 @@ export function LessonPreviewView({ lessonId }: { lessonId: string }) {
               onAnswerChange={(id, text) =>
                 setAnswers((prev) => ({ ...prev, [id]: text }))
               }
+              imageNav={imageNavMap.get(block.id)}
               // Teacher-only demo tool — WorkbookBlock treats a block as
               // clickable/hoverable whenever this is set at all, so it must
               // stay entirely unset (not just gated by a hidden button) for

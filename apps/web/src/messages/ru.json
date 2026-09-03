@@ -336,6 +336,8 @@
     "zoomReset": "Сбросить масштаб",
     "zoomCollapse": "Свернуть",
     "zoomClose": "Закрыть",
+    "zoomPrev": "Предыдущее изображение",
+    "zoomNext": "Следующее изображение",
     "waitingForTeacher": "Ожидаем учителя…",
     "connecting": "Подключение…",
     "connected": "Подключено",

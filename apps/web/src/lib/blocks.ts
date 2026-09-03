@@ -1,4 +1,6 @@
 import type { BlockType } from '@lms/shared';
+import type { Block } from '@/lib/api/types';
+import type { ZoomableImageSibling } from '@/components/live/ZoomableImage';
 
 /** Block types that accept a student answer (vs. presentational blocks). */
 export const INPUT_BLOCK_TYPES: readonly BlockType[] = [
@@ -39,6 +41,39 @@ export function blockLabelKey(type: BlockType): string {
     default:
       return 'blockText';
   }
+}
+
+/**
+ * Maps each `image` block's id to its position within its own *contiguous*
+ * run of image blocks, plus that run's sibling list — so a run inserted
+ * together (e.g. a PDF added as slides) pages through as one gallery in the
+ * fullscreen lightbox, without pooling unrelated images from elsewhere in
+ * the lesson into the same gallery just because they're also type 'image'.
+ * Pass the result's lookup for a given block as `WorkbookBlock`'s
+ * `imageNav` prop.
+ */
+export function buildImageNavMap(
+  blocks: Block[],
+): Map<string, { images: ZoomableImageSibling[]; index: number }> {
+  const map = new Map<string, { images: ZoomableImageSibling[]; index: number }>();
+  let run: { id: string; sib: ZoomableImageSibling }[] = [];
+
+  const flushRun = () => {
+    if (run.length === 0) return;
+    const images = run.map((r) => r.sib);
+    run.forEach((r, i) => map.set(r.id, { images, index: i }));
+    run = [];
+  };
+
+  for (const b of blocks) {
+    if (b.type === 'image' && b.imageUrl) {
+      run.push({ id: b.id, sib: { src: b.imageUrl, alt: b.content ?? '' } });
+    } else {
+      flushRun();
+    }
+  }
+  flushRun();
+  return map;
 }
 
 /** All block types in editor palette order. */

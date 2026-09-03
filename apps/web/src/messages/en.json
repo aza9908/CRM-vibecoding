@@ -336,6 +336,8 @@
     "zoomReset": "Reset zoom",
     "zoomCollapse": "Collapse",
     "zoomClose": "Close",
+    "zoomPrev": "Previous image",
+    "zoomNext": "Next image",
     "waitingForTeacher": "Waiting for the teacher…",
     "connecting": "Connecting…",
     "connected": "Connected",
