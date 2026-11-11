@@ -116,6 +116,8 @@ jobs:
           d=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null | xargs -r grep -l 'apps/web' | grep -v '\.bak' | head -1 | xargs -r dirname)
           if [ -n "$d" ]; then
             echo "-- clone $d"; git -C "$d" status --short | head -20; git -C "$d" log --oneline -1
+            echo "-- server-side diff of tracked files (values of secret-like keys redacted)"
+            git -C "$d" diff | sed -E 's/((SECRET|PASSWORD|TOKEN|_KEY|KEY_ID)[A-Z_]*[=:][[:space:]]*)[^$[:space:]].*/\1<redacted>/I'
             echo "-- env-like files (names only)"; find "$d" -maxdepth 3 \( -name '.env*' -o -name '*.env' \) -not -path '*/node_modules/*' 2>/dev/null
           fi
           echo "== nginx lms sites (server_name / proxy_pass / location)"
