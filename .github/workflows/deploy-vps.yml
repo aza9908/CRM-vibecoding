@@ -421,6 +421,8 @@ jobs:
           REMOTE
 
       - name: Verify the site answers under the base path
+        # lms.magauin.kz redirects visitors to airl.kz/lms; only requests that
+        # carry the landing proxy's header are served, so the check sends it.
         if: inputs.mode == 'deploy' || inputs.mode == 'verify'
         env:
           PUBLIC_URL: ${{ inputs.public_url }}
@@ -428,14 +430,14 @@ jobs:
         run: |
           url="${PUBLIC_URL%/}$BASE_PATH"
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/uz" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' -H 'x-airl-lms-proxy: 1' "$url/uz" || true)
             echo "try $i: $url/uz → $code"
             [ "$code" = "200" ] && break
             sleep 10
           done
           [ "$code" = "200" ] || { echo "::error::$url/uz did not return 200"; exit 1; }
           echo "root → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${PUBLIC_URL%/}/")"
-          echo "en   → $(curl -s -o /dev/null -w '%{http_code}' "$url/en")"
+          echo "en   → $(curl -s -o /dev/null -w '%{http_code}' -H 'x-airl-lms-proxy: 1' "$url/en")"
 
       - name: Roll back on failure
         if: failure() && inputs.mode == 'deploy'
