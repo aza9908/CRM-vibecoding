@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, isNull, sql } from 'drizzle-orm';
 
 import { DRIZZLE, type Db } from './db.module';
 import {
@@ -76,6 +76,9 @@ export class WorkbookSeedService {
   async seed(opts: {
     orgId?: string | null;
     teacherEmail?: string | null;
+    /** Only fill a lesson that has no blocks yet (API boot) — never
+     * overwrite a teacher's edits. Explicit seeds replace the blocks. */
+    onlyIfEmpty?: boolean;
   }): Promise<SeedWorkbookResult> {
     await this.ensureSchema();
 
@@ -222,6 +225,16 @@ export class WorkbookSeedService {
       };
     }
 
+    if (opts.onlyIfEmpty) {
+      const existing = await this.db.query.lessonBlocks.findMany({
+        where: eq(lessonBlocks.lessonId, lesson.id),
+        columns: { id: true },
+      });
+      if (existing.length > 0) {
+        return { orgId, lessonId: lesson.id, blocks: existing.length, stats: DAY1_STATS };
+      }
+    }
+
     // Never wipe blocks while a live session is running for this lesson —
     // a mid-workshop deploy/restart would invalidate focus IDs and responses.
     const activeLive = await this.db.query.liveSessions.findFirst({
@@ -282,6 +295,8 @@ export class WorkbookSeedService {
   async seedOrzuWeek1(opts: {
     orgId: string;
     teacherId?: string | null;
+    /** See seed(): boot only fills an empty lesson. */
+    onlyIfEmpty?: boolean;
   }): Promise<SeedWorkbookResult> {
     const { orgId } = opts;
     let course = await this.db.query.courses.findFirst({
@@ -344,12 +359,12 @@ export class WorkbookSeedService {
       await this.assignTeacher(lesson.id, opts.teacherId);
     }
 
-    const blocks = await this.replaceBlocks(lesson!.id, ORZU_WEEK1_WORKBOOK);
+    const blocks = await this.replaceBlocks(lesson!.id, ORZU_WEEK1_WORKBOOK, opts.onlyIfEmpty);
     return { orgId, lessonId: lesson!.id, blocks, stats: ORZU_WEEK1_STATS };
   }
 
   /** Seed the Orzu lesson into every org whose name contains "orzu". */
-  async seedOrzuOrgs(): Promise<SeedWorkbookResult[]> {
+  async seedOrzuOrgs(opts: { onlyIfEmpty?: boolean } = {}): Promise<SeedWorkbookResult[]> {
     const orgs = await this.db.query.organizations.findMany({
       where: ilike(organizations.name, ORZU_ORG_PATTERN),
     });
@@ -364,7 +379,11 @@ export class WorkbookSeedService {
       });
       try {
         results.push(
-          await this.seedOrzuWeek1({ orgId: org.id, teacherId: teacher?.id }),
+          await this.seedOrzuWeek1({
+            orgId: org.id,
+            teacherId: teacher?.id,
+            onlyIfEmpty: opts.onlyIfEmpty,
+          }),
         );
       } catch (err) {
         this.logger.warn(
@@ -379,7 +398,15 @@ export class WorkbookSeedService {
   private async replaceBlocks(
     lessonId: string,
     workbook: SeedBlock[],
+    onlyIfEmpty = false,
   ): Promise<number> {
+    if (onlyIfEmpty) {
+      const existing = await this.db.query.lessonBlocks.findMany({
+        where: eq(lessonBlocks.lessonId, lessonId),
+        columns: { id: true },
+      });
+      if (existing.length > 0) return existing.length;
+    }
     const activeLive = await this.db.query.liveSessions.findFirst({
       where: and(
         eq(liveSessions.lessonId, lessonId),
@@ -427,7 +454,9 @@ export class WorkbookSeedService {
       .where(eq(lessons.id, lessonId));
   }
 
-  async seedAllOrgs(): Promise<{ orgs: number; results: SeedWorkbookResult[] }> {
+  async seedAllOrgs(
+    opts: { onlyIfEmpty?: boolean } = {},
+  ): Promise<{ orgs: number; results: SeedWorkbookResult[] }> {
     await this.ensureSchema();
     const orgs = await this.db.query.organizations.findMany({
       orderBy: asc(organizations.createdAt),
@@ -443,12 +472,14 @@ export class WorkbookSeedService {
       });
       try {
         // Pass orgId explicitly; teacherEmail only used when orgId is absent.
-        const result = await this.seed({ orgId: org.id });
+        const result = await this.seed({ orgId: org.id, onlyIfEmpty: opts.onlyIfEmpty });
         if (teacher) {
+          // Assign an owner only when the lesson has none — never take a
+          // lesson away from the teacher who runs it.
           await this.db
             .update(lessons)
             .set({ teacherId: teacher.id })
-            .where(eq(lessons.id, result.lessonId));
+            .where(and(eq(lessons.id, result.lessonId), isNull(lessons.teacherId)));
         }
         results.push(result);
       } catch (err) {

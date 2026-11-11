@@ -30,8 +30,9 @@ export class AdminModule implements OnModuleInit {
   constructor(private readonly seed: WorkbookSeedService) {}
 
   /**
-   * On boot: ensure `users.occupation` exists, then upsert the Day-1 workshop
-   * lesson into every organization so every teacher sees it under Уроки.
+   * On boot: ensure `users.occupation` exists, then create the Day-1 workshop
+   * lesson in every organization that lacks it, so every teacher sees it
+   * under Уроки. Existing lessons (and teachers' edits) are left untouched.
    */
   async onModuleInit(): Promise<void> {
     try {
@@ -42,7 +43,9 @@ export class AdminModule implements OnModuleInit {
       );
     }
     try {
-      const { orgs, results } = await this.seed.seedAllOrgs();
+      // Boot only creates missing workshop lessons; it never overwrites
+      // blocks a teacher edited (POST /admin/workbook/seed* refreshes them).
+      const { orgs, results } = await this.seed.seedAllOrgs({ onlyIfEmpty: true });
       this.logger.log(
         `Day-1 workbook ready in ${results.length}/${orgs} organizations`,
       );
@@ -52,7 +55,7 @@ export class AdminModule implements OnModuleInit {
       );
     }
     try {
-      const orzu = await this.seed.seedOrzuOrgs();
+      const orzu = await this.seed.seedOrzuOrgs({ onlyIfEmpty: true });
       this.logger.log(`Orzu Medical week-1 lesson ready in ${orzu.length} organization(s)`);
     } catch (err) {
       this.logger.warn(
