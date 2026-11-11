@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify]
+        options: [inspect, deploy, verify, diagnose]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -126,6 +126,53 @@ jobs:
           echo "== nginx lms sites (server_name / proxy_pass / location)"
           grep -hE 'server_name|proxy_pass|location|listen' /etc/nginx/sites-enabled/lms.magauin.kz /etc/nginx/sites-enabled/lms-api.magauin.kz 2>/dev/null
           REMOTE
+
+      - name: Diagnose login and data (counts only — logs are public)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          echo "== public URLs"
+          for u in https://airl.kz/ https://www.airl.kz/ https://airl.kz/lms https://airl.kz/lms/ru/login https://www.airl.kz/lms/ru/login https://lms.magauin.kz/; do
+            echo "$u → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$u")"
+          done
+          chunk=$(curl -s https://airl.kz/lms/ru/login | grep -o '/lms/_next/static/[^"]*\.js' | head -1)
+          echo "JS chunk $chunk → $(curl -s -o /dev/null -w '%{http_code}' "https://airl.kz$chunk")"
+          echo "== CORS from each origin (login preflight + bad-password POST)"
+          for o in https://airl.kz https://www.airl.kz https://lms.magauin.kz; do
+            pre=$(curl -s -o /dev/null -D - -X OPTIONS https://lms-api.magauin.kz/auth/login -H "Origin: $o" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' | grep -i '^access-control-allow-origin' | tr -d '\r')
+            post=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://lms-api.magauin.kz/auth/login -H "Origin: $o" -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}')
+            echo "$o → preflight [$pre] · bad login → $post"
+          done
+          echo "== refresh cookie attributes (from a failed refresh)"
+          curl -s -D - -o /dev/null -X POST https://lms-api.magauin.kz/auth/refresh -H 'Origin: https://airl.kz' | grep -i 'set-cookie\|^HTTP' | sed -E 's/=[A-Za-z0-9._-]{20,}/=<token>/'
+          echo "== database (counts only)"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -" <<'NODE'
+          const { Pool } = require('pg');
+          const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+          (async () => {
+            const q = async (sql, args = []) => (await pool.query(sql, args)).rows;
+            console.log('orgs', (await q('select count(*)::int n from organizations'))[0].n,
+              '· users', (await q('select count(*)::int n from users'))[0].n,
+              '· lessons', (await q('select count(*)::int n from lessons'))[0].n,
+              '· blocks', (await q('select count(*)::int n from lesson_blocks'))[0].n,
+              '· sessions', (await q('select count(*)::int n from live_sessions'))[0].n,
+              '· responses', (await q('select count(*)::int n from responses'))[0].n);
+            const me = await q(`select u.role, u.is_platform_admin, u.organization_id is not null as has_org,
+                 u.password_hash is not null as has_password, u.created_at::date as created,
+                 (select count(*)::int from lessons l where l.organization_id = u.organization_id) as org_lessons,
+                 (select count(*)::int from lessons l where l.organization_id = u.organization_id and not l.archived) as org_active_lessons,
+                 (select count(*)::int from lessons l where l.organization_id = u.organization_id and l.created_at > now() - interval '1 day') as org_lessons_new_today
+               from users u where encode(sha256(lower(u.email)::bytea),'hex') = $1`, ['3cccbd597a602e0fa99175a1adb9be332a6407ab984ed2c059bdef88ef262960']);
+            console.log('owner account:', me.length ? JSON.stringify(me[0]) : 'NOT FOUND');
+            const recent = await q(`select count(*)::int n from lessons where created_at > now() - interval '1 day'`);
+            console.log('lessons created in the last 24h (all orgs):', recent[0].n);
+            await pool.end();
+          })().catch((e) => { console.error('db error:', e.message); process.exit(1); });
+          NODE
 
       - name: Pull main, update .env, rebuild containers
         if: inputs.mode == 'deploy'
