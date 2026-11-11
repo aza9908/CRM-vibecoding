@@ -1,0 +1,130 @@
+name: Deploy LMS to VPS
+
+# Rebuilds the LMS on the VPS (docker compose) from main.
+# Run manually: Actions → "Deploy LMS to VPS" → Run workflow
+#   or: gh workflow run deploy-vps.yml -R aza9908/CRM-vibecoding
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   VPS_HOST      server IP or hostname
+#   VPS_USER      SSH user (e.g. root)
+#   VPS_SSH_KEY   private key whose public key is in ~/.ssh/authorized_keys
+#   VPS_APP_DIR   folder of the git clone with docker-compose.prod.yml + .env
+#   VPS_PORT      optional, default 22
+#
+# The server's .env is updated in place so the app serves under /lms
+# (https://airl.kz/lms/…) and the API accepts https://airl.kz.
+on:
+  workflow_dispatch:
+    inputs:
+      base_path:
+        description: Sub-path the web app is served under
+        default: /lms
+      extra_origin:
+        description: Origin added to WEB_ORIGIN (CORS + WebSocket)
+        default: https://airl.kz
+      public_url:
+        description: URL checked after the deploy
+        default: https://lms.magauin.kz
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          missing=""
+          for v in VPS_HOST VPS_USER VPS_SSH_KEY VPS_APP_DIR; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+
+      - name: Set up SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "${VPS_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Pull main, update .env, rebuild containers
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          BASE_PATH: ${{ inputs.base_path }}
+          EXTRA_ORIGIN: ${{ inputs.extra_origin }}
+        run: |
+          ssh -i ~/.ssh/id_deploy -p "${VPS_PORT:-22}" -o BatchMode=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$APP_DIR"
+          echo "== $(pwd) @ $(git rev-parse --short HEAD)"
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+          echo "== now at $(git rev-parse --short HEAD)"
+
+          [ -f .env ] || { echo "No .env in $APP_DIR — refusing to deploy"; exit 1; }
+          cp .env ".env.bak.$(date +%Y%m%d%H%M%S)"
+
+          # NEXT_PUBLIC_BASE_PATH=/lms
+          if grep -q '^NEXT_PUBLIC_BASE_PATH=' .env; then
+            sed -i "s#^NEXT_PUBLIC_BASE_PATH=.*#NEXT_PUBLIC_BASE_PATH=$BASE_PATH#" .env
+          else
+            printf '\nNEXT_PUBLIC_BASE_PATH=%s\n' "$BASE_PATH" >> .env
+          fi
+
+          # WEB_ORIGIN += https://airl.kz (CORS + WebSocket origins)
+          if grep -q '^WEB_ORIGIN=' .env; then
+            cur=$(grep '^WEB_ORIGIN=' .env | tail -1 | cut -d= -f2- | tr -d '"')
+            case ",$cur," in
+              *",$EXTRA_ORIGIN,"*) ;;
+              *) sed -i "s#^WEB_ORIGIN=.*#WEB_ORIGIN=${cur:+$cur,}$EXTRA_ORIGIN#" .env ;;
+            esac
+          else
+            printf 'WEB_ORIGIN=%s\n' "$EXTRA_ORIGIN" >> .env
+          fi
+          grep -E '^(NEXT_PUBLIC_BASE_PATH|WEB_ORIGIN)=' .env
+
+          if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+          $DC -f docker-compose.prod.yml up -d --build api web
+          $DC -f docker-compose.prod.yml ps
+          docker image prune -f >/dev/null || true
+          REMOTE
+
+      - name: Verify the site answers under the base path
+        env:
+          PUBLIC_URL: ${{ inputs.public_url }}
+          BASE_PATH: ${{ inputs.base_path }}
+        run: |
+          url="${PUBLIC_URL%/}$BASE_PATH"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url/uz" || true)
+            echo "try $i: $url/uz → $code"
+            [ "$code" = "200" ] && break
+            sleep 10
+          done
+          [ "$code" = "200" ] || { echo "::error::$url/uz did not return 200"; exit 1; }
+          echo "root → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${PUBLIC_URL%/}/")"
+          echo "en   → $(curl -s -o /dev/null -w '%{http_code}' "$url/en")"
