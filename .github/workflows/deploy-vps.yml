@@ -77,10 +77,10 @@ jobs:
           if [ -n "$VPS_SSH_KEY" ]; then
             printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
             chmod 600 ~/.ssh/id_deploy
-            echo 'SSH=ssh -i ~/.ssh/id_deploy -o BatchMode=yes' >> "$GITHUB_ENV"
+            echo 'SSH=ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o ServerAliveInterval=30' >> "$GITHUB_ENV"
           else
             sudo apt-get install -y -qq sshpass >/dev/null
-            echo 'SSH=sshpass -e ssh -o PubkeyAuthentication=no' >> "$GITHUB_ENV"
+            echo 'SSH=sshpass -e ssh -o PubkeyAuthentication=no -o ServerAliveInterval=30' >> "$GITHUB_ENV"
           fi
 
       - name: Inspect server (read-only)
@@ -136,45 +136,65 @@ jobs:
           EXTRA_ORIGIN: ${{ inputs.extra_origin }}
         run: |
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
-            "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' bash -s" <<'REMOTE'
+            "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' EXPECTED_COMPOSE='acda3ae48a1bc4fddd085708d73a128e82c9c4b4' bash -s" <<'REMOTE'
           set -euo pipefail
           if [ -z "$APP_DIR" ]; then
             APP_DIR=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null \
-              | xargs -r grep -l 'apps/web' | head -1 | xargs -r dirname)
+              | grep -v '\.bak' | xargs -r grep -l 'apps/web' | head -1 | xargs -r dirname)
           fi
           [ -n "$APP_DIR" ] && [ -d "$APP_DIR/.git" ] || { echo "LMS clone not found on this server"; exit 1; }
           cd "$APP_DIR"
-          echo "== $(pwd) @ $(git rev-parse --short HEAD)"
+          ENV_FILE=.env.prod; [ -f "$ENV_FILE" ] || ENV_FILE=.env
+          [ -f "$ENV_FILE" ] || { echo "No .env.prod/.env in $APP_DIR — refusing to deploy"; exit 1; }
+          PREV=$(git rev-parse HEAD)
+          BK="$APP_DIR/.deploy-backup/$(date +%Y%m%d%H%M%S)"
+          mkdir -p "$BK"
+          cp "$ENV_FILE" "$BK/env"; cp docker-compose.prod.yml "$BK/docker-compose.prod.yml"
+          echo "$PREV" > "$BK/prev-sha"; echo "$ENV_FILE" > "$BK/env-file"
+          ln -sfn "$BK" "$APP_DIR/.deploy-backup/latest"
+          echo "== $APP_DIR @ ${PREV:0:7}, env file $ENV_FILE, backup $BK"
+
+          # Server-side edits: only the known production compose file may differ.
+          changed=$(git diff --name-only)
+          if [ -n "$changed" ]; then
+            if [ "$changed" != "docker-compose.prod.yml" ]; then
+              echo "Unexpected local changes, refusing to pull:"; echo "$changed"; exit 1
+            fi
+            if [ "$(git hash-object docker-compose.prod.yml)" != "$EXPECTED_COMPOSE" ] && [ "$EXPECTED_COMPOSE" != "any" ]; then
+              echo "docker-compose.prod.yml on the server is not the reviewed version — refusing"; exit 1
+            fi
+            git checkout -- docker-compose.prod.yml   # main carries it (+ /lms build arg)
+          fi
           git fetch origin main
           git checkout main
           git pull --ff-only origin main
           echo "== now at $(git rev-parse --short HEAD)"
 
-          [ -f .env ] || { echo "No .env in $APP_DIR — refusing to deploy"; exit 1; }
-          cp .env ".env.bak.$(date +%Y%m%d%H%M%S)"
-
           # NEXT_PUBLIC_BASE_PATH=/lms
-          if grep -q '^NEXT_PUBLIC_BASE_PATH=' .env; then
-            sed -i "s#^NEXT_PUBLIC_BASE_PATH=.*#NEXT_PUBLIC_BASE_PATH=$BASE_PATH#" .env
+          if grep -q '^NEXT_PUBLIC_BASE_PATH=' "$ENV_FILE"; then
+            sed -i "s#^NEXT_PUBLIC_BASE_PATH=.*#NEXT_PUBLIC_BASE_PATH=$BASE_PATH#" "$ENV_FILE"
           else
-            printf '\nNEXT_PUBLIC_BASE_PATH=%s\n' "$BASE_PATH" >> .env
+            printf '\nNEXT_PUBLIC_BASE_PATH=%s\n' "$BASE_PATH" >> "$ENV_FILE"
           fi
-
           # WEB_ORIGIN += https://airl.kz (CORS + WebSocket origins)
-          if grep -q '^WEB_ORIGIN=' .env; then
-            cur=$(grep '^WEB_ORIGIN=' .env | tail -1 | cut -d= -f2- | tr -d '"')
+          if grep -q '^WEB_ORIGIN=' "$ENV_FILE"; then
+            cur=$(grep '^WEB_ORIGIN=' "$ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"')
             case ",$cur," in
               *",$EXTRA_ORIGIN,"*) ;;
-              *) sed -i "s#^WEB_ORIGIN=.*#WEB_ORIGIN=${cur:+$cur,}$EXTRA_ORIGIN#" .env ;;
+              *) sed -i "s#^WEB_ORIGIN=.*#WEB_ORIGIN=${cur:+$cur,}$EXTRA_ORIGIN#" "$ENV_FILE" ;;
             esac
           else
-            printf 'WEB_ORIGIN=%s\n' "$EXTRA_ORIGIN" >> .env
+            printf 'WEB_ORIGIN=%s\n' "$EXTRA_ORIGIN" >> "$ENV_FILE"
           fi
-          grep -E '^(NEXT_PUBLIC_BASE_PATH|WEB_ORIGIN)=' .env
+          grep -E '^(NEXT_PUBLIC_[A-Z_]*|WEB_ORIGIN)=' "$ENV_FILE"
 
           if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
-          $DC -f docker-compose.prod.yml up -d --build api web
-          $DC -f docker-compose.prod.yml ps
+          # Build first: if the build fails, the running containers stay untouched.
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml build api web
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d api web
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml ps api web
+          sleep 15
+          docker logs --tail 40 lms-api-1 2>&1 | grep -E 'Orzu|workbook|ERROR|listening|started' || true
           docker image prune -f >/dev/null || true
           REMOTE
 
@@ -194,3 +214,30 @@ jobs:
           [ "$code" = "200" ] || { echo "::error::$url/uz did not return 200"; exit 1; }
           echo "root → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${PUBLIC_URL%/}/")"
           echo "en   → $(curl -s -o /dev/null -w '%{http_code}' "$url/en")"
+
+      - name: Roll back on failure
+        if: failure() && inputs.mode == 'deploy'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "APP_DIR='$VPS_APP_DIR' bash -s" <<'REMOTE'
+          set -euo pipefail
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null \
+              | grep -v '\.bak' | xargs -r grep -l 'apps/web' | head -1 | xargs -r dirname)
+          fi
+          BK="$APP_DIR/.deploy-backup/latest"
+          [ -f "$BK/prev-sha" ] || { echo "No backup to roll back to"; exit 0; }
+          cd "$APP_DIR"
+          ENV_FILE=$(cat "$BK/env-file")
+          git reset -q --hard "$(cat "$BK/prev-sha")"
+          cp "$BK/docker-compose.prod.yml" docker-compose.prod.yml
+          cp "$BK/env" "$ENV_FILE"
+          if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d --build api web
+          echo "Rolled back to $(git rev-parse --short HEAD)"
+          REMOTE
