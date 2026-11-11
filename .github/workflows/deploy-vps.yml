@@ -22,9 +22,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: inspect (read-only report) or deploy
+        description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy]
+        options: [inspect, deploy, verify]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -49,6 +49,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Check secrets
+        if: inputs.mode != 'verify'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -66,6 +67,7 @@ jobs:
           fi
 
       - name: Set up SSH
+        if: inputs.mode != 'verify'
         env:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -84,6 +86,7 @@ jobs:
           fi
 
       - name: Inspect server (read-only)
+        if: inputs.mode != 'verify'
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -199,7 +202,7 @@ jobs:
           REMOTE
 
       - name: Verify the site answers under the base path
-        if: inputs.mode == 'deploy'
+        if: inputs.mode == 'deploy' || inputs.mode == 'verify'
         env:
           PUBLIC_URL: ${{ inputs.public_url }}
           BASE_PATH: ${{ inputs.base_path }}
