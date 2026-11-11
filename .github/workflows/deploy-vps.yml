@@ -8,14 +8,24 @@ name: Deploy LMS to VPS
 #   VPS_HOST      server IP or hostname
 #   VPS_USER      SSH user (e.g. root)
 #   VPS_SSH_KEY   private key whose public key is in ~/.ssh/authorized_keys
-#   VPS_APP_DIR   folder of the git clone with docker-compose.prod.yml + .env
+#     — or —
+#   VPS_PASSWORD  SSH password (used only when VPS_SSH_KEY is not set)
+#   VPS_APP_DIR   optional: folder of the git clone with docker-compose.prod.yml
+#                 (auto-detected when unset)
 #   VPS_PORT      optional, default 22
+#
+# mode=inspect only reports what is on the server and changes nothing.
 #
 # The server's .env is updated in place so the app serves under /lms
 # (https://airl.kz/lms/…) and the API accepts https://airl.kz.
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: inspect (read-only report) or deploy
+        type: choice
+        options: [inspect, deploy]
+        default: inspect
       base_path:
         description: Sub-path the web app is served under
         default: /lms
@@ -43,12 +53,13 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
-          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
         run: |
           missing=""
-          for v in VPS_HOST VPS_USER VPS_SSH_KEY VPS_APP_DIR; do
+          for v in VPS_HOST VPS_USER; do
             [ -n "${!v}" ] || missing="$missing $v"
           done
+          [ -n "$VPS_SSH_KEY$VPS_PASSWORD" ] || missing="$missing VPS_SSH_KEY|VPS_PASSWORD"
           if [ -n "$missing" ]; then
             echo "::error::Missing repository secrets:$missing"
             exit 1
@@ -59,14 +70,47 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -p "${VPS_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ -n "$VPS_SSH_KEY" ]; then
+            printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+            chmod 600 ~/.ssh/id_deploy
+            echo 'SSH=ssh -i ~/.ssh/id_deploy -o BatchMode=yes' >> "$GITHUB_ENV"
+          else
+            sudo apt-get install -y -qq sshpass >/dev/null
+            echo 'SSH=sshpass -e ssh -o PubkeyAuthentication=no' >> "$GITHUB_ENV"
+          fi
+
+      - name: Inspect server (read-only)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          echo "== DNS (from the runner)"
+          for h in lms.magauin.kz lms-api.magauin.kz server.airl.kz airl.kz; do
+            echo "$h → $(dig +short A $h | tr '\n' ' ')"
+          done
+          echo "VPS_HOST → $VPS_HOST"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" bash -s <<'REMOTE'
+          echo "== host: $(hostname) · $(. /etc/os-release; echo $PRETTY_NAME) · up $(uptime -p)"
+          echo "== disk"; df -h / | tail -1
+          echo "== docker"; (docker --version && docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}') 2>&1 | head -30
+          echo "== compose projects with an LMS"
+          find / -xdev -name docker-compose.prod.yml -path '*' 2>/dev/null | while read f; do
+            d=$(dirname "$f"); grep -q 'lms\|apps/web' "$f" && echo "$d (git: $(git -C "$d" remote get-url origin 2>/dev/null) @ $(git -C "$d" rev-parse --short HEAD 2>/dev/null)) .env: $([ -f "$d/.env" ] && echo yes || echo no)"
+          done
+          echo "== web server"; (nginx -v 2>&1; ls /etc/nginx/sites-enabled 2>/dev/null; ls /etc/caddy 2>/dev/null) | head
+          echo "== listening"; (ss -ltnp 2>/dev/null || netstat -ltnp) | awk 'NR==1||/:80 |:443 |:3000 |:3001 |:3002 /'
+          REMOTE
 
       - name: Pull main, update .env, rebuild containers
+        if: inputs.mode == 'deploy'
         env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
@@ -74,10 +118,14 @@ jobs:
           BASE_PATH: ${{ inputs.base_path }}
           EXTRA_ORIGIN: ${{ inputs.extra_origin }}
         run: |
-          ssh -i ~/.ssh/id_deploy -p "${VPS_PORT:-22}" -o BatchMode=yes \
-            "$VPS_USER@$VPS_HOST" \
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
             "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' bash -s" <<'REMOTE'
           set -euo pipefail
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null \
+              | xargs -r grep -l 'apps/web' | head -1 | xargs -r dirname)
+          fi
+          [ -n "$APP_DIR" ] && [ -d "$APP_DIR/.git" ] || { echo "LMS clone not found on this server"; exit 1; }
           cd "$APP_DIR"
           echo "== $(pwd) @ $(git rev-parse --short HEAD)"
           git fetch origin main
@@ -114,6 +162,7 @@ jobs:
           REMOTE
 
       - name: Verify the site answers under the base path
+        if: inputs.mode == 'deploy'
         env:
           PUBLIC_URL: ${{ inputs.public_url }}
           BASE_PATH: ${{ inputs.base_path }}
