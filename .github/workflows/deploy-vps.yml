@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -33,7 +33,7 @@ on:
         description: Origin added to WEB_ORIGIN (CORS + WebSocket)
         default: https://airl.kz
       email_sha256:
-        description: reset-password — sha256 of the account email (lowercase)
+        description: reset-password / seed-orzu — sha256 of the account email (lowercase)
         default: ''
       pubkey_b64:
         description: reset-password — base64 PEM public key; the new password is printed only encrypted with it
@@ -308,6 +308,38 @@ jobs:
           echo "== encrypted password (RSA-OAEP, base64):"
           printf '%s' "$NEWPW" | openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep | base64 -w0; echo
           unset NEWPW
+
+      - name: Add the Orzu Medical lesson to an account's company
+        if: inputs.mode == 'seed-orzu'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
+            "docker exec -i -w /app/apps/api lms-api-1 node -e '
+              const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+              const { Pool } = require(\"pg\");
+              const { drizzle } = require(\"drizzle-orm/node-postgres\");
+              const { schema } = require(\"./dist/db/schema\");
+              const { WorkbookSeedService } = require(\"./dist/db/workbook-seed.service\");
+              const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+              (async () => {
+                const u = (await pool.query(\"select id, organization_id from users where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$1\", [eh])).rows;
+                if (u.length !== 1 || !u[0].organization_id) { console.error(\"account not found or has no company\"); process.exit(2); }
+                const seeder = new WorkbookSeedService(drizzle(pool, { schema }));
+                const r = await seeder.seedOrzuWeek1({ orgId: u[0].organization_id, teacherId: u[0].id });
+                const t = (await pool.query(\"select title, archived from lessons where id = \$1\", [r.lessonId])).rows[0];
+                console.log(\"lesson ready: \" + t.title + \" · blocks \" + r.blocks + \" · archived \" + t.archived);
+                const n = (await pool.query(\"select count(*)::int n from lessons where organization_id = \$1\", [u[0].organization_id])).rows[0].n;
+                console.log(\"lessons in the company now: \" + n);
+                await pool.end();
+              })().catch((e) => { console.error(\"error: \" + e.message); process.exit(1); });
+            '"
 
       - name: Pull main, update .env, rebuild containers
         if: inputs.mode == 'deploy'
