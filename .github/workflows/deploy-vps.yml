@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -174,6 +174,94 @@ jobs:
           })().catch((e) => { console.error('db error:', e.message); process.exit(1); });
           NODE
 
+      - name: Retire lms.magauin.kz (redirect visitors to airl.kz/lms)
+        if: inputs.mode == 'retire-old-domain'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          CONF=$(readlink -f /etc/nginx/sites-enabled/lms.magauin.kz)
+          BK="/root/nginx-backup-lms.magauin.kz.$(date +%Y%m%d%H%M%S)"
+          cp "$CONF" "$BK"; ln -sfn "$BK" /root/nginx-backup-lms.magauin.kz.latest
+          echo "conf $CONF · backup $BK"
+          if grep -q 'x_airl_lms_proxy' "$CONF"; then echo "already retired"; exit 0; fi
+          python3 - "$CONF" <<'PY'
+          import re, sys
+          path = sys.argv[1]
+          src = open(path).read()
+
+          def block_end(text, open_idx):
+              depth = 0
+              for k in range(open_idx, len(text)):
+                  if text[k] == '{': depth += 1
+                  elif text[k] == '}':
+                      depth -= 1
+                      if depth == 0: return k
+              raise SystemExit('unbalanced braces')
+
+          # Find the HTTPS server block for lms.magauin.kz.
+          out, pos, done = [], 0, 0
+          for m in re.finditer(r'server\s*\{', src):
+              if m.start() < pos: continue
+              end = block_end(src, m.end() - 1)
+              body = src[m.start():end + 1]
+              if 'lms.magauin.kz' in body and re.search(r'listen\s+443', body) and re.search(r'location\s+/\s*\{', body):
+                  loc = re.search(r'location\s+/\s*\{', body)
+                  lend = block_end(body, loc.end() - 1)
+                  inner = body[loc.end():lend]
+                  indent = re.match(r'[ \t]*', body[body.rfind('\n', 0, loc.start()) + 1:]).group(0)
+                  new_loc = (
+                      f'location ^~ /lms {{\n'
+                      f'{indent}    # Only the airl.kz landing proxy is served here; visitors go to airl.kz/lms.\n'
+                      f'{indent}    if ($http_x_airl_lms_proxy != "1") {{ return 301 https://airl.kz$request_uri; }}'
+                      f'{inner}}}\n\n'
+                      f'{indent}location / {{\n'
+                      f'{indent}    return 301 https://airl.kz/lms$request_uri;\n'
+                      f'{indent}}}'
+                  )
+                  body = body[:loc.start()] + new_loc + body[lend + 1:]
+                  done += 1
+              out.append(src[pos:m.start()]); out.append(body); pos = end + 1
+          out.append(src[pos:])
+          if done != 1: raise SystemExit(f'expected 1 HTTPS lms.magauin.kz block, found {done}')
+          open(path, 'w').write(''.join(out))
+          PY
+          diff -u "$BK" "$CONF" || true
+          if ! nginx -t 2>&1; then cp "$BK" "$CONF"; echo "nginx -t failed — restored"; exit 1; fi
+          systemctl reload nginx
+          echo "== local checks"
+          echo "visitor  /       → $(curl -sk -o /dev/null -w '%{http_code} %{redirect_url}' --resolve lms.magauin.kz:443:127.0.0.1 https://lms.magauin.kz/)"
+          echo "visitor  /en/x   → $(curl -sk -o /dev/null -w '%{http_code} %{redirect_url}' --resolve lms.magauin.kz:443:127.0.0.1 https://lms.magauin.kz/en/lessons)"
+          echo "visitor  /lms/uz → $(curl -sk -o /dev/null -w '%{http_code} %{redirect_url}' --resolve lms.magauin.kz:443:127.0.0.1 https://lms.magauin.kz/lms/uz)"
+          echo "proxy    /lms/uz → $(curl -sk -o /dev/null -w '%{http_code}' -H 'x-airl-lms-proxy: 1' --resolve lms.magauin.kz:443:127.0.0.1 https://lms.magauin.kz/lms/uz)"
+          REMOTE
+
+      - name: Check airl.kz/lms still works (else restore nginx)
+        if: inputs.mode == 'retire-old-domain'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          ok=1
+          for u in https://airl.kz/lms/uz https://airl.kz/lms/en https://airl.kz/lms/ru/login; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-redirs 0 "$u")
+            echo "$u → $code"
+            case "$code" in 200|307) ;; *) ok=0 ;; esac
+          done
+          echo "https://lms.magauin.kz/ → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' https://lms.magauin.kz/)"
+          if [ "$ok" != 1 ]; then
+            echo "::error::airl.kz/lms broke — restoring nginx"
+            $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
+              'CONF=$(readlink -f /etc/nginx/sites-enabled/lms.magauin.kz); cp "$(readlink -f /root/nginx-backup-lms.magauin.kz.latest)" "$CONF" && nginx -t && systemctl reload nginx && echo restored'
+            exit 1
+          fi
+
       - name: Pull main, update .env, rebuild containers
         if: inputs.mode == 'deploy'
         env:
@@ -189,8 +277,10 @@ jobs:
             "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' EXPECTED_COMPOSE='acda3ae48a1bc4fddd085708d73a128e82c9c4b4' bash -s" <<'REMOTE'
           set -euo pipefail
           if [ -z "$APP_DIR" ]; then
-            APP_DIR=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null \
-              | grep -v '\.bak' | xargs -r grep -l 'apps/web' | head -1 | xargs -r dirname)
+            # The LMS git clone: has docker-compose.prod.yml with the web app and a .git
+            # folder (skips backups such as .deploy-backup/ and lms.bak-*).
+            APP_DIR=$(find / -xdev -name docker-compose.prod.yml -not -path '*/.deploy-backup/*' 2>/dev/null \
+              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); [ -d "$d/.git" ] && echo "$d"; done | head -1)
           fi
           [ -n "$APP_DIR" ] && [ -d "$APP_DIR/.git" ] || { echo "LMS clone not found on this server"; exit 1; }
           cd "$APP_DIR"
@@ -277,8 +367,10 @@ jobs:
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "APP_DIR='$VPS_APP_DIR' bash -s" <<'REMOTE'
           set -euo pipefail
           if [ -z "$APP_DIR" ]; then
-            APP_DIR=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null \
-              | grep -v '\.bak' | xargs -r grep -l 'apps/web' | head -1 | xargs -r dirname)
+            # The LMS git clone: has docker-compose.prod.yml with the web app and a .git
+            # folder (skips backups such as .deploy-backup/ and lms.bak-*).
+            APP_DIR=$(find / -xdev -name docker-compose.prod.yml -not -path '*/.deploy-backup/*' 2>/dev/null \
+              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); [ -d "$d/.git" ] && echo "$d"; done | head -1)
           fi
           BK="$APP_DIR/.deploy-backup/latest"
           [ -f "$BK/prev-sha" ] || { echo "No backup to roll back to"; exit 0; }
