@@ -12,6 +12,7 @@ import {
   type RtcSignalRelay,
   type ServerToClientEvents,
 } from '@lms/shared';
+import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from '@/lib/ws/url';
 
 /**
  * Video room for a live session — our own meeting room inside the LMS.
@@ -60,13 +61,6 @@ interface PeerLink {
   senders: Partial<Record<TrackKind, RTCRtpSender>>;
 }
 
-function resolveWsUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3001/live';
-  return raw
-    .replace(/^wss:/i, 'https:')
-    .replace(/^ws:/i, 'http:')
-    .replace(/\/$/, '');
-}
 
 async function capSender(sender: RTCRtpSender, kind: TrackKind): Promise<void> {
   if (kind === 'audio') return;
@@ -321,10 +315,19 @@ export function useVideoRoom(
     const sid = sessionIdRef.current;
     if (!socket || !sid) return;
     setStatus('joining');
+    // Never spin forever: if the server does not answer, say so.
+    let answered = false;
+    const timer = window.setTimeout(() => {
+      if (answered) return;
+      setStatus('error');
+      setError('timeout');
+    }, 12_000);
     socket.emit(
       WS_EVENTS.rtcJoin,
       { sessionId: sid, media: mediaRef.current },
       (ack: RtcJoinAck) => {
+        answered = true;
+        window.clearTimeout(timer);
         if (!ack?.ok || !ack.selfId) {
           setStatus('error');
           setError(ack?.error ?? 'join_failed');
@@ -353,8 +356,8 @@ export function useVideoRoom(
     if (socketRef.current) return socketRef.current;
     const auth = tokenRef.current;
     if (!auth) return null;
-    const socket: LiveSocket = io(resolveWsUrl(), {
-      transports: ['websocket', 'polling'],
+    const socket: LiveSocket = io(resolveLiveSocketUrl(), {
+      transports: LIVE_SOCKET_TRANSPORTS,
       auth: { token: auth },
       query: { token: auth },
       reconnection: true,

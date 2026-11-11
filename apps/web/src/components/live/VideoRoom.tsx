@@ -160,6 +160,153 @@ function Tile({
 }
 
 /**
+ * Join window: camera preview, mic/camera switches and a plain-language
+ * connection status before entering the call (like Meet's green room).
+ */
+function PreJoinDialog({
+  isHost,
+  busy,
+  errorText,
+  onJoin,
+  onClose,
+}: {
+  isHost: boolean;
+  busy: boolean;
+  errorText: string | null;
+  onJoin: (audio: boolean, video: boolean) => void;
+  onClose: () => void;
+}) {
+  const t = useTranslations('videoRoom');
+  const [mic, setMic] = React.useState(isHost);
+  const [cam, setCam] = React.useState(isHost);
+  const [preview, setPreview] = React.useState<MediaStream | null>(null);
+  const [previewError, setPreviewError] = React.useState(false);
+  const previewRef = React.useRef<MediaStream | null>(null);
+
+  const stopPreview = React.useCallback(() => {
+    previewRef.current?.getTracks().forEach((tr) => tr.stop());
+    previewRef.current = null;
+    setPreview(null);
+  }, []);
+
+  // Live camera preview while the camera switch is on.
+  React.useEffect(() => {
+    if (!cam) {
+      stopPreview();
+      return;
+    }
+    let cancelled = false;
+    setPreviewError(false);
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 360 } } })
+      .then((s) => {
+        if (cancelled) {
+          s.getTracks().forEach((tr) => tr.stop());
+          return;
+        }
+        previewRef.current = s;
+        setPreview(s);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewError(true);
+      });
+    return () => {
+      cancelled = true;
+      stopPreview();
+    };
+  }, [cam, stopPreview]);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [busy, onClose]);
+
+  const enter = () => {
+    stopPreview(); // free the camera for the call itself
+    onJoin(mic, cam);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-foreground/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="prejoin-title"
+      onClick={() => !busy && onClose()}
+    >
+      <div
+        className="w-full max-w-lg space-y-4 rounded-xl border bg-card p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <h2 id="prejoin-title" className="text-lg font-semibold">
+            {isHost ? t('preTitleHost') : t('preTitle')}
+          </h2>
+          <p className="text-sm text-muted-foreground">{t('preSubtitle')}</p>
+        </div>
+
+        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+          {cam && preview ? (
+            <StreamVideo stream={preview} mirror />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground">
+              <VideoOff className="h-7 w-7" aria-hidden />
+              {cam && previewError ? t('permissionHint') : cam ? t('previewLoading') : t('previewOff')}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={mic ? 'secondary' : 'outline'}
+            onClick={() => setMic((v) => !v)}
+            aria-pressed={mic}
+            disabled={busy}
+          >
+            {mic ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-destructive" />}
+            {mic ? t('micIsOn') : t('micIsOff')}
+          </Button>
+          <Button
+            type="button"
+            variant={cam ? 'secondary' : 'outline'}
+            onClick={() => setCam((v) => !v)}
+            aria-pressed={cam}
+            disabled={busy}
+          >
+            {cam ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4 text-destructive" />}
+            {cam ? t('camIsOn') : t('camIsOff')}
+          </Button>
+        </div>
+
+        {busy ? (
+          <p className="flex items-center gap-2 rounded-md bg-primary/10 px-3 py-2 text-sm text-primary" role="status">
+            <Spinner className="h-4 w-4" /> {t('connecting')}
+          </p>
+        ) : errorText ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+            {errorText}
+          </p>
+        ) : null}
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+            {t('cancel')}
+          </Button>
+          <Button type="button" onClick={enter} disabled={busy} autoFocus>
+            {busy ? <Spinner className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+            {errorText ? t('retry') : t('enter')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * «Видеосвязь» — the meeting room of a live session, built into the LMS
  * (no Google Meet / Zoom needed). Teacher and students see and hear each
  * other, share screens, raise hands; the host can mute and lower hands.
@@ -182,6 +329,12 @@ export function VideoRoom({
   const t = useTranslations('videoRoom');
   const room = useVideoRoom(sessionId, token);
   const [floating, setFloating] = React.useState(false);
+  const [preJoinOpen, setPreJoinOpen] = React.useState(false);
+
+  // The join window closes by itself once we are in the call.
+  React.useEffect(() => {
+    if (room.status === 'joined') setPreJoinOpen(false);
+  }, [room.status]);
   const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -268,62 +421,51 @@ export function VideoRoom({
 
   // ── not joined ──────────────────────────────────────────────────────────
   if (!joined) {
+    const busy = room.status === 'joining';
     return (
-      <section
-        id="video-room"
-        className={cn(
-          'flex scroll-mt-4 flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4',
-          className,
-        )}
-        aria-label={t('title')}
-      >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
-          <Video className="h-5 w-5" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold">{t('title')}</h2>
-          <p className="text-xs text-muted-foreground">
-            {isHost ? t('hostHint') : t('studentHint')}
-          </p>
-          {errorText ? (
-            <p className="mt-1 text-xs text-destructive" role="alert">
-              {errorText}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isHost ? (
-            <Button
-              type="button"
-              onClick={() => void room.join({ audio: true, video: true })}
-              disabled={room.status === 'joining' || !sessionId}
-            >
-              {room.status === 'joining' ? <Spinner className="h-4 w-4" /> : <Video className="h-4 w-4" />}
-              {t('startCall')}
-            </Button>
-          ) : (
-            <>
-              <Button
-                type="button"
-                onClick={() => void room.join({ audio: false, video: false })}
-                disabled={room.status === 'joining' || !sessionId}
-              >
-                {room.status === 'joining' ? <Spinner className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                {t('join')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void room.join({ audio: true, video: true })}
-                disabled={room.status === 'joining' || !sessionId}
-              >
-                <Video className="h-4 w-4" />
-                {t('joinWithCamera')}
-              </Button>
-            </>
+      <>
+        <section
+          id="video-room"
+          className={cn(
+            'flex scroll-mt-4 flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4',
+            className,
           )}
-        </div>
-      </section>
+          aria-label={t('title')}
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <Video className="h-5 w-5" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">{t('title')}</h2>
+            <p className="text-xs text-muted-foreground">
+              {busy ? t('connecting') : isHost ? t('hostHint') : t('studentHint')}
+            </p>
+            {errorText && !preJoinOpen ? (
+              <p className="mt-1 text-xs text-destructive" role="alert">
+                {errorText}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            size="lg"
+            onClick={() => setPreJoinOpen(true)}
+            disabled={!sessionId}
+          >
+            {busy ? <Spinner className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+            {isHost ? t('startCall') : t('join')}
+          </Button>
+        </section>
+        {preJoinOpen ? (
+          <PreJoinDialog
+            isHost={!!isHost}
+            busy={busy}
+            errorText={errorText}
+            onJoin={(audio, video) => void room.join({ audio, video })}
+            onClose={() => setPreJoinOpen(false)}
+          />
+        ) : null}
+      </>
     );
   }
 
@@ -472,6 +614,9 @@ export function VideoRoom({
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
             </span>
             <h2 className="text-sm font-semibold">{t('title')}</h2>
+            <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
+              {t('inCall')}
+            </span>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="h-3.5 w-3.5" /> {t('people', { count: people })}
             </span>

@@ -18,19 +18,8 @@ import {
   type QaStatus,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from './url';
 
-/**
- * Normalize NEXT_PUBLIC_WS_URL to a Socket.IO-friendly URL.
- * Prefer https/http (Socket.IO upgrades); strip trailing slash.
- */
-function resolveWsUrl(): string {
-  const raw =
-    process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3001/live';
-  return raw
-    .replace(/^wss:/i, 'https:')
-    .replace(/^ws:/i, 'http:')
-    .replace(/\/$/, '');
-}
 
 type LiveSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -140,9 +129,9 @@ export function useSessionSocket(
     setQuestions([]);
     joinRetries.current = 0;
 
-    const url = resolveWsUrl();
+    const url = resolveLiveSocketUrl();
     const socket: LiveSocket = io(url, {
-      transports: ['websocket', 'polling'],
+      transports: LIVE_SOCKET_TRANSPORTS,
       auth: { token: authToken },
       query: { token: authToken },
       autoConnect: true,
