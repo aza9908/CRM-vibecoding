@@ -153,6 +153,9 @@ jobs:
             post=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://lms-api.magauin.kz/auth/login -H "Origin: $o" -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}')
             echo "$o → preflight [$pre] · bad login → $post"
           done
+          echo "== realtime (Socket.IO) through nginx"
+          echo "polling handshake → $(curl -s -o /dev/null -w '%{http_code}' 'https://lms-api.magauin.kz/socket.io/?EIO=4&transport=polling') $(curl -s 'https://lms-api.magauin.kz/socket.io/?EIO=4&transport=polling' | head -c 40)"
+          echo "websocket upgrade → $(curl -s -o /dev/null -w '%{http_code}' --http1.1 -m 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 'https://lms-api.magauin.kz/socket.io/?EIO=4&transport=websocket') (101 = WebSocket passes)"
           echo "== refresh cookie attributes (from a failed refresh)"
           curl -s -D - -o /dev/null -X POST https://lms-api.magauin.kz/auth/refresh -H 'Origin: https://airl.kz' | grep -i 'set-cookie\|^HTTP' | sed -E 's/=[A-Za-z0-9._-]{20,}/=<token>/'
           echo "== database (counts only)"
