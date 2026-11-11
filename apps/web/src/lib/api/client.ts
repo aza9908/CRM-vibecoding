@@ -33,32 +33,38 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
- * Calls POST /auth/refresh. The refresh token lives in an httpOnly cookie,
- * so we only need credentials:'include'. On success the new access token is
- * stored and returned. Concurrent callers share a single in-flight refresh.
+ * Calls POST /auth/refresh. Sends the stored refresh token in the body (the
+ * httpOnly cookie is not sent cross-site, e.g. from airl.kz to the API) and
+ * keeps credentials:'include' for same-site deployments. On success the new
+ * access + rotated refresh token are stored. Concurrent callers share one
+ * in-flight refresh.
  */
 async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
     try {
+      const stored = useAuthStore.getState().refreshToken;
       const res = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stored ? { refreshToken: stored } : {}),
       });
       if (!res.ok) {
         // Never wipe participant live session on teacher refresh failure —
         // only drop the user access token so polls can retry later.
-        useAuthStore.setState({ accessToken: null, user: null });
+        useAuthStore.setState({ accessToken: null, refreshToken: null, user: null });
         return null;
       }
       const data = (await res.json()) as {
         accessToken: string;
+        refreshToken?: string;
         user?: import('@lms/shared').PublicUser;
       };
       const store = useAuthStore.getState();
       store.setAccessToken(data.accessToken);
+      if (data.refreshToken) store.setRefreshToken(data.refreshToken);
       if (data.user) store.setUser(data.user);
       return data.accessToken;
     } catch {

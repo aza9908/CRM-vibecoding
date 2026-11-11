@@ -11,16 +11,21 @@ import type { PublicUser } from '@lms/shared';
  * - `participantToken` + `sessionId`: lightweight participant session (join by code),
  *   aud=participant. A guest who joined by code only has these.
  *
- * The refresh token lives in an httpOnly cookie set by the API and is never
- * exposed to JS. Only the short-lived access token is held in memory/storage.
+ * The API also sets the refresh token as an httpOnly cookie on its own domain.
+ * When the app is served from another site (https://airl.kz/lms while the API
+ * is on lms-api.magauin.kz) browsers treat that cookie as third-party and do
+ * not send it, so the refresh token from the auth response is kept here too
+ * and sent in the body of POST /auth/refresh (which the API accepts).
  */
 export interface AuthState {
   accessToken: string | null;
+  refreshToken: string | null;
   user: PublicUser | null;
   participantToken: string | null;
   sessionId: string | null;
 
-  setAuth: (accessToken: string, user: PublicUser) => void;
+  setAuth: (accessToken: string, user: PublicUser, refreshToken?: string | null) => void;
+  setRefreshToken: (refreshToken: string | null) => void;
   setAccessToken: (accessToken: string | null) => void;
   setUser: (user: PublicUser | null) => void;
   setParticipant: (participantToken: string, sessionId: string) => void;
@@ -32,11 +37,18 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       accessToken: null,
+      refreshToken: null,
       user: null,
       participantToken: null,
       sessionId: null,
 
-      setAuth: (accessToken, user) => set({ accessToken, user }),
+      setAuth: (accessToken, user, refreshToken) =>
+        set((s) => ({
+          accessToken,
+          user,
+          refreshToken: refreshToken === undefined ? s.refreshToken : refreshToken,
+        })),
+      setRefreshToken: (refreshToken) => set({ refreshToken }),
       setAccessToken: (accessToken) => set({ accessToken }),
       setUser: (user) => set({ user }),
       setParticipant: (participantToken, sessionId) =>
@@ -45,6 +57,7 @@ export const useAuthStore = create<AuthState>()(
       clear: () =>
         set({
           accessToken: null,
+          refreshToken: null,
           user: null,
           participantToken: null,
           sessionId: null,
@@ -56,6 +69,7 @@ export const useAuthStore = create<AuthState>()(
       // Persist tokens + identity so a refresh keeps the session.
       partialize: (state) => ({
         accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         user: state.user,
         participantToken: state.participantToken,
         sessionId: state.sessionId,

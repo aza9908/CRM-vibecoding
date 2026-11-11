@@ -30,7 +30,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: (dto: LoginDto) => api.post<AuthResult>('/auth/login', dto),
     onSuccess: (data) => {
-      setAuth(data.accessToken, data.user);
+      setAuth(data.accessToken, data.user, data.refreshToken);
       qc.setQueryData(queryKeys.me, data.user);
     },
   });
@@ -45,7 +45,7 @@ export function useRegister() {
     mutationFn: (dto: RegisterDto) =>
       api.post<AuthResult>('/auth/register', dto),
     onSuccess: (data) => {
-      setAuth(data.accessToken, data.user);
+      setAuth(data.accessToken, data.user, data.refreshToken);
       qc.setQueryData(queryKeys.me, data.user);
     },
   });
@@ -64,7 +64,7 @@ export function useRedeemPromoCode() {
     mutationFn: (dto: RedeemPromoCodeDto) =>
       api.post<AuthResult>('/auth/redeem-promo-code', dto),
     onSuccess: (data) => {
-      setAuth(data.accessToken, data.user);
+      setAuth(data.accessToken, data.user, data.refreshToken);
       qc.setQueryData(queryKeys.me, data.user);
       void qc.invalidateQueries({ queryKey: queryKeys.curriculum });
     },
