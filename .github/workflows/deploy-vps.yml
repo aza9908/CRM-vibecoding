@@ -105,6 +105,21 @@ jobs:
           done
           echo "== web server"; (nginx -v 2>&1; ls /etc/nginx/sites-enabled 2>/dev/null; ls /etc/caddy 2>/dev/null) | head
           echo "== listening"; (ss -ltnp 2>/dev/null || netstat -ltnp) | awk 'NR==1||/:80 |:443 |:3000 |:3001 |:3002 /'
+          echo "== LMS containers: compose metadata + env var NAMES (values hidden)"
+          for c in lms-web-1 lms-api-1; do
+            docker inspect "$c" >/dev/null 2>&1 || continue
+            echo "-- $c"
+            docker inspect "$c" --format '{{range $k,$v := .Config.Labels}}{{$k}}={{$v}}{{"\n"}}{{end}}' | grep -E 'compose\.(project|working_dir|config_files|environment_file|service)' || true
+            docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1 | sort | tr '\n' ' '; echo
+            docker inspect "$c" --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E '^(NEXT_PUBLIC_[A-Z_]*|WEB_ORIGIN|API_PUBLIC_URL|PORT|NODE_ENV)=' || true
+          done
+          d=$(find / -xdev -name docker-compose.prod.yml 2>/dev/null | xargs -r grep -l 'apps/web' | grep -v '\.bak' | head -1 | xargs -r dirname)
+          if [ -n "$d" ]; then
+            echo "-- clone $d"; git -C "$d" status --short | head -20; git -C "$d" log --oneline -1
+            echo "-- env-like files (names only)"; find "$d" -maxdepth 3 \( -name '.env*' -o -name '*.env' \) -not -path '*/node_modules/*' 2>/dev/null
+          fi
+          echo "== nginx lms sites (server_name / proxy_pass / location)"
+          grep -hE 'server_name|proxy_pass|location|listen' /etc/nginx/sites-enabled/lms.magauin.kz /etc/nginx/sites-enabled/lms-api.magauin.kz 2>/dev/null
           REMOTE
 
       - name: Pull main, update .env, rebuild containers
