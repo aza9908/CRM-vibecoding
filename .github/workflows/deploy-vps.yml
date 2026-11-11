@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -32,6 +32,12 @@ on:
       extra_origin:
         description: Origin added to WEB_ORIGIN (CORS + WebSocket)
         default: https://airl.kz
+      email_sha256:
+        description: reset-password — sha256 of the account email (lowercase)
+        default: ''
+      pubkey_b64:
+        description: reset-password — base64 PEM public key; the new password is printed only encrypted with it
+        default: ''
       public_url:
         description: URL checked after the deploy
         default: https://lms.magauin.kz
@@ -261,6 +267,47 @@ jobs:
               'CONF=$(readlink -f /etc/nginx/sites-enabled/lms.magauin.kz); cp "$(readlink -f /root/nginx-backup-lms.magauin.kz.latest)" "$CONF" && nginx -t && systemctl reload nginx && echo restored'
             exit 1
           fi
+
+      - name: Reset an account password (printed only encrypted)
+        if: inputs.mode == 'reset-password'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          PUBKEY_B64: ${{ inputs.pubkey_b64 }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          printf '%s' "$PUBKEY_B64" | base64 -d > pub.pem
+          openssl pkey -pubin -in pub.pem -noout
+          # 20 chars from an unambiguous alphabet; never printed in clear.
+          NEWPW=$(LC_ALL=C tr -dc 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789' </dev/urandom | head -c 20 || true)
+          [ ${#NEWPW} -eq 20 ] || { echo "::error::password generation failed"; exit 1; }
+          echo "::add-mask::$NEWPW"
+          # The password travels over SSH stdin only (not argv, not logs).
+          printf '%s\n%s\n' "$EMAIL_SHA256" "$NEWPW" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
+            "docker exec -i -w /app/apps/api lms-api-1 node -e '
+              const rl = require(\"fs\").readFileSync(0, \"utf8\").split(\"\\n\");
+              const [eh, pw] = [rl[0].trim(), rl[1]];
+              const argon2 = require(\"argon2\");
+              const { Pool } = require(\"pg\");
+              const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+              (async () => {
+                const hash = await argon2.hash(pw);
+                const r = await pool.query(
+                  \"update users set password_hash = \$1 where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$2 returning role\",
+                  [hash, eh]);
+                if (r.rowCount !== 1) { console.error(\"accounts matched: \" + r.rowCount); process.exit(2); }
+                const ok = await argon2.verify((await pool.query(\"select password_hash from users where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$1\", [eh])).rows[0].password_hash, pw);
+                console.log(\"password updated for 1 account (role \" + r.rows[0].role + \"), verify: \" + ok);
+                await pool.end();
+              })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
+            '"
+          echo "== encrypted password (RSA-OAEP, base64):"
+          printf '%s' "$NEWPW" | openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep | base64 -w0; echo
+          unset NEWPW
 
       - name: Pull main, update .env, rebuild containers
         if: inputs.mode == 'deploy'
