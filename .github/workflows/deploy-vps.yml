@@ -280,7 +280,7 @@ jobs:
             # The LMS git clone: has docker-compose.prod.yml with the web app and a .git
             # folder (skips backups such as .deploy-backup/ and lms.bak-*).
             APP_DIR=$(find / -xdev -name docker-compose.prod.yml -not -path '*/.deploy-backup/*' 2>/dev/null \
-              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); [ -d "$d/.git" ] && echo "$d"; done | head -1)
+              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); if [ -d "$d/.git" ]; then echo "$d"; fi; done | head -1 || true)
           fi
           [ -n "$APP_DIR" ] && [ -d "$APP_DIR/.git" ] || { echo "LMS clone not found on this server"; exit 1; }
           cd "$APP_DIR"
@@ -370,7 +370,7 @@ jobs:
             # The LMS git clone: has docker-compose.prod.yml with the web app and a .git
             # folder (skips backups such as .deploy-backup/ and lms.bak-*).
             APP_DIR=$(find / -xdev -name docker-compose.prod.yml -not -path '*/.deploy-backup/*' 2>/dev/null \
-              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); [ -d "$d/.git" ] && echo "$d"; done | head -1)
+              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); if [ -d "$d/.git" ]; then echo "$d"; fi; done | head -1 || true)
           fi
           BK="$APP_DIR/.deploy-backup/latest"
           [ -f "$BK/prev-sha" ] || { echo "No backup to roll back to"; exit 0; }
