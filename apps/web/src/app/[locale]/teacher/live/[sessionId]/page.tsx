@@ -27,6 +27,8 @@ import { SessionStateBanner } from '@/components/live/SessionStateBanner';
 import { SessionEndedReport } from '@/components/live/SessionEndedReport';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { GroupChatTab } from '@/components/live/GroupChatTab';
+import { VideoRoom } from '@/components/live/VideoRoom';
+import { QaPanel } from '@/components/live/QaPanel';
 import { Brand } from '@/components/brand';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -69,6 +71,10 @@ export default function TeacherLivePage() {
     participants: liveParticipants,
     responses: liveResponses,
     ended,
+    questions,
+    askQuestion,
+    voteQuestion,
+    setQuestionStatus,
   } = useSessionSocket(sessionId, { token: accessToken });
 
   const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId);
@@ -218,6 +224,7 @@ export default function TeacherLivePage() {
       </header>
 
       <div className="container flex flex-1 flex-col gap-6 py-6">
+        <VideoRoom sessionId={sessionId} token={accessToken} isHost />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
           {/* Workbook preview — click a block to focus it for students. */}
           <section className="min-w-0 space-y-3">
@@ -239,6 +246,25 @@ export default function TeacherLivePage() {
 
           {/* Right column: sticky + independently scrollable through all panels. */}
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            <Card className="border-primary/30 p-4 shadow-sm">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                {t('qaTitle')}
+                {questions.some((q) => q.status !== 'answered') ? (
+                  <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-primary-foreground">
+                    {questions.filter((q) => q.status !== 'answered').length}
+                  </span>
+                ) : null}
+              </h2>
+              <QaPanel
+                isHost
+                questions={questions}
+                selfId={chatSelfId}
+                onAsk={askQuestion}
+                onVote={voteQuestion}
+                onStatus={setQuestionStatus}
+                className="max-h-[420px] overflow-y-auto pr-1"
+              />
+            </Card>
             <Card className="border-primary/30 p-4 shadow-sm">
               <ResponsesSummary
                 responses={responses}

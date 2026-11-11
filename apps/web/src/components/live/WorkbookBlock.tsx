@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, ExternalLink, Eye, FileText, Link2, Paperclip, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ExternalLink, Eye, FileText, Link2, Paperclip, Upload } from 'lucide-react';
 import type { Block } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { isInputBlock } from '@/lib/blocks';
@@ -84,6 +84,8 @@ export interface WorkbookBlockProps {
   readOnly?: boolean;
   /** Current student answer for this block (controlled). */
   value?: string;
+  /** The student has submitted this exercise — shows the «Сдано ✓» tick. */
+  done?: boolean;
   /** Called whenever the student edits / submits an answer. */
   onAnswerChange?: (blockId: string, answerText: string) => void;
   /** Immediate flush (Submit) — same as onAnswerChange but parent should not debounce. */
@@ -111,6 +113,7 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
     {
       block,
       focused,
+      done,
       readOnly,
       value,
       onAnswerChange,
@@ -142,6 +145,7 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
     );
 
     const interactive = !!onFocusClick;
+    const showDone = !!done && answerable && !readOnly;
 
     return (
       <div
@@ -152,10 +156,18 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
           'scroll-mt-24 rounded-lg border bg-card p-4 transition-all duration-300',
           focused
             ? 'z-10 border-primary ring-2 ring-primary/40 bg-primary/[0.06] shadow-md'
-            : 'border-border',
+            : showDone
+              ? 'border-success/50'
+              : 'border-border',
           interactive && 'cursor-pointer hover:border-primary/60',
         )}
       >
+        {showDone ? (
+          <div className="mb-3 mr-2 inline-flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            {t('blockDone')}
+          </div>
+        ) : null}
         {focused && (
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground">
             <Eye className="h-3.5 w-3.5" />
@@ -323,7 +335,8 @@ function BlockBody({
                 {t('submitAnswer')}
               </Button>
               {sent ? (
-                <span className="text-xs font-medium text-emerald-600">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+                  <Check className="h-3.5 w-3.5" />
                   {t('answerSent')}
                 </span>
               ) : (

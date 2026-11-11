@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+import { cn, withBasePath } from '@/lib/utils';
 
 /**
  * AI Research Labs wordmark — transparent PNG (no white box) so it blends
@@ -24,7 +24,7 @@ export function Brand({
       {/* Native <img>: keeps alpha channel clean (no Next Image wrapper bg). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/brand/ai-research-labs.png"
+        src={withBasePath('/brand/ai-research-labs.png')}
         alt="AI Research Labs"
         width={width}
         height={height}

@@ -51,5 +51,13 @@ export class AdminModule implements OnModuleInit {
         `seedAllOrgs failed (call POST /admin/workbook/seed): ${(err as Error).message}`,
       );
     }
+    try {
+      const orzu = await this.seed.seedOrzuOrgs();
+      this.logger.log(`Orzu Medical week-1 lesson ready in ${orzu.length} organization(s)`);
+    } catch (err) {
+      this.logger.warn(
+        `seedOrzuOrgs failed (call POST /admin/workbook/seed-orzu): ${(err as Error).message}`,
+      );
+    }
   }
 }

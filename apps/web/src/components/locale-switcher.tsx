@@ -14,6 +14,7 @@ import {
 
 const LABELS: Record<Locale, string> = {
   ru: 'Русский',
+  uz: 'Oʻzbekcha',
   kk: 'Қазақша',
   en: 'English',
 };

@@ -2,20 +2,29 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { ListChecks, Paperclip, NotebookPen, Bot, MessagesSquare } from 'lucide-react';
+import {
+  ListChecks,
+  Paperclip,
+  NotebookPen,
+  Bot,
+  MessagesSquare,
+  MessageCircleQuestion,
+} from 'lucide-react';
 import type { Block } from '@/lib/api/types';
-import type { ChatMessagePayload } from '@lms/shared';
+import type { ChatMessagePayload, QaQuestion } from '@lms/shared';
 import { cn } from '@/lib/utils';
 import { NavigationTab } from './NavigationTab';
 import { MaterialsTab } from './MaterialsTab';
 import { NotesTab } from './NotesTab';
 import { TutorTab } from './TutorTab';
 import { GroupChatTab } from './GroupChatTab';
+import { QaPanel } from './QaPanel';
 
-type TabId = 'navigation' | 'chat' | 'materials' | 'notes' | 'tutor';
+type TabId = 'navigation' | 'qa' | 'chat' | 'materials' | 'notes' | 'tutor';
 
 const TABS: { id: TabId; labelKey: string; Icon: typeof ListChecks }[] = [
   { id: 'navigation', labelKey: 'tabNavigation', Icon: ListChecks },
+  { id: 'qa', labelKey: 'tabQa', Icon: MessageCircleQuestion },
   { id: 'chat', labelKey: 'tabChat', Icon: MessagesSquare },
   { id: 'materials', labelKey: 'tabMaterials', Icon: Paperclip },
   { id: 'notes', labelKey: 'tabNotes', Icon: NotebookPen },
@@ -36,6 +45,10 @@ export interface RightPanelProps {
   chatMessages?: ChatMessagePayload[];
   onSendChat?: (text: string) => void;
   chatSelfId?: string | null;
+  /** Live Q&A queue */
+  questions?: QaQuestion[];
+  onAsk?: (text: string) => void;
+  onVote?: (questionId: string) => void;
   className?: string;
 }
 
@@ -55,10 +68,14 @@ export function RightPanel({
   chatMessages = [],
   onSendChat,
   chatSelfId,
+  questions = [],
+  onAsk,
+  onVote,
   className,
 }: RightPanelProps) {
   const t = useTranslations('rightPanel');
   const [active, setActive] = React.useState<TabId>('navigation');
+  const openQuestions = questions.filter((q) => q.status !== 'answered').length;
 
   return (
     <div
@@ -88,7 +105,14 @@ export function RightPanel({
                   : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
-              <Icon className="h-4 w-4" />
+              <span className="relative">
+                <Icon className="h-4 w-4" />
+                {id === 'qa' && openQuestions > 0 ? (
+                  <span className="absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full bg-primary px-1 text-[9px] font-bold leading-4 text-primary-foreground">
+                    {openQuestions}
+                  </span>
+                ) : null}
+              </span>
               <span className="truncate">{t(labelKey)}</span>
             </button>
           );
@@ -112,6 +136,14 @@ export function RightPanel({
             activeBlockId={activeBlockId}
             percent={percent}
             onSelect={onSelectBlock}
+          />
+        )}
+        {active === 'qa' && (
+          <QaPanel
+            questions={questions}
+            selfId={chatSelfId ?? null}
+            onAsk={(text) => onAsk?.(text)}
+            onVote={(id) => onVote?.(id)}
           />
         )}
         {active === 'chat' && (

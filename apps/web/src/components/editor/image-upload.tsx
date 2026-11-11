@@ -8,6 +8,7 @@ import { ApiError } from '@/lib/api/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { withBasePath } from '@/lib/utils';
 
 /**
  * Image block editor: presign-upload a file (PUT direct to S3/R2) or paste a
@@ -85,7 +86,7 @@ export function ImageUpload({
       {value ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={value}
+          src={withBasePath(value)}
           alt=""
           className="max-h-48 w-fit rounded-md border object-contain"
         />

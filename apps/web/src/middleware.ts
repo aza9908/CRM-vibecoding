@@ -8,5 +8,7 @@ export const config = {
   // - API routes
   // - Next internals (_next, _vercel)
   // - static files (anything with a dot, e.g. favicon.ico)
-  matcher: ['/((?!api|_next|_vercel|.*\\..*).*)'],
+  // `/` is listed explicitly: under a basePath (e.g. /lms) the bare root
+  // `/lms` does not match the catch-all below, so the default locale would 404.
+  matcher: ['/', '/((?!api|_next|_vercel|.*\\..*).*)'],
 };

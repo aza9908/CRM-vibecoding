@@ -305,6 +305,10 @@
     "validationName": "Enter your name"
   },
   "live": {
+    "blockDone": "Submitted",
+    "floorTitle": "You have the floor — join the video call and turn on your mic",
+    "floorGo": "Go to video call",
+    "qaTitle": "Questions (Q&A)",
     "title": "Live lesson",
     "teacherTitle": "Lesson control",
     "sessionCode": "Session code",
@@ -423,6 +427,7 @@
     "error": "Could not get a response"
   },
   "rightPanel": {
+    "tabQa": "Q&A",
     "title": "Lesson panel",
     "tabNavigation": "Navigation",
     "tabChat": "Chat",
@@ -637,5 +642,63 @@
     "chooseModule": "Choose a module",
     "dragToReorder": "Drag to reorder",
     "noLessonsInModule": "No lessons in this module yet"
+  },
+  "videoRoom": {
+    "title": "Video call",
+    "hostHint": "Built-in video for this lesson: students see and hear you and you can share your screen. No Google Meet or Zoom needed.",
+    "studentHint": "Lesson video and audio right here. Join now and turn on your mic or camera later.",
+    "startCall": "Start video call",
+    "join": "Join",
+    "joinWithCamera": "Join with camera and mic",
+    "you": "You",
+    "host": "host",
+    "mute": "Mute",
+    "lowerHand": "Lower hand",
+    "muteAll": "Mute everyone",
+    "micOn": "Turn on mic",
+    "micOff": "Turn off mic",
+    "camOn": "Turn on camera",
+    "camOff": "Turn off camera",
+    "share": "Share screen",
+    "stopShare": "Stop sharing",
+    "raiseHand": "Raise hand",
+    "lowerMyHand": "Lower hand",
+    "minimize": "Minimize to mini-player",
+    "dock": "Expand",
+    "leave": "Leave call",
+    "screenOf": "{name}'s screen",
+    "yourScreen": "Your screen",
+    "nobodyOnCamera": "Nobody has turned on a camera yet",
+    "people": "People: {count}",
+    "hands": "Hands: {count}",
+    "mutedByHost": "The host muted your microphone",
+    "videoStoppedByHost": "The host turned off your camera",
+    "handLoweredByHost": "The host lowered your hand",
+    "errors": {
+      "media_denied": "No access to the camera or microphone. Allow it in your browser settings.",
+      "forbidden": "You don't have access to this lesson's video call.",
+      "room_full": "The video call is full.",
+      "no_token": "Join the lesson with a code to connect.",
+      "join_failed": "Couldn't connect. Check your internet and try again."
+    }
+  },
+  "qa": {
+    "placeholder": "Ask the trainer a question…",
+    "ask": "Ask",
+    "hint": "Enter to send. Upvote ▲ your colleagues’ questions.",
+    "sent": "Question sent",
+    "tabOpen": "Open · {count}",
+    "tabAnswered": "Answered · {count}",
+    "empty": "No questions yet — ask the first one!",
+    "emptyHost": "No questions yet. They will appear here as students ask.",
+    "emptyAnswered": "No answered questions yet",
+    "vote": "Upvote",
+    "unvote": "Remove vote",
+    "live": "Answering now",
+    "answered": "Answered",
+    "you": "You",
+    "giveFloor": "Give the floor",
+    "markAnswered": "Answered",
+    "reopen": "Reopen"
   }
 }

@@ -8,7 +8,7 @@
 /** A workbook block payload (matches BlockDto minus the server-assigned id). */
 export interface SeedBlock {
  type:
- | 'text'| 'image'| 'input_text'| 'input_select'| 'input_rating'| 'action_button'| 'input_file'| 'test';
+ | 'text'| 'image'| 'input_text'| 'input_select'| 'input_rating'| 'action_button'| 'input_file'| 'test'| 'checklist';
  content?: string | null;
  imageUrl?: string | null;
  options?: unknown;

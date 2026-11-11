@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ResponsesModule } from '../responses/responses.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { SessionGateway } from './session.gateway';
+import { VideoRoomService } from './video-room.service';
 
 /**
  * Realtime layer: the Socket.IO `/live` gateway.
@@ -21,7 +22,7 @@ import { SessionGateway } from './session.gateway';
     ResponsesModule,
     forwardRef(() => SessionsModule),
   ],
-  providers: [SessionGateway],
+  providers: [SessionGateway, VideoRoomService],
   exports: [SessionGateway],
 })
 export class RealtimeModule {}

@@ -6,7 +6,7 @@ import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 import { QueryProvider } from '@/lib/providers';
-import { cn } from '@/lib/utils';
+import { cn, withBasePath } from '@/lib/utils';
 import '../globals.css';
 
 const inter = Inter({
@@ -26,8 +26,8 @@ export const metadata: Metadata = {
   description:
     'B2B LMS by AI Research Labs: live lessons, workbook, and AI mentor.',
   icons: {
-    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/brand/ai-research-labs.png' }],
+    icon: [{ url: withBasePath('/favicon.svg'), type: 'image/svg+xml' }],
+    apple: [{ url: withBasePath('/brand/ai-research-labs.png') }],
   },
 };
 

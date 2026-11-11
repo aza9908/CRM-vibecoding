@@ -21,6 +21,7 @@ import { progressPercent } from '@/lib/progress';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
+import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { Brand } from '@/components/brand';
 import { ConnectionBadge } from '@/components/live/ConnectionBadge';
@@ -28,7 +29,7 @@ import { SessionStateBanner } from '@/components/live/SessionStateBanner';
 import { SessionCelebration } from '@/components/live/SessionCelebration';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, ArrowUp, Maximize2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Maximize2, Mic } from 'lucide-react';
 import { ApiError } from '@/lib/api/client';
 
 /** Debounce window for persisting the lesson-summary progress percent. */
@@ -52,6 +53,7 @@ export default function StudentLivePage() {
   const tc = useTranslations('common');
 
   const participantToken = useAuthStore((s) => s.participantToken);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isAuthedUser = !!user;
 
@@ -95,6 +97,11 @@ export default function StudentLivePage() {
     focusedBlockId: wsFocus,
     saveResponse,
     ended,
+    questions,
+    askQuestion,
+    voteQuestion,
+    floor,
+    clearFloor,
   } = useSessionSocket(sessionId, { token: participantToken, debounceMs: 150 });
 
   const saveRest = useSaveSessionResponse(sessionId);
@@ -162,15 +169,36 @@ export default function StudentLivePage() {
   // "Answered" = blocks with a server-seeded response OR a non-empty local
   // answer. Seeded once from GET /sessions/:id/my-responses, then grown locally.
   const answered = React.useMemo(() => {
+    // A checklist counts as done only when every item is ticked — its answer
+    // is a JSON array of checked indices, so "[]" must not read as submitted.
+    const checklistSize = new Map<string, number>();
+    for (const b of sessionQuery.data?.blocks ?? []) {
+      if (b.type !== 'checklist') continue;
+      const items = (b.options as { items?: unknown[] } | null)?.items;
+      checklistSize.set(b.id, Array.isArray(items) ? items.length : 0);
+    }
+    const isDone = (blockId: string, text: string | null | undefined) => {
+      const v = (text ?? '').trim();
+      if (!v) return false;
+      const size = checklistSize.get(blockId);
+      if (size === undefined) return true;
+      try {
+        const checked = JSON.parse(v) as unknown;
+        return Array.isArray(checked) && checked.length >= size && size > 0;
+      } catch {
+        return false;
+      }
+    };
     const set = new Set<string>();
     for (const r of myResponsesQuery.data ?? []) {
-      if (r.answerText && r.answerText.trim().length > 0) set.add(r.blockId);
+      if (r.blockId && isDone(r.blockId, r.answerText)) set.add(r.blockId);
     }
     for (const [blockId, text] of Object.entries(answers)) {
-      if (text.trim().length > 0) set.add(blockId);
+      if (isDone(blockId, text)) set.add(blockId);
+      else set.delete(blockId);
     }
     return set;
-  }, [myResponsesQuery.data, answers]);
+  }, [myResponsesQuery.data, answers, sessionQuery.data?.blocks]);
 
   const percent = React.useMemo(
     () => progressPercent(blocks, answered),
@@ -436,7 +464,50 @@ export default function StudentLivePage() {
         </div>
       </header>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[1fr_360px]">
+      {floor ? (
+        <div
+          role="alert"
+          className="sticky top-2 z-30 rounded-lg border border-success bg-card p-3 shadow-lg"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
+              <Mic className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">{t('floorTitle')}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                «{floor.text}»
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button type="button" size="sm" variant="ghost" onClick={clearFloor}>
+              {tc('close')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                document
+                  .getElementById('video-room')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                clearFloor();
+              }}
+            >
+              {t('floorGo')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <VideoRoom
+        sessionId={sessionId}
+        token={useParticipantToken ? participantToken : accessToken}
+      />
+
+      {/* minmax(0,1fr): without it the mobile track grows to the right panel's
+          min-content width and the whole page scrolls sideways on phones. */}
+      <div className="grid flex-1 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* Workbook — single centered reading column */}
         <section className="mx-auto w-full max-w-3xl space-y-4">
           {blocks.length === 0 && (
@@ -450,6 +521,7 @@ export default function StudentLivePage() {
               }}
               block={block}
               focused={block.id === focusedBlockId}
+              done={answered.has(block.id)}
               value={isInputBlock(block.type) ? answers[block.id] ?? '' : ''}
               onAnswerChange={handleAnswer}
               onAnswerSubmit={handleSubmit}
@@ -461,7 +533,7 @@ export default function StudentLivePage() {
         </section>
 
         {/* Right panel — Navigation · Chat · Materials · Notes · AI · Metrics */}
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-y-auto">
+        <aside className="min-w-0 space-y-4 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-y-auto">
           <div className="rounded-lg border bg-card p-4">
             <SessionMetricsPanel sessionId={sessionId!} participant />
           </div>
@@ -478,6 +550,9 @@ export default function StudentLivePage() {
             chatMessages={chatMessages}
             onSendChat={sendChat}
             chatSelfId={chatSelfId}
+            questions={questions}
+            onAsk={askQuestion}
+            onVote={voteQuestion}
             className="h-auto min-h-[24rem]"
           />
         </aside>

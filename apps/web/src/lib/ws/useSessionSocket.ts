@@ -12,6 +12,10 @@ import {
   type SessionEndedPayload,
   type ChatMessagePayload,
   type ChatHistoryPayload,
+  type QaFloorPayload,
+  type QaListPayload,
+  type QaQuestion,
+  type QaStatus,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 
@@ -62,6 +66,14 @@ export interface UseSessionSocketResult {
   chatMessages: ChatMessagePayload[];
   sendChat: (text: string) => void;
   ended: boolean;
+  /** Q&A queue (live from the server). */
+  questions: QaQuestion[];
+  askQuestion: (text: string) => void;
+  voteQuestion: (questionId: string) => void;
+  setQuestionStatus: (questionId: string, status: QaStatus) => void;
+  /** Set when the host gives me the floor for one of my questions. */
+  floor: (QaFloorPayload & { at: number }) | null;
+  clearFloor: () => void;
 }
 
 function responseKey(participantId: string, blockId: string): string {
@@ -80,6 +92,8 @@ export function useSessionSocket(
   const [responses, setResponses] = useState<LiveResponses>({});
   const [chatMessages, setChatMessages] = useState<ChatMessagePayload[]>([]);
   const [ended, setEnded] = useState(false);
+  const [questions, setQuestions] = useState<QaQuestion[]>([]);
+  const [floor, setFloor] = useState<UseSessionSocketResult['floor']>(null);
 
   const socketRef = useRef<LiveSocket | null>(null);
   const sessionIdRef = useRef(sessionId);
@@ -123,6 +137,7 @@ export function useSessionSocket(
     setStatus('connecting');
     setEnded(false);
     setChatMessages([]);
+    setQuestions([]);
     joinRetries.current = 0;
 
     const url = resolveWsUrl();
@@ -202,6 +217,16 @@ export function useSessionSocket(
         if (prev.some((m) => m.id === payload.id)) return prev;
         return [...prev, payload];
       });
+    });
+
+    socket.on(WS_EVENTS.qaList, (payload: QaListPayload) => {
+      if (payload.sessionId !== sessionId) return;
+      setQuestions(payload.questions);
+    });
+
+    socket.on(WS_EVENTS.qaFloor, (payload: QaFloorPayload) => {
+      if (payload.sessionId !== sessionId) return;
+      setFloor({ ...payload, at: Date.now() });
     });
 
     socket.on(WS_EVENTS.sessionEnded, (payload: SessionEndedPayload) => {
@@ -314,6 +339,37 @@ export function useSessionSocket(
     [sessionId],
   );
 
+  const askQuestion = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!sessionId || !trimmed) return;
+      socketRef.current?.emit(WS_EVENTS.qaAsk, { sessionId, text: trimmed });
+    },
+    [sessionId],
+  );
+
+  const voteQuestion = useCallback(
+    (questionId: string) => {
+      if (!sessionId) return;
+      socketRef.current?.emit(WS_EVENTS.qaVote, { sessionId, questionId });
+    },
+    [sessionId],
+  );
+
+  const setQuestionStatus = useCallback(
+    (questionId: string, next: QaStatus) => {
+      if (!sessionId) return;
+      socketRef.current?.emit(WS_EVENTS.qaStatus, {
+        sessionId,
+        questionId,
+        status: next,
+      });
+    },
+    [sessionId],
+  );
+
+  const clearFloor = useCallback(() => setFloor(null), []);
+
   return {
     status,
     connected: status === 'connected',
@@ -326,5 +382,11 @@ export function useSessionSocket(
     chatMessages,
     sendChat,
     ended,
+    questions,
+    askQuestion,
+    voteQuestion,
+    setQuestionStatus,
+    floor,
+    clearFloor,
   };
 }

@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm';
 
 import { DRIZZLE, type Db } from './db.module';
 import {
@@ -11,7 +11,8 @@ import {
   organizations,
   users,
 } from './schema';
-import { DAY1_STATS, DAY1_WORKBOOK } from './workbook-day1';
+import { DAY1_STATS, DAY1_WORKBOOK, type SeedBlock } from './workbook-day1';
+import { ORZU_WEEK1_STATS, ORZU_WEEK1_WORKBOOK } from './workbook-orzu-week1';
 
 const COURSE_TITLE = 'Воркшоп: Вайб-кодинг';
 /** Shown in cabinet «Прогресс по модулям». */
@@ -28,6 +29,14 @@ const LEGACY_LESSON_TITLES = [
   'День 1 — От слов к прототипу',
   'День1_Вайб-кодинг_с_роботами',
 ] as const;
+
+/** Orzu Medical · VibeOps — course / module / lesson titles. */
+export const ORZU_COURSE_TITLE = 'VibeOps · Хаб руководителя';
+const ORZU_MODULE_TITLE = 'Неделя 1 · План';
+export const ORZU_LESSON_TITLE =
+  'Урок 1 · План: карта компании и ТЗ сервиса · 1-dars · Reja';
+/** Organizations whose name matches this get the Orzu lesson on boot. */
+const ORZU_ORG_PATTERN = '%orzu%';
 
 export type SeedWorkbookResult = {
   orgId: string;
@@ -263,6 +272,146 @@ export class WorkbookSeedService {
       blocks: rows.length,
       stats: DAY1_STATS,
     };
+  }
+
+  /**
+   * Orzu Medical · VibeOps · Неделя 1 «План» — bilingual (RU + UZ) lesson.
+   * Idempotent: finds course/module/lesson by title and replaces the blocks,
+   * except while a live session for the lesson is running.
+   */
+  async seedOrzuWeek1(opts: {
+    orgId: string;
+    teacherId?: string | null;
+  }): Promise<SeedWorkbookResult> {
+    const { orgId } = opts;
+    let course = await this.db.query.courses.findFirst({
+      where: and(
+        eq(courses.organizationId, orgId),
+        eq(courses.title, ORZU_COURSE_TITLE),
+      ),
+    });
+    if (!course) {
+      [course] = await this.db
+        .insert(courses)
+        .values({
+          organizationId: orgId,
+          title: ORZU_COURSE_TITLE,
+          description:
+            'Orzu Medical × AIRL: 4 недели онлайн — сервисы отделов в одном хабе руководителя.',
+        })
+        .returning();
+    }
+
+    let mod = await this.db.query.modules.findFirst({
+      where: and(
+        eq(modules.courseId, course!.id),
+        eq(modules.title, ORZU_MODULE_TITLE),
+      ),
+    });
+    if (!mod) {
+      [mod] = await this.db
+        .insert(modules)
+        .values({
+          courseId: course!.id,
+          title: ORZU_MODULE_TITLE,
+          code: 'W1',
+          order: 0,
+        })
+        .returning();
+    }
+
+    let lesson = await this.db.query.lessons.findFirst({
+      where: and(
+        eq(lessons.organizationId, orgId),
+        eq(lessons.moduleId, mod!.id),
+      ),
+      orderBy: asc(lessons.order),
+    });
+    if (!lesson) {
+      [lesson] = await this.db
+        .insert(lessons)
+        .values({
+          organizationId: orgId,
+          moduleId: mod!.id,
+          teacherId: opts.teacherId ?? null,
+          title: ORZU_LESSON_TITLE,
+          type: 'stream',
+          kind: 'workshop',
+          order: 0,
+        })
+        .returning();
+    } else if (opts.teacherId && !lesson.teacherId) {
+      await this.assignTeacher(lesson.id, opts.teacherId);
+    }
+
+    const blocks = await this.replaceBlocks(lesson!.id, ORZU_WEEK1_WORKBOOK);
+    return { orgId, lessonId: lesson!.id, blocks, stats: ORZU_WEEK1_STATS };
+  }
+
+  /** Seed the Orzu lesson into every org whose name contains "orzu". */
+  async seedOrzuOrgs(): Promise<SeedWorkbookResult[]> {
+    const orgs = await this.db.query.organizations.findMany({
+      where: ilike(organizations.name, ORZU_ORG_PATTERN),
+    });
+    const results: SeedWorkbookResult[] = [];
+    for (const org of orgs) {
+      const teacher = await this.db.query.users.findFirst({
+        where: and(
+          eq(users.organizationId, org.id),
+          inArray(users.role, ['admin', 'teacher', 'methodist']),
+        ),
+        orderBy: asc(users.createdAt),
+      });
+      try {
+        results.push(
+          await this.seedOrzuWeek1({ orgId: org.id, teacherId: teacher?.id }),
+        );
+      } catch (err) {
+        this.logger.warn(
+          `orzu seed skipped for org ${org.id}: ${(err as Error).message}`,
+        );
+      }
+    }
+    return results;
+  }
+
+  /** Replace a lesson's blocks unless a live session is running on it. */
+  private async replaceBlocks(
+    lessonId: string,
+    workbook: SeedBlock[],
+  ): Promise<number> {
+    const activeLive = await this.db.query.liveSessions.findFirst({
+      where: and(
+        eq(liveSessions.lessonId, lessonId),
+        eq(liveSessions.status, 'live'),
+      ),
+    });
+    if (activeLive) {
+      this.logger.warn(
+        `Skip seed for lesson ${lessonId}: live session ${activeLive.code} is running`,
+      );
+      const existing = await this.db.query.lessonBlocks.findMany({
+        where: eq(lessonBlocks.lessonId, lessonId),
+      });
+      return existing.length;
+    }
+    await this.db.transaction(async (tx) => {
+      await tx.delete(lessonBlocks).where(eq(lessonBlocks.lessonId, lessonId));
+      const rows = workbook.map((b, i) => ({
+        lessonId,
+        type: b.type,
+        content: b.content ?? null,
+        imageUrl: b.imageUrl ?? null,
+        options: (b.options ?? null) as unknown,
+        orderIndex: i,
+        blockRole: b.blockRole ?? null,
+        generatedBy: 'manual' as const,
+      }));
+      for (let i = 0; i < rows.length; i += 50) {
+        await tx.insert(lessonBlocks).values(rows.slice(i, i + 50));
+      }
+    });
+    return workbook.length;
   }
 
   /**

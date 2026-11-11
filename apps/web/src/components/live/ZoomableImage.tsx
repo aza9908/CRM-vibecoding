@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn, withBasePath } from '@/lib/utils';
 
 /** One image in the lightbox's page-through sequence. */
 export interface ZoomableImageSibling {
@@ -191,7 +191,7 @@ export function ZoomableImage({
               ) : null}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={current.src}
+                src={withBasePath(current.src)}
                 alt={current.alt ?? ''}
                 className="h-full w-full object-contain"
                 onClick={(e) => e.stopPropagation()}
@@ -229,7 +229,7 @@ export function ZoomableImage({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={src}
+          src={withBasePath(src)}
           alt={alt ?? ''}
           className={cn(
             'h-auto w-full max-w-full rounded-md border object-contain',

@@ -8,7 +8,7 @@ import {
 import { randomInt } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import { DRIZZLE, type Db } from '../db/db.module';
-import { lessons, liveSessions, participants } from '../db/schema';
+import { lessons, liveSessions, participants, users } from '../db/schema';
 
 /**
  * Alphabet for session codes: A-Z and 0-9, minus visually ambiguous
@@ -213,6 +213,15 @@ export class SessionsService {
       columns: { name: true },
     });
     return row?.name ?? null;
+  }
+
+  /** Display name of a user account (video room roster). Best-effort. */
+  async getUserName(userId: string): Promise<string | null> {
+    const row = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { fullName: true },
+    });
+    return row?.fullName ?? null;
   }
 
   /**

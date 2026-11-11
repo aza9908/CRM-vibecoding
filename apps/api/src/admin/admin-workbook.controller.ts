@@ -41,6 +41,17 @@ export class AdminWorkbookController {
   }
 
   /**
+   * POST /admin/workbook/seed-orzu — create/refresh the Orzu Medical
+   * VibeOps week-1 lesson (RU + UZ) in the caller's organization. Idempotent.
+   * Orgs whose name contains "Orzu" also get it automatically on API boot.
+   */
+  @Post('seed-orzu')
+  @HttpCode(HttpStatus.OK)
+  async seedOrzu(@CurrentUser() user: AuthUserPayload) {
+    return this.seed.seedOrzuWeek1({ orgId: user.orgId, teacherId: user.sub });
+  }
+
+  /**
    * POST /admin/workbook/seed-all — platform bootstrap only.
    * Restricted to admin: teachers must use POST /admin/workbook/seed (own org).
    */
