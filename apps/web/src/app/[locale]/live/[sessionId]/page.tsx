@@ -102,6 +102,7 @@ export default function StudentLivePage() {
     voteQuestion,
     floor,
     clearFloor,
+    callState,
   } = useSessionSocket(sessionId, { token: participantToken, debounceMs: 150 });
 
   const saveRest = useSaveSessionResponse(sessionId);
@@ -503,6 +504,8 @@ export default function StudentLivePage() {
       <VideoRoom
         sessionId={sessionId}
         token={useParticipantToken ? participantToken : accessToken}
+        callState={callState}
+        autoJoin
       />
 
       {/* minmax(0,1fr): without it the mobile track grows to the right panel's

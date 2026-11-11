@@ -643,6 +643,16 @@
     "noLessonsInModule": "Bu boʻlimda hali darslar yoʻq"
   },
   "videoRoom": {
+    "callRunning": "Videoaloqa ketmoqda — sizni avtomatik ulayapmiz…",
+    "waitingForCall": "Videoaloqani oʻqituvchi boshlaganda siz avtomatik ulanasiz.",
+    "waitingShort": "Oʻqituvchini kutyapmiz",
+    "callEnded": "Oʻqituvchi videoaloqani yakunladi",
+    "enableSound": "Dars ovozini yoqish uchun bosing",
+    "openMini": "Videoaloqa — kichik oynani ochish (surish mumkin)",
+    "toBubble": "Doirachaga yigʻish",
+    "backToCall": "Videoaloqaga qaytish",
+    "backShort": "Videoga",
+    "scrollHint": "Sahifani aylantirganda video ekran burchagida qoladi",
     "connecting": "Videoaloqaga ulanmoqdamiz…",
     "preTitleHost": "Dars videoaloqasini boshlash",
     "preTitle": "Dars videoaloqasiga kirish",

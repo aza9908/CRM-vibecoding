@@ -49,6 +49,19 @@ export class VideoRoomService {
   private readonly rooms = new Map<string, Map<string, RtcPeer>>();
   /** peerId (socket id) → sessionId — one video room per socket. */
   private readonly peerSession = new Map<string, string>();
+  /** sessionId → when the host started the current call. */
+  private readonly startedAt = new Map<string, string>();
+
+  /** Call state for a session: active while a host is in the room. */
+  state(sessionId: string): { active: boolean; count: number; startedAt: string | null } {
+    const peers = this.peers(sessionId);
+    const active = peers.some((p) => p.role === 'host');
+    if (active && !this.startedAt.has(sessionId)) {
+      this.startedAt.set(sessionId, new Date().toISOString());
+    }
+    if (!active) this.startedAt.delete(sessionId);
+    return { active, count: peers.length, startedAt: this.startedAt.get(sessionId) ?? null };
+  }
 
   peers(sessionId: string): RtcPeer[] {
     return [...(this.rooms.get(sessionId)?.values() ?? [])];
@@ -99,6 +112,7 @@ export class VideoRoomService {
     const ids = [...(this.rooms.get(sessionId)?.keys() ?? [])];
     for (const id of ids) this.peerSession.delete(id);
     this.rooms.delete(sessionId);
+    this.startedAt.delete(sessionId);
     return ids;
   }
 

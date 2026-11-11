@@ -16,6 +16,7 @@ import {
   type QaListPayload,
   type QaQuestion,
   type QaStatus,
+  type RtcRoomStatePayload,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from './url';
@@ -63,6 +64,8 @@ export interface UseSessionSocketResult {
   /** Set when the host gives me the floor for one of my questions. */
   floor: (QaFloorPayload & { at: number }) | null;
   clearFloor: () => void;
+  /** Is a video call running in this session (teacher in it)? */
+  callState: RtcRoomStatePayload | null;
 }
 
 function responseKey(participantId: string, blockId: string): string {
@@ -83,6 +86,7 @@ export function useSessionSocket(
   const [ended, setEnded] = useState(false);
   const [questions, setQuestions] = useState<QaQuestion[]>([]);
   const [floor, setFloor] = useState<UseSessionSocketResult['floor']>(null);
+  const [callState, setCallState] = useState<RtcRoomStatePayload | null>(null);
 
   const socketRef = useRef<LiveSocket | null>(null);
   const sessionIdRef = useRef(sessionId);
@@ -211,6 +215,11 @@ export function useSessionSocket(
     socket.on(WS_EVENTS.qaList, (payload: QaListPayload) => {
       if (payload.sessionId !== sessionId) return;
       setQuestions(payload.questions);
+    });
+
+    socket.on(WS_EVENTS.rtcRoomState, (payload: RtcRoomStatePayload) => {
+      if (payload.sessionId !== sessionId) return;
+      setCallState(payload);
     });
 
     socket.on(WS_EVENTS.qaFloor, (payload: QaFloorPayload) => {
@@ -377,5 +386,6 @@ export function useSessionSocket(
     setQuestionStatus,
     floor,
     clearFloor,
+    callState,
   };
 }

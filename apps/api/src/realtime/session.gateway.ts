@@ -223,6 +223,7 @@ export class SessionGateway
     this.video.add(sessionId, peer);
     await socket.join(rtcRoom(sessionId));
     socket.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerJoined, peer);
+    this.broadcastRoomState(sessionId);
     return {
       ok: true,
       selfId: socket.id,
@@ -299,6 +300,14 @@ export class SessionGateway
     this.io
       ?.to(rtcRoom(sessionId))
       .emit(WS_EVENTS.rtcPeerLeft, { peerId: socket.id });
+    this.broadcastRoomState(sessionId);
+  }
+
+  /** Everyone in the session learns whether a call is running (auto-join). */
+  private broadcastRoomState(sessionId: string): void {
+    this.io
+      ?.to(room(sessionId))
+      .emit(WS_EVENTS.rtcRoomState, { sessionId, ...this.video.state(sessionId) });
   }
 
   @SubscribeMessage(WS_EVENTS.sessionJoin)
@@ -343,6 +352,8 @@ export class SessionGateway
     if (history.length > 0) {
       socket.emit(WS_EVENTS.chatHistory, { sessionId, messages: history });
     }
+    socket.emit(WS_EVENTS.rtcRoomState, { sessionId, ...this.video.state(sessionId) });
+
     const questions = this.qaBySession.get(sessionId);
     if (questions?.length) {
       socket.emit(WS_EVENTS.qaList, { sessionId, questions });

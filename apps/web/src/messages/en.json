@@ -644,6 +644,16 @@
     "noLessonsInModule": "No lessons in this module yet"
   },
   "videoRoom": {
+    "callRunning": "The video call is on — connecting you automatically…",
+    "waitingForCall": "The video call starts when the teacher launches it — you will join automatically.",
+    "waitingShort": "Waiting for the teacher",
+    "callEnded": "The teacher ended the video call",
+    "enableSound": "Tap to turn on the lesson sound",
+    "openMini": "Video call — open the mini-window (drag to move)",
+    "toBubble": "Shrink to a circle",
+    "backToCall": "Back to the video call",
+    "backShort": "Video",
+    "scrollHint": "When you scroll, the video stays in the corner",
     "connecting": "Connecting to the video call…",
     "preTitleHost": "Start the lesson video call",
     "preTitle": "Join the lesson video call",

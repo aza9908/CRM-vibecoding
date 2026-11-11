@@ -49,6 +49,8 @@ export const WS_EVENTS = {
   rtcPeerLeft: 'rtc:peer-left',
   /** server → room: a peer's media state changed */
   rtcPeerState: 'rtc:peer-state',
+  /** server → whole session (and each joiner): is a video call running? */
+  rtcRoomState: 'rtc:room-state',
 
   // ── Q&A queue ────────────────────────────────────────────────────────────
   /** client → server: ask a question */
@@ -234,6 +236,16 @@ export interface RtcModerateRelay {
   action: RtcModerateAction;
 }
 
+/** `rtc:room-state` (server → session). A call is "active" while the host
+ * (teacher) is in it; students auto-join active calls. `startedAt` changes
+ * each time the host starts a new call. */
+export interface RtcRoomStatePayload {
+  sessionId: string;
+  active: boolean;
+  count: number;
+  startedAt: string | null;
+}
+
 /** `rtc:peer-left` (server → room). */
 export interface RtcPeerLeftPayload {
   peerId: string;
@@ -309,6 +321,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.rtcPeerState]: (payload: RtcPeerStatePayload) => void;
   [WS_EVENTS.rtcSignal]: (payload: RtcSignalRelay) => void;
   [WS_EVENTS.rtcModerate]: (payload: RtcModerateRelay) => void;
+  [WS_EVENTS.rtcRoomState]: (payload: RtcRoomStatePayload) => void;
   [WS_EVENTS.qaList]: (payload: QaListPayload) => void;
   [WS_EVENTS.qaFloor]: (payload: QaFloorPayload) => void;
 }

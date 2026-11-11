@@ -334,6 +334,8 @@ jobs:
               (async () => {
                 const u = (await pool.query(\"select id, organization_id from users where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$1\", [eh])).rows;
                 if (u.length !== 1 || !u[0].organization_id) { console.error(\"account not found or has no company\"); process.exit(2); }
+                const answered = (await pool.query(\"select count(*)::int n from responses r join lesson_blocks b on b.id = r.block_id join lessons l on l.id = b.lesson_id join modules m on m.id = l.module_id join courses c on c.id = m.course_id where l.organization_id = \$1 and c.title = \x27VibeOps · Хаб руководителя\x27\", [u[0].organization_id])).rows[0].n;
+                if (answered > 0) { console.error(\"lesson already has \" + answered + \" student answers — not replacing its blocks\"); process.exit(3); }
                 const seeder = new WorkbookSeedService(drizzle(pool, { schema }));
                 const r = await seeder.seedOrzuWeek1({ orgId: u[0].organization_id, teacherId: u[0].id });
                 const t = (await pool.query(\"select title, archived from lessons where id = \$1\", [r.lessonId])).rows[0];
