@@ -304,7 +304,7 @@
     "validationName": "Ismingizni kiriting"
   },
   "live": {
-    "blockDone": "Topshirildi",
+    "blockDone": "Javob qabul qilindi",
     "floorTitle": "Sizga soʻz berildi — videoaloqaga ulaning va mikrofonni yoqing",
     "floorGo": "Videoaloqaga",
     "qaTitle": "Savollar (Q&A)",
