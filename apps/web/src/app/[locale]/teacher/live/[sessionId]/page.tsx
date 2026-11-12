@@ -186,7 +186,7 @@ export default function TeacherLivePage() {
   return (
     <main className="flex min-h-screen flex-col bg-background">
       {/* Top control bar */}
-      <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b bg-card">
         <div className="container flex flex-wrap items-center gap-x-6 gap-y-3 py-3">
           <div className="flex items-center gap-3">
             <Brand />

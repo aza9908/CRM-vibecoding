@@ -185,7 +185,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b bg-card">
         <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
           <Link href="/cabinet" aria-label="AI Research Labs">
             <Brand />

@@ -134,7 +134,7 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b bg-card/80 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b bg-card">
         <div className="container flex h-16 items-center justify-between gap-4">
           <Link href="/teacher/lessons" aria-label="AI Research Labs">
             <Brand />

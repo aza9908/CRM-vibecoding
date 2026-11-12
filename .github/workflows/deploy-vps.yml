@@ -425,6 +425,22 @@ jobs:
           grep -E '^(NEXT_PUBLIC_[A-Z_]*|WEB_ORIGIN)=' "$ENV_FILE"
 
           if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+
+          # TURN relay for the video room (students behind strict NAT / clinic
+          # Wi-Fi). Generated once; the secret never leaves the server.
+          if ! grep -qE '^TURN_SECRET=.+' "$ENV_FILE"; then
+            printf '\nTURN_SECRET=%s\n' "$(openssl rand -hex 24)" >> "$ENV_FILE"
+          fi
+          PUB=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}')
+          TURN_LINE="TURN_URLS=turn:$PUB:3478?transport=udp,turn:$PUB:3478?transport=tcp"
+          if grep -q '^TURN_URLS=' "$ENV_FILE"; then sed -i "s#^TURN_URLS=.*#$TURN_LINE#" "$ENV_FILE"; else echo "$TURN_LINE" >> "$ENV_FILE"; fi
+          grep -q '^TURN_REALM=' "$ENV_FILE" || echo 'TURN_REALM=airl.kz' >> "$ENV_FILE"
+          if command -v ufw >/dev/null && ufw status | grep -q 'Status: active'; then
+            ufw allow 3478/udp >/dev/null; ufw allow 3478/tcp >/dev/null; ufw allow 49160:49460/udp >/dev/null
+          fi
+          echo "== TURN on $PUB:3478 (secret set: yes)"
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml --profile turn up -d coturn
+
           # Build first: if the build fails, the running containers stay untouched.
           $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml build api web
           $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d api web

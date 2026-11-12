@@ -77,7 +77,7 @@ services:
 
   # Optional TURN relay for the video room (start with: --profile turn).
   # Needed when participants sit behind strict NAT / corporate firewalls.
-  # Open UDP/TCP 3478 and UDP 49160-49200 on the VPS; set TURN_SECRET,
+  # Open UDP/TCP 3478 and UDP 49160-49460 on the VPS; set TURN_SECRET,
   # TURN_REALM and TURN_URLS=turn:<host>:3478 for the api service.
   coturn:
     image: coturn/coturn:4.6
@@ -92,7 +92,11 @@ services:
       - --static-auth-secret=${TURN_SECRET}
       - --realm=${TURN_REALM:-airl.kz}
       - --min-port=49160
-      - --max-port=49200
+      - --max-port=49460
+      - --no-tls
+      - --no-dtls
+      - --log-file=stdout
+      - --simple-log
       - --no-cli
       - --no-multicast-peers
       - --denied-peer-ip=10.0.0.0-10.255.255.255

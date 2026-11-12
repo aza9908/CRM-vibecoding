@@ -47,9 +47,18 @@ const NO_MEDIA: RtcMediaState = {
   screenStreamId: null,
 };
 
-/** Bitrate caps keep a 20–30 person mesh within a normal uplink. */
+/**
+ * Mesh budget. A publisher (normally the teacher) encodes one copy of each
+ * track per viewer, so caps are split across the room: with 20 people the
+ * uplink and CPU stay within a normal laptop and office connection instead
+ * of 19 × full quality (which froze the page and saturated the uplink).
+ */
 const CAMERA_MAX_BITRATE = 450_000;
+const CAMERA_MIN_BITRATE = 110_000;
+const CAMERA_TOTAL_BUDGET = 2_500_000;
 const SCREEN_MAX_BITRATE = 1_200_000;
+const SCREEN_MIN_BITRATE = 180_000;
+const SCREEN_TOTAL_BUDGET = 4_000_000;
 
 type TrackKind = 'audio' | 'video' | 'screen';
 
@@ -62,16 +71,34 @@ interface PeerLink {
 }
 
 
-async function capSender(sender: RTCRtpSender, kind: TrackKind): Promise<void> {
+async function capSender(
+  sender: RTCRtpSender,
+  kind: TrackKind,
+  viewers = 1,
+): Promise<void> {
   if (kind === 'audio') return;
+  const n = Math.max(1, viewers);
   try {
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) {
       params.encodings = [{}];
     }
-    params.encodings[0]!.maxBitrate =
-      kind === 'screen' ? SCREEN_MAX_BITRATE : CAMERA_MAX_BITRATE;
-    if (kind === 'screen') params.encodings[0]!.maxFramerate = 15;
+    const enc = params.encodings[0]!;
+    if (kind === 'screen') {
+      enc.maxBitrate = Math.round(
+        Math.min(SCREEN_MAX_BITRATE, Math.max(SCREEN_MIN_BITRATE, SCREEN_TOTAL_BUDGET / n)),
+      );
+      // Slides/text: keep it sharp, drop frames instead of resolution.
+      enc.maxFramerate = n > 8 ? 6 : n > 3 ? 10 : 15;
+      (params as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference =
+        'maintain-resolution';
+    } else {
+      enc.maxBitrate = Math.round(
+        Math.min(CAMERA_MAX_BITRATE, Math.max(CAMERA_MIN_BITRATE, CAMERA_TOTAL_BUDGET / n)),
+      );
+      enc.scaleResolutionDownBy = n > 10 ? 2 : n > 5 ? 1.5 : 1;
+      enc.maxFramerate = n > 5 ? 15 : 24;
+    }
     await sender.setParameters(params);
   } catch {
     /* not supported before negotiation in some browsers — best-effort */
@@ -169,6 +196,22 @@ export function useVideoRoom(
     [],
   );
 
+  /** Re-split the bitrate budget after someone joins or leaves. */
+  const recapTimer = useRef<number | null>(null);
+  const recapAll = useCallback(() => {
+    if (recapTimer.current) window.clearTimeout(recapTimer.current);
+    recapTimer.current = window.setTimeout(() => {
+      recapTimer.current = null;
+      const n = linksRef.current.size;
+      for (const link of linksRef.current.values()) {
+        for (const kind of ['video', 'screen'] as TrackKind[]) {
+          const sender = link.senders[kind];
+          if (sender) void capSender(sender, kind, n);
+        }
+      }
+    }, 500);
+  }, []);
+
   const attachLocalTracks = useCallback((link: PeerLink) => {
     const tracks = tracksRef.current;
     (['audio', 'video', 'screen'] as TrackKind[]).forEach((kind) => {
@@ -178,7 +221,7 @@ export function useVideoRoom(
         kind === 'screen' ? screenStreamRef.current : cameraStreamRef.current;
       if (!stream) return;
       link.senders[kind] = link.pc.addTrack(track, stream);
-      void capSender(link.senders[kind]!, kind);
+      void capSender(link.senders[kind]!, kind, linksRef.current.size);
     });
   }, []);
 
@@ -217,12 +260,40 @@ export function useVideoRoom(
       pc.ontrack = (ev) => onRemoteTrack(peerId, ev);
       pc.oniceconnectionstatechange = () => {
         if (pc.iceConnectionState === 'failed') pc.restartIce();
+        // Caps set before negotiation may be ignored — apply them again.
+        if (pc.iceConnectionState === 'connected') recapAll();
       };
 
       attachLocalTracks(link);
+      recapAll();
       return link;
     },
-    [attachLocalTracks, onRemoteTrack, sendSignal],
+    [attachLocalTracks, onRemoteTrack, sendSignal, recapAll],
+  );
+
+  /**
+   * Open links one at a time. When a call starts, 20+ students arrive within
+   * a second; creating every RTCPeerConnection and encoder at once blocked
+   * the teacher's tab. A short gap keeps the page responsive.
+   */
+  const linkQueue = useRef<string[]>([]);
+  const linkTimer = useRef<number | null>(null);
+  const queueLink = useCallback(
+    (peerId: string) => {
+      if (linksRef.current.has(peerId) || linkQueue.current.includes(peerId)) return;
+      linkQueue.current.push(peerId);
+      const pump = () => {
+        const next = linkQueue.current.shift();
+        if (!next) {
+          linkTimer.current = null;
+          return;
+        }
+        if (Object.keys(tracksRef.current).length > 0) ensureLink(next);
+        linkTimer.current = window.setTimeout(pump, 150);
+      };
+      if (linkTimer.current == null) linkTimer.current = window.setTimeout(pump, 0);
+    },
+    [ensureLink],
   );
 
   const closeLink = useCallback((peerId: string) => {
@@ -233,7 +304,8 @@ export function useVideoRoom(
     link.pc.onnegotiationneeded = null;
     link.pc.close();
     linksRef.current.delete(peerId);
-  }, []);
+    recapAll();
+  }, [recapAll]);
 
   const handleSignal = useCallback(
     async ({ from, description, candidate }: RtcSignalRelay) => {
@@ -285,7 +357,7 @@ export function useVideoRoom(
             kind === 'screen' ? screenStreamRef.current : cameraStreamRef.current;
           if (!stream) continue;
           link.senders[kind] = link.pc.addTrack(track, stream);
-          void capSender(link.senders[kind]!, kind);
+          void capSender(link.senders[kind]!, kind, linksRef.current.size);
         }
       }
     },
@@ -302,6 +374,7 @@ export function useVideoRoom(
   }, []);
 
   const resetLinks = useCallback(() => {
+    linkQueue.current = [];
     for (const id of [...linksRef.current.keys()]) closeLink(id);
     setPeers([]);
   }, [closeLink]);
@@ -346,11 +419,11 @@ export function useVideoRoom(
         // Existing members: open a link now if I publish — negotiation starts
         // from my side. If only they publish, they open it on peer-joined.
         if (Object.keys(tracksRef.current).length > 0) {
-          for (const p of ack.peers ?? []) ensureLink(p.peerId);
+          for (const p of ack.peers ?? []) queueLink(p.peerId);
         }
       },
     );
-  }, [ensureLink, resetLinks]);
+  }, [queueLink, resetLinks]);
 
   const ensureSocket = useCallback((): LiveSocket | null => {
     if (socketRef.current) return socketRef.current;
@@ -384,9 +457,10 @@ export function useVideoRoom(
         ...prev.filter((p) => p.peerId !== peer.peerId),
         { ...peer, camera: null, screen: null },
       ]);
-      if (Object.keys(tracksRef.current).length > 0) ensureLink(peer.peerId);
+      if (Object.keys(tracksRef.current).length > 0) queueLink(peer.peerId);
     });
     socket.on(WS_EVENTS.rtcPeerLeft, ({ peerId }) => {
+      linkQueue.current = linkQueue.current.filter((id) => id !== peerId);
       closeLink(peerId);
       setPeers((prev) => prev.filter((p) => p.peerId !== peerId));
     });
@@ -425,7 +499,7 @@ export function useVideoRoom(
       }
     });
     return socket;
-  }, [closeLink, doJoin, ensureLink, handleSignal, publishState, publishTrack]);
+  }, [closeLink, doJoin, queueLink, handleSignal, publishState, publishTrack]);
 
   const leave = useCallback(() => {
     wantJoinedRef.current = false;
@@ -498,8 +572,8 @@ export function useVideoRoom(
 
   /** After publishing new tracks, open links to everyone who has none yet. */
   const linkEveryone = useCallback(() => {
-    for (const p of peersRef.current) ensureLink(p.peerId);
-  }, [ensureLink]);
+    for (const p of peersRef.current) queueLink(p.peerId);
+  }, [queueLink]);
 
   const join = useCallback(
     async (opts: { audio?: boolean; video?: boolean } = {}) => {

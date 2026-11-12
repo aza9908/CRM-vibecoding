@@ -392,7 +392,7 @@ function CallBubble({
       }}
       style={style}
       className={cn(
-        'fixed z-40 touch-none select-none rounded-full p-1 shadow-2xl transition-[left,right,bottom] duration-200',
+        'fixed z-40 transform-gpu touch-none select-none rounded-full p-1 shadow-2xl transition-[left,right,bottom] duration-200',
         live ? 'cursor-grabbing transition-none' : 'cursor-grab',
         ringClass,
       )}
@@ -499,8 +499,13 @@ export function VideoRoom({
     if (!autoJoin || !callActive || !sessionId) return;
     if (roomStatus !== 'idle' || preJoinOpen) return;
     if (optedOutOf.current && optedOutOf.current === callId) return;
-    autoJoined.current = true;
-    void joinCall({ audio: false, video: false });
+    // Spread 20+ students over ~3 s so the teacher's tab and the API are
+    // not hit by every join in the same instant.
+    const timer = window.setTimeout(() => {
+      autoJoined.current = true;
+      void joinCall({ audio: false, video: false });
+    }, Math.random() * 3000);
+    return () => window.clearTimeout(timer);
   }, [autoJoin, callActive, callId, sessionId, roomStatus, preJoinOpen, joinCall]);
 
   // The teacher ended the call → students drop out with a notice.
@@ -816,7 +821,6 @@ export function VideoRoom({
 
   const liveDot = (
     <span className="relative flex h-2.5 w-2.5 shrink-0">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
       <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
     </span>
   );
@@ -859,7 +863,7 @@ export function VideoRoom({
   ) : (
     <section
       className={cn(
-        'fixed bottom-4 z-40 w-[min(260px,calc(100vw-2rem))] space-y-2 rounded-xl border border-primary/30 bg-card p-2 shadow-2xl sm:w-[320px]',
+        'fixed bottom-4 z-40 transform-gpu w-[min(260px,calc(100vw-2rem))] space-y-2 rounded-xl border border-primary/30 bg-card p-2 shadow-2xl sm:w-[320px]',
         floatSide === 'right' ? 'right-4' : 'left-4',
       )}
       aria-label={t('title')}
