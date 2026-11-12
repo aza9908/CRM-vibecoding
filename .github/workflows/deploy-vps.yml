@@ -469,6 +469,15 @@ jobs:
           echo "root → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${PUBLIC_URL%/}/")"
           echo "en   → $(curl -s -o /dev/null -w '%{http_code}' -H 'x-airl-lms-proxy: 1' "$url/en")"
 
+      - name: Check the TURN relay is reachable from the internet (informational)
+        if: inputs.mode == 'deploy' || inputs.mode == 'verify'
+        continue-on-error: true
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          timeout 6 bash -c "echo > /dev/tcp/$VPS_HOST/3478" && echo "TURN tcp/3478: open" || echo "TURN tcp/3478: CLOSED"
+          docker run --rm --network host coturn/coturn:4.6 turnutils_stunclient -p 3478 "$VPS_HOST" 2>&1 | grep -iE "UDP reflexive addr|error|timeout" | sed 's/[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/<ip>/g' | head -3 || true
+
       - name: Roll back on failure
         if: failure() && inputs.mode == 'deploy'
         env:
