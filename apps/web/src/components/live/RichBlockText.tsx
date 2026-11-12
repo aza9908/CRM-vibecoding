@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
+import { Check, Copy, FileText, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -19,8 +21,8 @@ export function RichBlockText({
   /** When true, render as a single label (input prompts) without splitting layout. */
   asLabel?: boolean;
 }) {
-  const lines = text.split('\n');
   if (asLabel) {
+    const lines = text.split('\n');
     return (
       <span className={cn('text-sm font-medium leading-relaxed', className)}>
         {lines.map((line, i) => (
@@ -37,22 +39,103 @@ export function RichBlockText({
     );
   }
 
+  // Paragraphs that start with «ПРОМПТ · / PROMPT · / ФАЙЛ · / FAYL ·» are
+  // real prompts and files: show them as a copyable monospace box.
+  const paragraphs = text.split(/\n{2,}/);
+  let lineNo = 0;
   return (
     <div className={cn('space-y-2 text-sm leading-relaxed text-foreground', className)}>
-      {lines.map((line, i) => {
-        if (line.trim() === '') {
-          return <div key={i} className="h-2" aria-hidden />;
+      {paragraphs.map((para, pi) => {
+        const paraLines = para.split('\n');
+        const first = (paraLines[0] ?? '').replace(/\*\*/g, '').trim();
+        const kind = CODE_HEAD.exec(first)?.[1];
+        const startLine = lineNo;
+        lineNo += paraLines.length;
+        const spacer = pi > 0 ? <div className="h-2" aria-hidden /> : null;
+        if (kind) {
+          return (
+            <React.Fragment key={pi}>
+              {spacer}
+              <CodeBox
+                title={first}
+                body={paraLines.slice(1).join('\n')}
+                isPrompt={/^(ПРОМПТ|PROMPT)/i.test(kind)}
+              />
+            </React.Fragment>
+          );
         }
-        const isHeading = i === 0 || looksLikeHeading(line);
         return (
-          <p
-            key={i}
-            className={cn(isHeading && 'font-bold tracking-tight', isHeading && i === 0 && 'text-base')}
-          >
-            {renderInline(line)}
-          </p>
+          <React.Fragment key={pi}>
+            {spacer}
+            {paraLines.map((line, li) => {
+              const i = startLine + li;
+              if (line.trim() === '') {
+                return <div key={li} className="h-2" aria-hidden />;
+              }
+              const isHeading = i === 0 || looksLikeHeading(line);
+              return (
+                <p
+                  key={li}
+                  className={cn(isHeading && 'font-bold tracking-tight', isHeading && i === 0 && 'text-base')}
+                >
+                  {renderInline(line)}
+                </p>
+              );
+            })}
+          </React.Fragment>
         );
       })}
+    </div>
+  );
+}
+
+const CODE_HEAD = /^(ПРОМПТ|PROMPT|ФАЙЛ|FAYL)\s*·/i;
+
+/** A real prompt or file from the lesson, with a one-click copy button. */
+function CodeBox({ title, body, isPrompt }: { title: string; body: string; isPrompt: boolean }) {
+  const t = useTranslations('common');
+  const [copied, setCopied] = React.useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked — the text can still be selected by hand */
+    }
+  };
+  return (
+    <div
+      className={cn(
+        'overflow-hidden rounded-lg border',
+        isPrompt ? 'border-primary/40 bg-primary/5' : 'border-border bg-muted/60',
+      )}
+    >
+      <div className="flex items-center gap-2 border-b border-inherit px-3 py-2">
+        {isPrompt ? (
+          <MessageSquareText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+        ) : (
+          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        )}
+        <span className="min-w-0 flex-1 text-xs font-semibold">{title}</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void copy();
+          }}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 rounded-md border bg-card px-2 py-1 text-xs font-medium transition-colors hover:bg-accent',
+            copied && 'border-success text-success',
+          )}
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? t('copied') : t('copy')}
+        </button>
+      </div>
+      <pre className="whitespace-pre-wrap break-words px-3 py-3 font-mono text-[13px] leading-relaxed text-foreground sm:text-sm">
+        {body}
+      </pre>
     </div>
   );
 }

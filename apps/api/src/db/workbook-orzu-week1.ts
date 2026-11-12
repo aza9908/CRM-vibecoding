@@ -1,12 +1,13 @@
 /**
- * ORZU MEDICAL × AIRL · VibeOps · Неделя 1 «План» (airl-spec).
+ * ORZU MEDICAL × AIRL · Урок 1 «Строим мини-проект с ИИ за 7 шагов».
  *
- * Built from the programme PDF «VibeOps. Хаб руководителя. Программа AIRL»
- * (ноябрь 2026) and the Tilmoch slide from the Orzu Medical deck.
- * Every block is bilingual: Russian first, Uzbek (Latin script) below.
+ * Example project: a clinic request tracker. Each step = slide + plain-
+ * language explanation + the real prompts and files (IDEA.md, PRD.md,
+ * TASKS.md) + exercises. Every block is bilingual: Russian first, Uzbek
+ * (Latin script) below.
  *
  * Images are static assets in `apps/web/public/workbook/orzu/`:
- *   program-1..5.png  — pages of the programme PDF
+ *   step-0..7.png     — lesson slides (AIRL style, RU + UZ, 1600×900)
  *   slide-tilmoch.png — «Перевод на узбекский в вашем телефоне» (deck slide 2)
  *   tilmoch-qr.png    — clean QR → https://tilmoch-eight.vercel.app
  */
@@ -82,11 +83,11 @@ const btn = (label: string, href: string): SeedBlock => ({
 
 export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
   // ═══════════════════════════════════════════════════════════════════
-  // СТАРТ · перевод и правила
+  // СТАРТ · о чём урок, перевод, правила
   // ═══════════════════════════════════════════════════════════════════
   t(
-    'ORZU MEDICAL × AIRL · VIBEOPS · НЕДЕЛЯ 1\nПлан: карта компании и ТЗ сервиса вашего отдела\n\nЗа 4 недели онлайн команды отделов создают свои боевые сервисы на данных компании, а скиллы AIRL собирают их в единый хаб руководителя. Блок 0 вы уже прошли. Сегодня — первый спринт: **план**. Главный скилл недели — **airl-spec**.',
-    'ORZU MEDICAL × AIRL · VIBEOPS · 1-HAFTA\nReja: kompaniya xaritasi va boʻlimingiz servisi uchun texnik topshiriq (TZ)\n\n4 hafta davomida onlayn tarzda boʻlim jamoalari kompaniya maʼlumotlari asosida oʻz ishchi servislarini yaratadi, AIRL skillari esa ularni rahbarning yagona xabiga yigʻadi. 0-blokni siz allaqachon oʻtgansiz. Bugun — birinchi sprint: **reja**. Haftaning asosiy skilli — **airl-spec**.',
+    'ORZU MEDICAL × AIRL · УРОК 1\nСтроим мини-проект с ИИ за 7 шагов\n\nСегодня на простом примере — **трекере заявок клиники** — пройдём весь путь: от идеи на одной странице до первой задачи, которую сделает ИИ-агент. Программировать уметь не нужно: мы показываем настоящие промпты и файлы, а вы повторяете за нами в своём проекте.\n\nПосле каждого шага — короткое упражнение. Пишете ответ, нажимаете «Отправить» — блок отмечается «Сдано ✓».',
+    'ORZU MEDICAL × AIRL · 1-DARS\nSunʼiy intellekt bilan mini-loyiha — 7 qadamda\n\nBugun oddiy misolda — **klinika arizalari trekeri** — butun yoʻlni bosib oʻtamiz: bir sahifalik gʻoyadan SI-agent bajaradigan birinchi vazifagacha. Dasturlashni bilish shart emas: biz haqiqiy promptlar va fayllarni koʻrsatamiz, siz esa oʻz loyihangizda takrorlaysiz.\n\nHar bir qadamdan keyin — qisqa mashq. Javob yozasiz, «Yuborish»ni bosasiz — blok «Topshirildi ✓» deb belgilanadi.',
     'agenda',
   ),
   t(
@@ -100,215 +101,223 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
   btn('Открыть Tilmoch · Tilmochni ochish', TILMOCH_URL),
   img('tilmoch-qr.png', 'QR-код Tilmoch · Tilmoch QR-kodi — tilmoch-eight.vercel.app'),
   t(
-    'ПРАВИЛА ОНЛАЙН-УРОКА\n1. Видеосвязь подключается **автоматически**, как только преподаватель её запускает (микрофон и камера выключены — включите, когда дадут слово). При прокрутке видео остаётся в углу экрана — его можно свернуть в кружок и перетащить.\n2. Вопрос — откройте вкладку **«Вопросы»** справа (на телефоне — ниже), задайте вопрос и голосуйте ▲ за вопросы коллег. Хотите сказать голосом — поднимите руку ✋.\n3. Ответы на упражнения пишите прямо здесь и нажимайте «Отправить» — сданный блок отмечается **«Сдано ✓»**, а тренер видит ответ сразу.\n4. Тренер подсвечивает блок, на котором мы сейчас, — кнопка «К текущему блоку» вернёт вас к нему.',
-    'ONLAYN DARS QOIDALARI\n1. Videoaloqa oʻqituvchi uni boshlashi bilan **avtomatik** ulanadi (mikrofon va kamera oʻchiq — soʻz berilganda yoqing). Sahifani aylantirganda video ekran burchagida qoladi — uni doirachaga yigʻish va surish mumkin.\n2. Savol — oʻngdagi **«Savollar»** boʻlimini oching (telefonda — pastda), savol bering va hamkasblar savollariga ▲ ovoz bering. Ovozli gapirmoqchi boʻlsangiz — qoʻl koʻtaring ✋.\n3. Mashqlarga javoblarni shu yerda yozing va «Yuborish»ni bosing — topshirilgan blok **«Topshirildi ✓»** deb belgilanadi, trener javobni darhol koʻradi.\n4. Trener hozir turgan blokimizni belgilaydi — «Joriy blokka» tugmasi sizni unga qaytaradi.',
+    'КАК ПРОХОДИТ УРОК\n1. **Видеосвязь** подключается автоматически, когда её запускает преподаватель. Микрофон и камера выключены — включите, когда дадут слово. При прокрутке видео остаётся в углу экрана.\n2. **Вопросы** — во вкладке «Вопросы»: задайте свой и поддержите ▲ вопросы коллег.\n3. **Упражнения** — пишите ответ прямо здесь и нажимайте «Отправить».\n4. **Безопасность:** никогда не вставляйте в чат с ИИ пароли, ключи и данные пациентов.',
+    'DARS QANDAY OʻTADI\n1. **Videoaloqa** oʻqituvchi boshlaganda avtomatik ulanadi. Mikrofon va kamera oʻchiq — soʻz berilganda yoqing. Sahifani aylantirganda video ekran burchagida qoladi.\n2. **Savollar** — «Savollar» boʻlimida: oʻz savolingizni bering va hamkasblar savollariga ▲ ovoz bering.\n3. **Mashqlar** — javobni shu yerda yozing va «Yuborish»ni bosing.\n4. **Xavfsizlik:** SI chatiga hech qachon parollar, kalitlar va bemorlar maʼlumotlarini qoʻymang.',
+  ),
+  img('step-0.png', 'Строим мини-проект с ИИ — 7 шагов · Sunʼiy intellekt bilan mini-loyiha — 7 qadam'),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ШАГ 1 · ИДЕЯ НА ОДНУ СТРАНИЦУ
+  // ═══════════════════════════════════════════════════════════════════
+  img('step-1.png', 'Шаг 1 · Идея на одну страницу · 1-qadam · Bir sahifalik gʻoya'),
+  t(
+    'ШАГ 1 · ИДЕЯ НА ОДНУ СТРАНИЦУ\nПрежде чем просить ИИ что-то сделать, ответьте на три вопроса:\n• **Пользователь** — кто будет пользоваться? Конкретная роль, а не «все».\n• **Проблема** — что сейчас неудобно или теряется?\n• **Метрика успеха** — по какой цифре поймём, что стало лучше?\n\nЕсли ответ не помещается на одну страницу — идея слишком большая для первого проекта. Урежьте её.',
+    '1-QADAM · BIR SAHIFALIK GʻOYA\nSI dan biror narsa soʻrashdan oldin uchta savolga javob bering:\n• **Foydalanuvchi** — kim foydalanadi? «Hamma» emas, aniq rol.\n• **Muammo** — hozir nima noqulay yoki nima yoʻqoladi?\n• **Muvaffaqiyat oʻlchovi** — yaxshilanganini qaysi raqam bilan bilamiz?\n\nJavob bir sahifaga sigʻmasa — gʻoya birinchi loyiha uchun juda katta. Uni qisqartiring.',
+  ),
+  t(
+    'ПРОМПТ · копируйте в чат с Claude\nПомоги мне описать идею мини-проекта на одну страницу. Задавай мне вопросы по одному, пока не узнаешь: кто пользователь, какую проблему решаем и по какой метрике поймём, что стало лучше. Потом собери ответ в файл docs/IDEA.md: заголовок, три раздела, не больше 15 строк. Пиши простым языком, без технических терминов.',
+    'PROMPT · Claude chatiga nusxalang\nMenga mini-loyiha gʻoyasini bir sahifada tasvirlashga yordam ber. Foydalanuvchi kimligini, qaysi muammoni hal qilishimizni va yaxshilanganini qaysi oʻlchov bilan bilishimizni aniqlamaguningizcha savollarni bittadan ber. Keyin javobni docs/IDEA.md fayliga yigʻ: sarlavha, uchta boʻlim, 15 qatordan oshmasin. Oddiy tilda, texnik atamalarsiz yoz.',
+  ),
+  t(
+    'ФАЙЛ · docs/IDEA.md — что получилось у нас\n# Трекер заявок клиники\nПользователь: администратор call-центра.\nПроблема: заявки приходят в WhatsApp, Instagram и по телефону, записываются в тетрадь и теряются.\nМетрика успеха: каждая заявка получает ответ за 15 минут; ни одна не потеряна.',
+    'FAYL · docs/IDEA.md — bizda nima chiqdi\n# Klinika arizalari trekeri\nFoydalanuvchi: call-markaz administratori.\nMuammo: arizalar WhatsApp, Instagram va telefon orqali keladi, daftarga yoziladi va yoʻqoladi.\nMuvaffaqiyat oʻlchovi: har bir arizaga 15 daqiqada javob beriladi; birortasi ham yoʻqolmaydi.',
+  ),
+  ask(
+    'Упражнение 1.1 · Кто пользователь вашего мини-проекта?',
+    '1.1-mashq · Mini-loyihangiz foydalanuvchisi kim?',
+  ),
+  ask(
+    'Упражнение 1.2 · Какую проблему он решает? Одной-двумя фразами',
+    '1.2-mashq · U qaysi muammoni hal qiladi? Bir-ikki jumlada',
+  ),
+  ask(
+    'Упражнение 1.3 · Метрика успеха: по какой цифре поймёте, что стало лучше?',
+    '1.3-mashq · Muvaffaqiyat oʻlchovi: yaxshilanganini qaysi raqam bilan bilasiz?',
   ),
 
   // ═══════════════════════════════════════════════════════════════════
-  // ЧТО СТРОИМ · программа курса
+  // ШАГ 2 · МИНИ-PRD ВМЕСТЕ С ИИ
   // ═══════════════════════════════════════════════════════════════════
+  img('step-2.png', 'Шаг 2 · Мини-PRD вместе с ИИ · 2-qadam · SI bilan mini-PRD'),
   t(
-    'ЧТО МЫ СТРОИМ ЗА 4 НЕДЕЛИ\nДанные компании лежат в 1С, Bitrix24, amoCRM и таблицах. VibeOps собирает их в одно хранилище (airl-dwh), вокруг него каждый отдел строит свой сервис, а airl-hub объединяет сервисы в **хаб руководителя**: один вход, роли, единый дизайн.\n\n**4 спринта** — по одному в неделю, всё онлайн в LMS.\n**Свой сервис** — каждый отдел создаёт сервис под свою задачу.\n**1 хаб** — все отделы на одном экране руководителя.',
-    '4 HAFTADA NIMA QURAMIZ\nKompaniya maʼlumotlari 1C, Bitrix24, amoCRM va jadvallarda turibdi. VibeOps ularni bitta omborga (airl-dwh) yigʻadi, uning atrofida har bir boʻlim oʻz servisini quradi, airl-hub esa servislarni **rahbar xabiga** birlashtiradi: bitta kirish, rollar, yagona dizayn.\n\n**4 sprint** — haftasiga bittadan, hammasi LMSda onlayn.\n**Oʻz servisingiz** — har bir boʻlim oʻz vazifasi uchun servis yaratadi.\n**1 xab** — barcha boʻlimlar rahbarning bitta ekranida.',
-  ),
-  img(
-    'program-1.png',
-    'VibeOps · Данные компании в центре, отделы вокруг · Kompaniya maʼlumotlari markazda, boʻlimlar atrofida',
+    'ШАГ 2 · МИНИ-PRD ВМЕСТЕ С ИИ\nPRD — это короткое техническое задание: что именно строим. В нём три части:\n• **MVP** — самый маленький набор функций, который уже полезен.\n• **Что НЕ делаем** — список, который защищает проект от разрастания.\n• **Критерии приёмки** — как проверить, что готово. Без них агент не знает, когда остановиться.\n\nИИ пишет черновик — вы вычёркиваете лишнее и решаете.',
+    '2-QADAM · SI BILAN MINI-PRD\nPRD — qisqa texnik topshiriq: aynan nimani quramiz. Unda uch qism bor:\n• **MVP** — allaqachon foydali boʻlgan eng kichik funksiyalar toʻplami.\n• **Nima QILMAYMIZ** — loyihani kengayib ketishdan saqlaydigan roʻyxat.\n• **Qabul qilish mezonlari** — tayyorligini qanday tekshirish. Ularsiz agent qachon toʻxtashni bilmaydi.\n\nSI qoralama yozadi — siz ortiqchasini oʻchirasiz va qaror qilasiz.',
   ),
   t(
-    'КАК УСТРОЕН КУРС\n**Неделя 1 · План** — airl-spec: ТЗ сервиса по карте компании.\n**Неделя 2 · Данные** — airl-dwh, airl-pwa: хранилище, витрина отдела, PWA.\n**Неделя 3 · Защита** — airl-cybersecurity: вход и роли, ключи, чек-лист.\n**Неделя 4 · Запуск** — airl-vps, airl-launch, airl-code-review-2.0, airl-hub: сервер, домен, код-ревью, сервис в хабе.\n**Финал · Demo Day** — каждый отдел показывает свой боевой продукт в хабе.',
-    'KURS QANDAY TUZILGAN\n**1-hafta · Reja** — airl-spec: kompaniya xaritasi boʻyicha servis TZsi.\n**2-hafta · Maʼlumotlar** — airl-dwh, airl-pwa: ombor, boʻlim vitrinasi, PWA.\n**3-hafta · Himoya** — airl-cybersecurity: kirish va rollar, kalitlar, chek-list.\n**4-hafta · Ishga tushirish** — airl-vps, airl-launch, airl-code-review-2.0, airl-hub: server, domen, kod-review, servis xabda.\n**Final · Demo Day** — har bir boʻlim oʻzining ishchi mahsulotini xabda koʻrsatadi.',
-  ),
-  img(
-    'program-3.png',
-    'Как устроен курс и программа по неделям · Kurs tuzilishi va haftalik dastur',
+    'ПРОМПТ · копируйте в чат с Claude\nВот моя идея из docs/IDEA.md: [вставьте текст]. Напиши мини-PRD в файл docs/PRD.md. Разделы: 1) MVP — не больше 3 функций; 2) Что НЕ делаем в первой версии; 3) Критерии приёмки — проверяемые фразы вида «Пользователь может…»; 4) Правила для агента: делать одну задачу за раз, не добавлять функции вне MVP, не хранить ключи и пароли в коде. Пиши коротко и простым языком. Если чего-то не хватает — сначала спроси меня.',
+    'PROMPT · Claude chatiga nusxalang\nMana docs/IDEA.md dagi gʻoyam: [matnni qoʻying]. docs/PRD.md fayliga mini-PRD yoz. Boʻlimlar: 1) MVP — 3 tadan koʻp boʻlmagan funksiya; 2) Birinchi versiyada nima QILMAYMIZ; 3) Qabul qilish mezonlari — «Foydalanuvchi … qila oladi» koʻrinishidagi tekshiriladigan jumlalar; 4) Agent uchun qoidalar: bir vaqtda bitta vazifa, MVP dan tashqari funksiya qoʻshmaslik, kalit va parollarni kodda saqlamaslik. Qisqa va oddiy tilda yoz. Biror narsa yetishmasa — avval mendan soʻra.',
   ),
   t(
-    'КАК ПРОХОДИТ ОДНА НЕДЕЛЯ\n**Урок · 1,5 часа** — разбор прогресса (20 мин), видео-демонстрация (20 мин), Q&A (50 мин).\n**В течение недели** — упражнения в LMS и задача спринта в сервисе своего отдела.\n**Конец недели** — тренер проверяет упражнения и задачи в LMS и даёт обратную связь.\n\nВсю неделю тренер отвечает на вопросы в чате курса, а менеджер курса следит, чтобы ни один отдел не отставал.',
-    'BIR HAFTA QANDAY OʻTADI\n**Dars · 1,5 soat** — progress tahlili (20 daq), video-namoyish (20 daq), savol-javob (50 daq).\n**Hafta davomida** — LMSdagi mashqlar va oʻz boʻlimingiz servisidagi sprint vazifasi.\n**Hafta oxiri** — trener LMSda mashqlar va vazifalarni tekshiradi va fikr-mulohaza beradi.\n\nButun hafta trener kurs chatida savollarga javob beradi, kurs menejeri esa hech bir boʻlim ortda qolmasligini kuzatadi.',
+    'ФАЙЛ · docs/PRD.md — что получилось у нас\n# PRD · Трекер заявок\n## MVP\n1. Форма «Новая заявка»: имя, телефон, источник.\n2. Список заявок со статусами: новая → в работе → записан / отказ.\n3. У каждой заявки есть ответственный.\n## Что НЕ делаем\nОплату, интеграцию с 1С, мобильное приложение, SMS.\n## Критерии приёмки\n• Администратор создаёт заявку меньше чем за 30 секунд.\n• Статус меняется в один клик.\n• Видно, кто отвечает за каждую заявку.\n## Правила для агента\nОдна задача за раз. Ничего вне MVP. Никаких ключей и паролей в коде.',
+    'FAYL · docs/PRD.md — bizda nima chiqdi\n# PRD · Arizalar trekeri\n## MVP\n1. «Yangi ariza» shakli: ism, telefon, manba.\n2. Holatli arizalar roʻyxati: yangi → ishda → yozildi / rad etildi.\n3. Har bir arizaning masʼul xodimi bor.\n## Nima QILMAYMIZ\nToʻlov, 1C bilan integratsiya, mobil ilova, SMS.\n## Qabul qilish mezonlari\n• Administrator arizani 30 soniyadan kamroq vaqtda yaratadi.\n• Holat bir bosishda oʻzgaradi.\n• Har bir ariza uchun kim masʼulligi koʻrinadi.\n## Agent uchun qoidalar\nBir vaqtda bitta vazifa. MVP dan tashqari hech narsa. Kodda kalit va parollar yoʻq.',
   ),
-  img(
-    'program-4.png',
-    'Как проходит одна неделя и урок по минутам · Bir hafta va dars daqiqalar boʻyicha',
+  quiz(
+    'Проверка · Что из этого НЕ должно попасть в MVP трекера заявок?',
+    'Tekshiruv · Bulardan qaysi biri arizalar trekeri MVP siga KIRMASLIGI kerak?',
+    [
+      opt('Форма новой заявки', 'Yangi ariza shakli'),
+      opt('Интеграция с 1С и оплатой', '1C va toʻlov bilan integratsiya'),
+      opt('Список заявок со статусами', 'Holatli arizalar roʻyxati'),
+    ],
+    1,
+  ),
+  ask(
+    'Упражнение 2.1 · MVP вашего проекта: не больше 3 функций',
+    '2.1-mashq · Loyihangiz MVP si: 3 tadan koʻp boʻlmagan funksiya',
+  ),
+  ask(
+    'Упражнение 2.2 · Что вы НЕ делаете в первой версии?',
+    '2.2-mashq · Birinchi versiyada nima QILMAYSIZ?',
+  ),
+  ask(
+    'Упражнение 2.3 · 2–3 критерия приёмки в виде «Пользователь может…»',
+    '2.3-mashq · «Foydalanuvchi … qila oladi» koʻrinishidagi 2–3 ta qabul mezoni',
   ),
 
   // ═══════════════════════════════════════════════════════════════════
-  // 0–20 · РАЗБОР ПРОГРЕССА
+  // ШАГ 3 · ПОДГОТОВКА ПРОЕКТА
   // ═══════════════════════════════════════════════════════════════════
+  img('step-3.png', 'Шаг 3 · Подготовка проекта · 3-qadam · Loyihani tayyorlash'),
   t(
-    'БЛОК 1 · РАЗБОР ПРОГРЕССА · 0–20 МИН\nКоманды отделов коротко показывают, что сделано после Блока 0 и где застряли. Ответьте на три вопроса ниже — тренер видит ответы всей группы.',
-    '1-BLOK · PROGRESS TAHLILI · 0–20 DAQ\nBoʻlim jamoalari 0-blokdan keyin nima qilinganini va qayerda qiyinchilik boʻlganini qisqacha koʻrsatadi. Quyidagi uchta savolga javob bering — trener butun guruh javoblarini koʻradi.',
+    'ШАГ 3 · ПОДГОТОВКА ПРОЕКТА\nПроект живёт в репозитории GitHub — это папка в интернете, которая помнит каждую версию.\n1. На github.com нажмите **New repository**, имя — например, tracker-zayavok, видимость — **Private**.\n2. Откройте репозиторий в VS Code и создайте папку **docs/**.\n3. Положите туда **IDEA.md** и **PRD.md** из шагов 1–2. PRD.md — это правила проекта: агент читает его перед каждой задачей.',
+    '3-QADAM · LOYIHANI TAYYORLASH\nLoyiha GitHub repozitoriysida yashaydi — bu internetdagi papka, u har bir versiyani eslab qoladi.\n1. github.com da **New repository** ni bosing, nomi — masalan, tracker-zayavok, koʻrinish — **Private**.\n2. Repozitoriyni VS Code da oching va **docs/** papkasini yarating.\n3. Unga 1–2-qadamlardagi **IDEA.md** va **PRD.md** ni qoʻying. PRD.md — loyiha qoidalari: agent uni har bir vazifadan oldin oʻqiydi.',
   ),
-  pick('Ваш отдел', 'Boʻlimingiz', [
-    opt('Регистратура и приём пациентов', 'Registratura va bemorlarni qabul qilish'),
-    opt('Маркетинг', 'Marketing'),
-    opt('Продажи и call-центр', 'Sotuv va call-markaz'),
-    opt('HR', 'Kadrlar boʻlimi'),
-    opt('Финансы и бухгалтерия', 'Moliya va buxgalteriya'),
-    opt('Медицинский отдел', 'Tibbiyot boʻlimi'),
-    opt('Руководство', 'Rahbariyat'),
-    opt('Другое', 'Boshqa'),
+  t(
+    'ПРОМПТ · для агента Claude Code в VS Code\nСоздай в этом репозитории папку docs/ и файлы docs/IDEA.md и docs/PRD.md с текстом, который я пришлю. Добавь README.md: одна строка о проекте и ссылка на docs/PRD.md. Перед любой следующей задачей всегда читай docs/PRD.md и следуй его правилам. Ничего больше не делай и покажи, какие файлы создал.',
+    'PROMPT · VS Code dagi Claude Code agenti uchun\nUshbu repozitoriyda docs/ papkasini va men yuboradigan matn bilan docs/IDEA.md hamda docs/PRD.md fayllarini yarat. README.md qoʻsh: loyiha haqida bitta qator va docs/PRD.md ga havola. Har qanday keyingi vazifadan oldin doim docs/PRD.md ni oʻqi va uning qoidalariga amal qil. Boshqa hech narsa qilma va qaysi fayllarni yaratganingni koʻrsat.',
+  ),
+  checklist('Упражнение 3.1 · Отметьте, что готово', '3.1-mashq · Tayyorlarini belgilang', [
+    opt('Создан приватный репозиторий в GitHub', 'GitHubda yopiq (private) repozitoriy yaratildi'),
+    opt('Есть папка docs/', 'docs/ papkasi bor'),
+    opt('В docs/ лежат IDEA.md и PRD.md', 'docs/ ichida IDEA.md va PRD.md bor'),
+    opt('В репозитории нет паролей, ключей и данных пациентов', 'Repozitoriyda parol, kalit va bemor maʼlumotlari yoʻq'),
   ]),
-  pick(
-    'Скиллы AIRL из Блока 0 установлены и работают',
-    '0-blokdagi AIRL skillari oʻrnatilgan va ishlayapti',
-    [opt('Да', 'Ha'), opt('Частично', 'Qisman'), opt('Нет', 'Yoʻq')],
-  ),
   ask(
-    'Что вы сделали после Блока 0 и где застряли?',
-    '0-blokdan keyin nima qildingiz va qayerda qiyinchilikka duch keldingiz?',
-  ),
-
-  // ═══════════════════════════════════════════════════════════════════
-  // 20–40 · ВИДЕО-ДЕМОНСТРАЦИЯ · airl-spec
-  // ═══════════════════════════════════════════════════════════════════
-  t(
-    'БЛОК 2 · ВИДЕО-ДЕМОНСТРАЦИЯ · 20–40 МИН\nairl-spec: карта компании и ТЗ для каждого отдела\n\nВсё начинается с **карты компании** — одного общего ТЗ, которое составляет airl-spec. В карте:\n• системы и данные компании (1С, Bitrix24, amoCRM, таблицы);\n• отделы и их сервисы;\n• единые показатели;\n• роли и доступы;\n• правила подключения к хабу.\n\nПо карте строится хранилище, а ТЗ сервиса каждого отдела пишется как её **ветка** — поэтому сервисы с первого дня совместимы. В видео задача недели решается шаг за шагом с airl-spec.',
-    '2-BLOK · VIDEO-NAMOYISH · 20–40 DAQ\nairl-spec: kompaniya xaritasi va har bir boʻlim uchun TZ\n\nHammasi **kompaniya xaritasidan** boshlanadi — airl-spec tuzadigan bitta umumiy TZ. Xaritada:\n• kompaniya tizimlari va maʼlumotlari (1C, Bitrix24, amoCRM, jadvallar);\n• boʻlimlar va ularning servislari;\n• yagona koʻrsatkichlar;\n• rollar va kirish huquqlari;\n• xabga ulanish qoidalari.\n\nXarita asosida ombor quriladi, har bir boʻlim servisining TZsi esa uning **shoxchasi** sifatida yoziladi — shuning uchun servislar birinchi kundan mos keladi. Videoda haftaning vazifasi airl-spec bilan qadamma-qadam yechiladi.',
-  ),
-  img(
-    'program-2.png',
-    'airl-spec: карта компании и ТЗ для каждого отдела · airl-spec: kompaniya xaritasi va har bir boʻlim uchun TZ',
-  ),
-  t(
-    'ТЗ СЕРВИСА ОТДЕЛА — 6 ВОПРОСОВ\n**Какие данные берёт** — общие данные из хранилища и витрину своего отдела.\n**Какие показатели считает** — по единым определениям из карты компании.\n**Что отдаёт в хаб** — показатели отдела для экрана руководителя.\n**Кто видит** — роли сотрудников отдела и руководителя.\n**С кем связан** — какие данные других отделов использует и как.\n**Когда готово** — критерии, по которым сервис принимают в хаб.',
-    'BOʻLIM SERVISI TZSI — 6 SAVOL\n**Qanday maʼlumot oladi** — ombordagi umumiy maʼlumotlar va oʻz boʻlimi vitrinasi.\n**Qanday koʻrsatkichlarni hisoblaydi** — kompaniya xaritasidagi yagona taʼriflar boʻyicha.\n**Xabga nimani beradi** — rahbar ekrani uchun boʻlim koʻrsatkichlari.\n**Kim koʻradi** — boʻlim xodimlari va rahbarning rollari.\n**Kim bilan bogʻliq** — boshqa boʻlimlarning qaysi maʼlumotlaridan va qanday foydalanadi.\n**Qachon tayyor** — servis xabga qabul qilinadigan mezonlar.',
-  ),
-  quiz(
-    'Почему ТЗ сервиса отдела пишется как ветка карты компании?',
-    'Nega boʻlim servisi TZsi kompaniya xaritasining shoxchasi sifatida yoziladi?',
-    [
-      opt('Так быстрее печатать', 'Shunday yozish tezroq'),
-      opt(
-        'Чтобы сервисы всех отделов с первого дня были совместимы: одни данные, одни показатели, одни правила хаба',
-        'Barcha boʻlimlar servislari birinchi kundan mos boʻlishi uchun: bir xil maʼlumotlar, bir xil koʻrsatkichlar, xabning bir xil qoidalari',
-      ),
-      opt(
-        'Чтобы каждый отдел сам выбрал свою базу данных',
-        'Har bir boʻlim oʻz maʼlumotlar bazasini oʻzi tanlashi uchun',
-      ),
-    ],
-    1,
-  ),
-  quiz(
-    'Куда сервис отдела записывает свои данные?',
-    'Boʻlim servisi oʻz maʼlumotlarini qayerga yozadi?',
-    [
-      opt('Напрямую в 1С', 'Toʻgʻridan-toʻgʻri 1Cga'),
-      opt('Только в витрину своего отдела в хранилище', 'Faqat ombordagi oʻz boʻlimi vitrinasiga'),
-      opt('В любую таблицу хранилища', 'Omborning istalgan jadvaliga'),
-    ],
-    1,
-  ),
-  quiz(
-    'Кто видит показатели всех отделов?',
-    'Barcha boʻlimlar koʻrsatkichlarini kim koʻradi?',
-    [
-      opt('Каждый сотрудник клиники', 'Klinikaning har bir xodimi'),
-      opt('Руководитель — в хабе', 'Rahbar — xabda'),
-      opt('Только IT-отдел', 'Faqat IT boʻlimi'),
-    ],
-    1,
-  ),
-
-  // ═══════════════════════════════════════════════════════════════════
-  // 40–90 · Q&A
-  // ═══════════════════════════════════════════════════════════════════
-  t(
-    'БЛОК 3 · Q&A · 40–90 МИН\nОтветы на вопросы и помощь с задачами отделов.\n1. Задайте вопрос во вкладке **«Вопросы»** — самые нужные вопросы поднимаются голосами ▲.\n2. Тренер нажимает «Дать слово» — у вас появится подсказка включить микрофон в видеосвязи.\n3. Отвеченные вопросы остаются в списке «Отвечено» — их можно перечитать.\nВ конце у каждого зафиксирована задача спринта.',
-    '3-BLOK · SAVOL-JAVOB · 40–90 DAQ\nSavollarga javoblar va boʻlimlar vazifalari boʻyicha yordam.\n1. **«Savollar»** boʻlimida savol bering — eng kerakli savollar ▲ ovozlar bilan yuqoriga koʻtariladi.\n2. Trener «Soʻz berish»ni bosadi — sizda videoaloqada mikrofonni yoqish haqida eslatma chiqadi.\n3. Javob berilgan savollar «Javob berilgan» roʻyxatida qoladi — ularni qayta oʻqish mumkin.\nOxirida har kimning sprint vazifasi belgilab olinadi.',
-  ),
-  ask(
-    'Ваша задача спринта на эту неделю — одной фразой (зафиксируйте в конце Q&A)',
-    'Bu haftalik sprint vazifangiz — bitta jumlada (savol-javob oxirida belgilang)',
+    'Упражнение 3.2 · Ссылка на ваш репозиторий (тренер получит доступ по приглашению)',
+    '3.2-mashq · Repozitoriyingiz havolasi (trener taklif orqali kirish oladi)',
     'task',
   ),
 
   // ═══════════════════════════════════════════════════════════════════
-  // УПРАЖНЕНИЯ · черновик ТЗ своего отдела
+  // ШАГ 4 · ПЛАН И МАЛЕНЬКИЕ ЗАДАЧИ
   // ═══════════════════════════════════════════════════════════════════
+  img('step-4.png', 'Шаг 4 · План и маленькие задачи · 4-qadam · Reja va kichik vazifalar'),
   t(
-    'УПРАЖНЕНИЯ НЕДЕЛИ · ЧЕРНОВИК ТЗ ВАШЕГО ОТДЕЛА\n8 коротких ответов, каждый сдаётся кнопкой «Отправить» и отмечается «Сдано ✓». Можно начать на уроке и закончить в течение недели. Ответьте коротко, своими словами — это черновик, из которого airl-spec соберёт ТЗ. Пример для регистратуры: «Сервис показывает загрузку врачей и неявки пациентов по дням».',
-    'HAFTA MASHQLARI · BOʻLIMINGIZ TZSINING QORALAMASI\n8 ta qisqa javob, har biri «Yuborish» tugmasi bilan topshiriladi va «Topshirildi ✓» deb belgilanadi. Darsda boshlab, hafta davomida tugatish mumkin. Qisqa, oʻz soʻzlaringiz bilan javob bering — bu qoralama, undan airl-spec TZ yigʻadi. Registratura uchun misol: «Servis shifokorlar bandligini va bemorlarning kelmay qolishini kunlar boʻyicha koʻrsatadi».',
+    'ШАГ 4 · ПЛАН И МАЛЕНЬКИЕ ЗАДАЧИ\nАгент хорошо справляется с маленькими задачами и путается в больших. Правило: **одна задача = один результат, который вы проверите за 5 минут** — открыли, нажали, увидели.\n\nПлохо: «Сделай трекер заявок».\nХорошо: «Сделай форму новой заявки с полями имя, телефон, источник».',
+    '4-QADAM · REJA VA KICHIK VAZIFALAR\nAgent kichik vazifalarni yaxshi bajaradi, kattalarida esa adashadi. Qoida: **bitta vazifa = 5 daqiqada tekshiradigan bitta natija** — ochdingiz, bosdingiz, koʻrdingiz.\n\nYomon: «Arizalar trekerini qil».\nYaxshi: «Ism, telefon, manba maydonlari bilan yangi ariza shaklini qil».',
+  ),
+  t(
+    'ПРОМПТ · копируйте агенту\nПрочитай docs/PRD.md. Разбей MVP на 5–7 маленьких задач, каждую можно проверить за 5 минут без программирования. Для каждой напиши: что сделать и как я проверю результат. Сохрани список в docs/TASKS.md с чекбоксами «- [ ]». Код пока не пиши.',
+    'PROMPT · agentga nusxalang\ndocs/PRD.md ni oʻqi. MVP ni 5–7 ta kichik vazifaga boʻl, har birini dasturlashsiz 5 daqiqada tekshirish mumkin boʻlsin. Har biri uchun yoz: nima qilish kerak va natijani qanday tekshiraman. Roʻyxatni «- [ ]» belgilari bilan docs/TASKS.md ga saqla. Hozircha kod yozma.',
+  ),
+  t(
+    'ФАЙЛ · docs/TASKS.md — что получилось у нас\n- [ ] 1. Форма «Новая заявка»: имя, телефон, источник. Проверка: заполнить и увидеть заявку в списке.\n- [ ] 2. Список заявок с фильтром по статусу. Проверка: переключить фильтр.\n- [ ] 3. Смена статуса в один клик. Проверка: нажать и увидеть новый статус.\n- [ ] 4. Поле «Ответственный». Проверка: выбрать сотрудника.\n- [ ] 5. Подсветка заявок без ответа дольше 15 минут. Проверка: создать заявку и подождать.',
+    'FAYL · docs/TASKS.md — bizda nima chiqdi\n- [ ] 1. «Yangi ariza» shakli: ism, telefon, manba. Tekshiruv: toʻldirib, arizani roʻyxatda koʻrish.\n- [ ] 2. Holat boʻyicha filtrli arizalar roʻyxati. Tekshiruv: filtrni almashtirish.\n- [ ] 3. Holatni bir bosishda oʻzgartirish. Tekshiruv: bosib, yangi holatni koʻrish.\n- [ ] 4. «Masʼul» maydoni. Tekshiruv: xodimni tanlash.\n- [ ] 5. 15 daqiqadan ortiq javobsiz arizalarni ajratish. Tekshiruv: ariza yaratib kutish.',
+  ),
+  quiz(
+    'Проверка · Какая задача достаточно маленькая для агента?',
+    'Tekshiruv · Qaysi vazifa agent uchun yetarlicha kichik?',
+    [
+      opt('Сделай CRM для всей клиники', 'Butun klinika uchun CRM qil'),
+      opt('Добавь кнопку смены статуса заявки', 'Ariza holatini oʻzgartirish tugmasini qoʻsh'),
+      opt('Сделай красиво и удобно', 'Chiroyli va qulay qil'),
+    ],
+    1,
   ),
   ask(
-    'Задача сервиса вашего отдела — одной фразой',
-    'Boʻlimingiz servisining vazifasi — bitta jumlada',
-  ),
-  ask(
-    'Где сейчас лежат данные вашего отдела? (1С, Bitrix24, amoCRM, Excel, бумага…)',
-    'Hozir boʻlimingiz maʼlumotlari qayerda? (1C, Bitrix24, amoCRM, Excel, qogʻoz…)',
-  ),
-  ask('1. Какие данные берёт сервис?', '1. Servis qanday maʼlumotlarni oladi?'),
-  ask(
-    '2. Какие показатели считает? (например: записи за день, неявки, выручка по услугам)',
-    '2. Qanday koʻrsatkichlarni hisoblaydi? (masalan: kunlik yozilishlar, kelmay qolganlar, xizmatlar boʻyicha tushum)',
-  ),
-  ask(
-    '3. Что сервис отдаёт в хаб руководителя?',
-    '3. Servis rahbar xabiga nimani beradi?',
-  ),
-  ask(
-    '4. Кто видит сервис? Какие роли и что видит каждая?',
-    '4. Servisni kim koʻradi? Qanday rollar bor va har biri nimani koʻradi?',
-  ),
-  ask(
-    '5. С какими отделами связан и какие их данные использует?',
-    '5. Qaysi boʻlimlar bilan bogʻliq va ularning qaysi maʼlumotlaridan foydalanadi?',
-  ),
-  ask(
-    '6. Когда сервис готов? 2–3 критерия приёмки в хаб',
-    '6. Servis qachon tayyor? Xabga qabul qilishning 2–3 mezoni',
+    'Упражнение 4.1 · Ваши первые 5 задач — по одной на строку, с тем, как вы их проверите',
+    '4.1-mashq · Birinchi 5 ta vazifangiz — har bir qatorga bittadan, qanday tekshirishingiz bilan',
   ),
 
   // ═══════════════════════════════════════════════════════════════════
-  // ЗАДАЧА СПРИНТА · неделя 1
+  // ШАГ 5 · ПЕРВЫЙ ЦИКЛ
   // ═══════════════════════════════════════════════════════════════════
+  img('step-5.png', 'Шаг 5 · Первый цикл · 5-qadam · Birinchi sikl'),
   t(
-    'ЗАДАЧА СПРИНТА · НЕДЕЛЯ 1\nС помощью **airl-spec** напишите ТЗ сервиса своего отдела как ветку карты компании и сохраните его в репозитории GitHub.\n\nСрок — конец недели. Тренер проверяет задачу в LMS и даёт обратную связь.\n**Результат для компании:** сервисы всех отделов спланированы по единым правилам.',
-    'SPRINT VAZIFASI · 1-HAFTA\n**airl-spec** yordamida boʻlimingiz servisi TZsini kompaniya xaritasining shoxchasi sifatida yozing va uni GitHub repozitoriysida saqlang.\n\nMuddat — hafta oxiri. Trener vazifani LMSda tekshiradi va fikr-mulohaza beradi.\n**Kompaniya uchun natija:** barcha boʻlimlar servislari yagona qoidalar asosida rejalashtirilgan.',
-    'task',
+    'ШАГ 5 · ПЕРВЫЙ ЦИКЛ: ЗАДАЧА → ПРОВЕРКА → ФИКСАЦИЯ\n1. **Ставим задачу** — одну, из TASKS.md.\n2. **Агент делает** — читает PRD.md и пишет код. Ожидание можно пропустить, пока агент работает.\n3. **Проверяем сами** — открываем и пробуем так, как сделал бы пользователь.\n4. **Фиксируем** — commit в GitHub и галочка в TASKS.md. Теперь к этой версии всегда можно вернуться.\n\nНе работает? Опишите агенту, что видите, и повторите цикл. К следующей задаче — только после проверки.',
+    '5-QADAM · BIRINCHI SIKL: VAZIFA → TEKSHIRUV → SAQLASH\n1. **Vazifa beramiz** — bittasini, TASKS.md dan.\n2. **Agent bajaradi** — PRD.md ni oʻqiydi va kod yozadi. Agent ishlayotganda kutishni oʻtkazib yuborish mumkin.\n3. **Oʻzimiz tekshiramiz** — foydalanuvchi qanday qilsa, shunday ochib sinab koʻramiz.\n4. **Saqlaymiz** — GitHubga commit va TASKS.md da belgi. Endi bu versiyaga doim qaytish mumkin.\n\nIshlamayaptimi? Agentga nimani koʻrayotganingizni yozing va siklni takrorlang. Keyingi vazifaga — faqat tekshiruvdan keyin.',
+  ),
+  t(
+    'ПРОМПТ · задача для агента\nПрочитай docs/PRD.md и docs/TASKS.md. Сделай только задачу 1: форма «Новая заявка» с полями имя, телефон, источник. Ничего сверх этого. Когда закончишь — объясни простыми словами, как мне проверить результат, и отметь задачу в TASKS.md.',
+    'PROMPT · agent uchun vazifa\ndocs/PRD.md va docs/TASKS.md ni oʻqi. Faqat 1-vazifani bajar: ism, telefon, manba maydonlari bilan «Yangi ariza» shakli. Bundan ortiq hech narsa qilma. Tugatgach — natijani qanday tekshirishimni oddiy soʻzlar bilan tushuntir va vazifani TASKS.md da belgila.',
+  ),
+  t(
+    'ПРОМПТ · если что-то не так\nЯ открыл форму и вижу: [опишите, что происходит]. Ожидал: [что должно быть]. Исправь только это, ничего другого не меняй.\n\nПРОМПТ · фиксация\nСделай commit с понятным сообщением на русском: что изменилось для пользователя. Отправь его в GitHub.',
+    'PROMPT · biror narsa notoʻgʻri boʻlsa\nShaklni ochdim va koʻryapman: [nima boʻlayotganini yozing]. Kutgandim: [qanday boʻlishi kerak]. Faqat shuni tuzat, boshqa hech narsani oʻzgartirma.\n\nPROMPT · saqlash\nFoydalanuvchi uchun nima oʻzgarganini tushunarli yozib commit qil. Uni GitHubga yubor.',
   ),
   ask(
-    'Ссылка на репозиторий с ТЗ',
-    'TZ joylashgan repozitoriy havolasi',
+    'Упражнение 5.1 · Ваш промпт для первой задачи — вставьте целиком',
+    '5.1-mashq · Birinchi vazifa uchun promptingiz — toʻliq qoʻying',
+  ),
+  pick('Упражнение 5.2 · Результат первого цикла', '5.2-mashq · Birinchi sikl natijasi', [
+    opt('Работает с первого раза', 'Birinchi urinishda ishladi'),
+    opt('Заработало после исправления', 'Tuzatishdan keyin ishladi'),
+    opt('Пока не работает — нужна помощь', 'Hozircha ishlamayapti — yordam kerak'),
+  ]),
+  ask(
+    'Упражнение 5.3 · Ссылка на ваш первый commit или текст его сообщения',
+    '5.3-mashq · Birinchi commitingiz havolasi yoki uning xabari matni',
+    'task',
+  ),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ШАГ 6 · ТИПИЧНЫЕ ОШИБКИ
+  // ═══════════════════════════════════════════════════════════════════
+  img('step-6.png', 'Шаг 6 · Типичные ошибки · 6-qadam · Koʻp uchraydigan xatolar'),
+  t(
+    'ШАГ 6 · ТИПИЧНЫЕ ОШИБКИ ВАЙБКОДЕРА — И КАК ИХ ИЗБЕЖАТЬ\n• **Всё сразу одним промптом** → делите на задачи из TASKS.md.\n• **Нет PRD — агент додумывает** → начинайте каждую задачу с «Прочитай docs/PRD.md».\n• **Не проверил — уже следующая задача** → сначала проверка, потом новая задача.\n• **Нет коммитов** → commit после каждой рабочей задачи, тогда всегда можно откатиться.\n• **Ключи и пароли в чате с ИИ** → никогда; секреты хранятся отдельно, данные пациентов — тоже.\n• **«Сделай красиво»** → пишите проверяемо: «кнопка зелёная, текст 18px, статус меняется в один клик».',
+    '6-QADAM · VAYB-KODERNING KOʻP UCHRAYDIGAN XATOLARI — VA ULARDAN QANDAY QOCHISH\n• **Hammasini bitta promptda** → TASKS.md dagi vazifalarga boʻling.\n• **PRD yoʻq — agent oʻzicha toʻqiydi** → har bir vazifani «docs/PRD.md ni oʻqi» bilan boshlang.\n• **Tekshirmay — keyingi vazifaga** → avval tekshiruv, keyin yangi vazifa.\n• **Commit yoʻq** → har bir ishlaydigan vazifadan keyin commit, shunda doim orqaga qaytish mumkin.\n• **Kalit va parollar SI chatida** → hech qachon; sirlar alohida saqlanadi, bemorlar maʼlumotlari ham.\n• **«Chiroyli qil»** → tekshiriladigan qilib yozing: «tugma yashil, matn 18px, holat bir bosishda oʻzgaradi».',
+  ),
+  quiz(
+    'Проверка · Агент сделал задачу. Что делаем дальше?',
+    'Tekshiruv · Agent vazifani bajardi. Keyin nima qilamiz?',
+    [
+      opt('Сразу даём следующую задачу', 'Darhol keyingi vazifani beramiz'),
+      opt('Проверяем сами и делаем commit', 'Oʻzimiz tekshiramiz va commit qilamiz'),
+      opt('Просим переписать всё заново', 'Hammasini qaytadan yozishni soʻraymiz'),
+    ],
+    1,
+  ),
+  quiz(
+    'Проверка · Что можно вставлять в чат с ИИ?',
+    'Tekshiruv · SI chatiga nimani qoʻyish mumkin?',
+    [
+      opt('Пароль от 1С, чтобы агент подключился', 'Agent ulanishi uchun 1C paroli'),
+      opt('Выгрузку с данными пациентов', 'Bemorlar maʼlumotlari bilan eksport'),
+      opt('Текст PRD.md и описание ошибки', 'PRD.md matni va xato tavsifi'),
+    ],
+    2,
+  ),
+  ask(
+    'Упражнение 6.1 · Какую ошибку вы уже совершали или боитесь совершить — и как её избежите?',
+    '6.1-mashq · Qaysi xatoni allaqachon qilgansiz yoki qilishdan qoʻrqasiz — va undan qanday qochasiz?',
+    'reflection',
+  ),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ШАГ 7 · ИТОГОВЫЙ ЧЕКЛИСТ + ЗАДАЧА НЕДЕЛИ
+  // ═══════════════════════════════════════════════════════════════════
+  img('step-7.png', 'Шаг 7 · Итоговый чеклист · 7-qadam · Yakuniy chek-list'),
+  checklist('Шаг 7 · Итоговый чеклист — отметьте всё, что готово', '7-qadam · Yakuniy chek-list — tayyorlarini belgilang', [
+    opt('Идея на одной странице: пользователь, проблема, метрика', 'Bir sahifalik gʻoya: foydalanuvchi, muammo, oʻlchov'),
+    opt('PRD.md: MVP, что не делаем, критерии приёмки', 'PRD.md: MVP, nima qilmaymiz, qabul mezonlari'),
+    opt('Репозиторий в GitHub с папкой docs/', 'docs/ papkali GitHub repozitoriysi'),
+    opt('TASKS.md: задачи, каждая проверяется за 5 минут', 'TASKS.md: har biri 5 daqiqada tekshiriladigan vazifalar'),
+    opt('Первая задача сделана, проверена и закоммичена', 'Birinchi vazifa bajarildi, tekshirildi va commit qilindi'),
+    opt('Ключей и личных данных нет ни в коде, ни в чате', 'Kalit va shaxsiy maʼlumotlar kodda ham, chatda ham yoʻq'),
+  ]),
+  t(
+    'ЗАДАЧА НЕДЕЛИ\nДоведите свой мини-проект до конца шага 5: идея, PRD.md, репозиторий с docs/, TASKS.md и хотя бы одна задача, сделанная агентом, проверенная и закоммиченная. Пригласите тренера в репозиторий и загрузите PRD.md ниже. Тренер проверит и даст обратную связь в LMS.',
+    'HAFTA VAZIFASI\nMini-loyihangizni 5-qadam oxirigacha yetkazing: gʻoya, PRD.md, docs/ papkali repozitoriy, TASKS.md va agent bajargan, tekshirilgan va commit qilingan kamida bitta vazifa. Trenerni repozitoriyga taklif qiling va quyida PRD.md ni yuklang. Trener tekshiradi va LMS da fikr-mulohaza beradi.',
     'task',
   ),
   fileAsk(
-    'Загрузите файл ТЗ (PDF, DOCX или MD)',
-    'TZ faylini yuklang (PDF, DOCX yoki MD)',
+    'Загрузите ваш PRD.md (или PDF/DOCX)',
+    'PRD.md faylingizni yuklang (yoki PDF/DOCX)',
   ),
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ПРОВЕРКА В LMS · чек-лист сдачи
-  // ═══════════════════════════════════════════════════════════════════
-  t(
-    'ПРОВЕРКА В LMS · КОНЕЦ НЕДЕЛИ\nОтметьте, что всё сдано. Тренер проверяет упражнения и задачу спринта в LMS и даёт обратную связь — прогресс вашего отдела виден руководителю.',
-    'LMSDA TEKSHIRUV · HAFTA OXIRI\nHammasi topshirilganini belgilang. Trener LMSda mashqlar va sprint vazifasini tekshiradi va fikr-mulohaza beradi — boʻlimingiz progressi rahbarga koʻrinadi.',
-    'task',
-  ),
-  checklist('Чек-лист сдачи недели 1', 'Hafta 1 topshiriqlari chek-listi', [
-    opt('Ответил(а) на вопросы разбора прогресса', 'Progress tahlili savollariga javob berdim'),
-    opt('Прошёл(а) 3 вопроса на проверку', '3 ta tekshiruv savolidan oʻtdim'),
-    opt('Сдал(а) 8 упражнений — черновик ТЗ', '8 ta mashqni topshirdim — TZ qoralamasi'),
-    opt('ТЗ написано через airl-spec и сохранено в GitHub', 'TZ airl-spec orqali yozildi va GitHubda saqlandi'),
-    opt('Отправил(а) ссылку на репозиторий и файл ТЗ', 'Repozitoriy havolasi va TZ faylini yubordim'),
-  ]),
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ИТОГ
-  // ═══════════════════════════════════════════════════════════════════
   rate(
-    'Насколько понятно, что делать на этой неделе? (1 — непонятно, 5 — всё ясно)',
-    'Bu hafta nima qilish kerakligi qanchalik tushunarli? (1 — tushunarsiz, 5 — hammasi aniq)',
-  ),
-  t(
-    'ДАЛЬШЕ · НЕДЕЛЯ 2 · ДАННЫЕ\nПодключаем сервис к данным компании через **airl-dwh** и собираем его как PWA через **airl-pwa** — сервисы начинают работать на реальных данных из 1С и CRM.\n\nФинал курса — **Demo Day**: каждый отдел показывает руководителю свой боевой сервис, уже собранный в одном хабе.',
-    'KEYINGI · 2-HAFTA · MAʼLUMOTLAR\nServisni **airl-dwh** orqali kompaniya maʼlumotlariga ulaymiz va **airl-pwa** orqali PWA sifatida yigʻamiz — servislar 1C va CRMdagi haqiqiy maʼlumotlar bilan ishlay boshlaydi.\n\nKurs finali — **Demo Day**: har bir boʻlim rahbarga bitta xabga yigʻilgan oʻz ishchi servisini koʻrsatadi.',
-  ),
-  img(
-    'program-5.png',
-    'Demo Day и команда курса · Demo Day va kurs jamoasi',
+    'Насколько понятно, как построить свой мини-проект? (1 — непонятно, 5 — всё ясно)',
+    'Oʻz mini-loyihangizni qanday qurish qanchalik tushunarli? (1 — tushunarsiz, 5 — hammasi aniq)',
   ),
 ];
 

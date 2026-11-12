@@ -38,6 +38,10 @@ on:
       pubkey_b64:
         description: reset-password — base64 PEM public key; the new password is printed only encrypted with it
         default: ''
+      force:
+        description: seed-orzu — replace the lesson even if it has student answers
+        type: boolean
+        default: false
       public_url:
         description: URL checked after the deploy
         default: https://lms.magauin.kz
@@ -320,12 +324,13 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
           EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          FORCE: ${{ inputs.force }}
         run: |
           set -euo pipefail
           [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
-          printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
+          printf '%s\n%s\n' "$EMAIL_SHA256" "$FORCE" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
             "docker exec -i -w /app/apps/api lms-api-1 node -e '
-              const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+              const [eh, force] = require(\"fs\").readFileSync(0, \"utf8\").trim().split(\"\\n\").map((x) => x.trim());
               const { Pool } = require(\"pg\");
               const { drizzle } = require(\"drizzle-orm/node-postgres\");
               const { schema } = require(\"./dist/db/schema\");
@@ -335,7 +340,10 @@ jobs:
                 const u = (await pool.query(\"select id, organization_id from users where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$1\", [eh])).rows;
                 if (u.length !== 1 || !u[0].organization_id) { console.error(\"account not found or has no company\"); process.exit(2); }
                 const answered = (await pool.query(\"select count(*)::int n from responses r join lesson_blocks b on b.id = r.block_id join lessons l on l.id = b.lesson_id join modules m on m.id = l.module_id join courses c on c.id = m.course_id where l.organization_id = \$1 and c.title = \x27VibeOps · Хаб руководителя\x27\", [u[0].organization_id])).rows[0].n;
-                if (answered > 0) { console.error(\"lesson already has \" + answered + \" student answers — not replacing its blocks\"); process.exit(3); }
+                if (answered > 0 && force !== \"true\") { console.error(\"lesson already has \" + answered + \" student answers — not replacing its blocks (run with force to replace)\"); process.exit(3); }
+                if (answered > 0) console.log(\"force: replacing the lesson; \" + answered + \" answers to the old exercises are removed\");
+                const stale = (await pool.query(\"update live_sessions s set status = \x27ended\x27, end_time = now() from lessons l join modules m on m.id = l.module_id join courses c on c.id = m.course_id where s.lesson_id = l.id and l.organization_id = \$1 and c.title = \x27VibeOps · Хаб руководителя\x27 and s.status = \x27live\x27 and coalesce(s.start_time, s.created_at) < now() - interval \x276 hours\x27 returning s.code\", [u[0].organization_id])).rows;
+                if (stale.length) console.log(\"ended abandoned live sessions (> 6 h old): \" + stale.map((x) => x.code).join(\", \"));
                 const seeder = new WorkbookSeedService(drizzle(pool, { schema }));
                 const r = await seeder.seedOrzuWeek1({ orgId: u[0].organization_id, teacherId: u[0].id });
                 const t = (await pool.query(\"select title, archived from lessons where id = \$1\", [r.lessonId])).rows[0];

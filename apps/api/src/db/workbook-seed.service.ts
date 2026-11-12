@@ -34,7 +34,7 @@ const LEGACY_LESSON_TITLES = [
 export const ORZU_COURSE_TITLE = 'VibeOps · Хаб руководителя';
 const ORZU_MODULE_TITLE = 'Неделя 1 · План';
 export const ORZU_LESSON_TITLE =
-  'Урок 1 · План: карта компании и ТЗ сервиса · 1-dars · Reja';
+  'Урок 1 · Строим мини-проект с ИИ · 1-dars · SI bilan mini-loyiha';
 /** Organizations whose name matches this get the Orzu lesson on boot. */
 const ORZU_ORG_PATTERN = '%orzu%';
 
@@ -355,8 +355,17 @@ export class WorkbookSeedService {
           order: 0,
         })
         .returning();
-    } else if (opts.teacherId && !lesson.teacherId) {
-      await this.assignTeacher(lesson.id, opts.teacherId);
+    } else {
+      if (opts.teacherId && !lesson.teacherId) {
+        await this.assignTeacher(lesson.id, opts.teacherId);
+      }
+      // An explicit refresh also brings the title up to date (boot never renames).
+      if (!opts.onlyIfEmpty && lesson.title !== ORZU_LESSON_TITLE) {
+        await this.db
+          .update(lessons)
+          .set({ title: ORZU_LESSON_TITLE })
+          .where(eq(lessons.id, lesson.id));
+      }
     }
 
     const blocks = await this.replaceBlocks(lesson!.id, ORZU_WEEK1_WORKBOOK, opts.onlyIfEmpty);
