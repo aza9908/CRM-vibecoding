@@ -8,6 +8,8 @@
  *
  * Images are static assets in `apps/web/public/workbook/orzu/`:
  *   step-0..7.png     — lesson slides (AIRL style, RU + UZ, 1600×900)
+ *   team.png          — «Кто ведёт урок» (trainers)
+ *   goals.png         — «Завтра на уроке»: 90-minute plan and results
  *   slide-tilmoch.png — «Перевод на узбекский в вашем телефоне» (deck slide 2)
  *   tilmoch-qr.png    — clean QR → https://tilmoch-eight.vercel.app
  */
@@ -90,6 +92,8 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'ORZU MEDICAL × AIRL · 1-DARS\nSunʼiy intellekt bilan mini-loyiha — 7 qadamda\n\nOddiy misolda — **klinika arizalari trekeri** — butun yoʻlni bosib oʻtamiz: bir sahifalik gʻoyadan SI-agent bajaradigan birinchi vazifagacha. Dasturlashni bilish shart emas: haqiqiy promptlar va fayllarni koʻrsatamiz, siz ularni oʻz loyihangizda takrorlaysiz.\n\n**Darsning asosiy vositasi — /airl-spec koʻnikmasi:** u vazifangizni haqiqiy PRD ga (SPEC.md fayli) aylantiradi, keyin agent shu fayl boʻyicha ishlaydi.',
     'agenda',
   ),
+  img('team.png', 'Кто ведёт урок: Жанибек Серкулов, Азамат Арманулы, Алмас Исмаилов · Darsni kim olib boradi'),
+  img('goals.png', 'Завтра на уроке: план на 90 минут и результаты · Darsda: 90 daqiqalik reja va natijalar'),
   t(
     'КАРТА УРОКА · что получится на каждом шаге\n1. **Идея на одну страницу** → docs/IDEA.md\n2. **Мини-PRD с /airl-spec** → SPEC.md и ARCHITECTURE.md\n3. **Подготовка проекта** → репозиторий GitHub, CLAUDE.md, папка docs/\n4. **План и маленькие задачи** → docs/TASKS.md\n5. **Первый цикл с агентом** → первая готовая функция и commit\n6. **Типичные ошибки** → как их не допустить\n7. **Итоговый чеклист** → всё ли готово к следующему уроку\n\n**Как сдавать упражнения:** напишите ответ и нажмите «Отправить». Выбор и оценка отправляются сразу при нажатии; в проверочных вопросах выберите вариант и нажмите «Проверить». Чеклист сдаётся, когда отмечены все пункты. Принятое упражнение отмечается зелёной галочкой **«Ответ принят»** — тренер видит ответ сразу.',
     'DARS XARITASI · har bir qadamda nima chiqadi\n1. **Bir sahifalik gʻoya** → docs/IDEA.md\n2. **/airl-spec bilan mini-PRD** → SPEC.md va ARCHITECTURE.md\n3. **Loyihani tayyorlash** → GitHub repozitoriysi, CLAUDE.md, docs/ papkasi\n4. **Reja va kichik vazifalar** → docs/TASKS.md\n5. **Agent bilan birinchi sikl** → birinchi tayyor funksiya va commit\n6. **Koʻp uchraydigan xatolar** → ulardan qanday qochish\n7. **Yakuniy chek-list** → keyingi darsga hammasi tayyormi\n\n**Mashqlarni qanday topshirish:** javob yozing va «Yuborish»ni bosing. Tanlov va baho bosilganda darhol yuboriladi; tekshiruv savollarida variantni tanlab «Tekshirish»ni bosing. Chek-list barcha bandlar belgilanganda topshiriladi. Qabul qilingan mashq yashil belgi **«Javob qabul qilindi»** bilan belgilanadi — trener javobni darhol koʻradi.',
