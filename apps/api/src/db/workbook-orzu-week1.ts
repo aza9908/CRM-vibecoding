@@ -10,7 +10,10 @@
  *   step-0..7.png     — lesson slides (AIRL style, RU + UZ, 1600×900)
  *   team.png          — «Кто ведёт урок» (trainers)
  *   support.png       — «4 недели сопровождения»: format, skills workflow, 4-week plan
- *   goals.png         — «Завтра на уроке»: 90-minute plan and results
+ *   agenda.png        — «План на сегодня»
+ *   results.png       — what participants get after each week and at the end
+ *   prd-1/2.png       — what a real PRD is and how to write it
+ *   git-1/2.png       — git and GitHub basics, project versions
  *   slide-tilmoch.png — «Перевод на узбекский в вашем телефоне» (deck slide 2)
  *   tilmoch-qr.png    — clean QR → https://tilmoch-eight.vercel.app
  */
@@ -94,8 +97,9 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'agenda',
   ),
   img('support.png', '4 недели сопровождения: как мы работаем и как работать со скиллами · 4 haftalik hamrohlik'),
+  img('results.png', 'Что вы получите: после каждой недели и в конце — боевой продукт · Nimaga ega boʻlasiz'),
   img('team.png', 'Кто ведёт урок: Жанибек Серкулов, Азамат Арманулы · Darsni kim olib boradi'),
-  img('goals.png', 'Завтра на уроке: план на 90 минут и результаты · Darsda: 90 daqiqalik reja va natijalar'),
+  img('agenda.png', 'План на сегодня · Bugungi reja'),
   t(
     'КАРТА УРОКА · что получится на каждом шаге\n1. **Идея на одну страницу** → docs/IDEA.md\n2. **Мини-PRD с /airl-spec** → SPEC.md и ARCHITECTURE.md\n3. **Подготовка проекта** → репозиторий GitHub, CLAUDE.md, папка docs/\n4. **План и маленькие задачи** → docs/TASKS.md\n5. **Первый цикл с агентом** → первая готовая функция и commit\n6. **Типичные ошибки** → как их не допустить\n7. **Итоговый чеклист** → всё ли готово к следующему уроку\n\n**Как сдавать упражнения:** напишите ответ и нажмите «Отправить». Выбор и оценка отправляются сразу при нажатии; в проверочных вопросах выберите вариант и нажмите «Проверить». Чеклист сдаётся, когда отмечены все пункты. Принятое упражнение отмечается зелёной галочкой **«Ответ принят»** — тренер видит ответ сразу.',
     'DARS XARITASI · har bir qadamda nima chiqadi\n1. **Bir sahifalik gʻoya** → docs/IDEA.md\n2. **/airl-spec bilan mini-PRD** → SPEC.md va ARCHITECTURE.md\n3. **Loyihani tayyorlash** → GitHub repozitoriysi, CLAUDE.md, docs/ papkasi\n4. **Reja va kichik vazifalar** → docs/TASKS.md\n5. **Agent bilan birinchi sikl** → birinchi tayyor funksiya va commit\n6. **Koʻp uchraydigan xatolar** → ulardan qanday qochish\n7. **Yakuniy chek-list** → keyingi darsga hammasi tayyormi\n\n**Mashqlarni qanday topshirish:** javob yozing va «Yuborish»ni bosing. Tanlov va baho bosilganda darhol yuboriladi; tekshiruv savollarida variantni tanlab «Tekshirish»ni bosing. Chek-list barcha bandlar belgilanganda topshiriladi. Qabul qilingan mashq yashil belgi **«Javob qabul qilindi»** bilan belgilanadi — trener javobni darhol koʻradi.',
@@ -154,6 +158,8 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'ШАГ 2 · МИНИ-PRD С /airl-spec\n**Цель:** получить настоящий PRD — документ, по которому продукт собирают в IT-командах. В AIRL он называется **SPEC.md**.\n**Как:** запускаем навык /airl-spec и отвечаем на его вопросы. Он ведёт разговор сам — нужно только честно отвечать.\n**Результат шага:** SPEC.md (PRD) и ARCHITECTURE.md (схема и технологии) в корне проекта.',
     '2-QADAM · /airl-spec BILAN MINI-PRD\n**Maqsad:** haqiqiy PRD olish — IT-jamoalarda mahsulot shu hujjat boʻyicha yigʻiladi. AIRL da u **SPEC.md** deb ataladi.\n**Qanday:** /airl-spec koʻnikmasini ishga tushiramiz va uning savollariga javob beramiz. U suhbatni oʻzi olib boradi — faqat halol javob berish kerak.\n**Qadam natijasi:** loyiha ildizida SPEC.md (PRD) va ARCHITECTURE.md (sxema va texnologiyalar).',
   ),
+  img('prd-1.png', 'Настоящий PRD = техническое задание: 14 разделов SPEC.md · Haqiqiy PRD = texnik topshiriq'),
+  img('prd-2.png', 'Как писать PRD: боль в цифрах, проверяемые критерии, что не делаем, тексты дословно · PRD qanday yoziladi'),
   t(
     'ЧЕМ /airl-spec ЛУЧШЕ, ЧЕМ «НАПИШИ МНЕ ТЗ»\n• **Начинает с боли и её цены в цифрах**, а не с экранов: «сейчас я делаю X, и это стоит Y». Эта цифра — ваше «было» для Demo Day.\n• **Вопросы по одному**, к каждому варианты A–D и рекомендация. Отвечать можно одной буквой; «не знаю» — он возьмёт рекомендацию и скажет об этом.\n• **Не принимает размытые ответы** вроде «чтобы было удобно» — переспросит на примере.\n• **Критерии готовности проверяемые** действием или числом: не «удобный интерфейс», а «заявка создаётся за 30 секунд».\n• **Ничего не решает молча:** всё, что выбрал за вас, выписывает в раздел «Решено по умолчанию».\n• **Знает про закон и данные:** факт обращения в клинику — это особые данные о здоровье, и он сразу скажет, что это значит для проекта.\n• **SPEC.md читают следующие навыки** (/airl-dwh, /airl-pwa и другие) — объяснять задачу заново не придётся.\n• **Код не пишет** — только документы. Код будет на шаге 5.',
     'NIMA UCHUN /airl-spec «MENGA TZ YOZ» DAN YAXSHIROQ\n• **Ekranlardan emas, muammo va uning raqamdagi narxidan boshlaydi:** «hozir men X qilaman va bu Y ga tushadi». Bu raqam — Demo Day uchun «oldin» holatingiz.\n• **Savollar bittadan**, har biriga A–D variantlar va tavsiya. Bitta harf bilan javob berish mumkin; «bilmayman» — u tavsiyani oladi va buni aytadi.\n• **«Qulay boʻlsin» kabi noaniq javoblarni qabul qilmaydi** — misol orqali qayta soʻraydi.\n• **Tayyorlik mezonlari tekshiriladigan** — harakat yoki raqam bilan: «qulay interfeys» emas, «ariza 30 soniyada yaratiladi».\n• **Hech narsani jimgina hal qilmaydi:** siz uchun tanlaganini «Standart boʻyicha hal qilindi» boʻlimiga yozadi.\n• **Qonun va maʼlumotlarni biladi:** klinikaga murojaat fakti — sogʻliq haqidagi maxsus maʼlumot, u buning loyiha uchun nimani anglatishini darhol aytadi.\n• **SPEC.md ni keyingi koʻnikmalar oʻqiydi** (/airl-dwh, /airl-pwa va boshqalar) — vazifani qayta tushuntirish kerak boʻlmaydi.\n• **Kod yozmaydi** — faqat hujjatlar. Kod 5-qadamda boʻladi.',
@@ -192,6 +198,16 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     ],
     1,
   ),
+  quiz(
+    'Проверка · В каком разделе PRD записано, что мы НЕ делаем в первой версии?',
+    'Tekshiruv · Birinchi versiyada nima QILMASLIGIMIZ PRD ning qaysi boʻlimida yoziladi?',
+    [
+      opt('Критерии готовности', 'Tayyorlik mezonlari'),
+      opt('Не делаем сейчас', 'Hozir qilmaymiz'),
+      opt('Главное действие', 'Asosiy harakat'),
+    ],
+    1,
+  ),
   ask(
     'Упражнение 2.1 · Боль и её цена из вашего SPEC.md: «сейчас я делаю X, и это стоит Y»',
     '2.1-mashq · SPEC.md dagi muammo va uning narxi: «hozir men X qilaman va bu Y ga tushadi»',
@@ -204,6 +220,10 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'Упражнение 2.3 · Что /airl-spec записал в «Решено по умолчанию»? Согласны ли вы?',
     '2.3-mashq · /airl-spec «Standart boʻyicha hal qilindi» boʻlimiga nima yozdi? Rozimisiz?',
   ),
+  ask(
+    'Упражнение 2.4 · Перепишите критерий так, чтобы его можно было проверить: «Удобно записывать пациентов»',
+    '2.4-mashq · Mezonni tekshiriladigan qilib qayta yozing: «Bemorlarni yozish qulay»',
+  ),
 
   // ═══════════════════════════════════════════════════════════════════
   // ШАГ 3 · ПОДГОТОВКА ПРОЕКТА
@@ -212,6 +232,16 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
   t(
     'ШАГ 3 · ПОДГОТОВКА ПРОЕКТА\n**Цель:** чтобы проект хранился надёжно и агент всегда работал по одним правилам.\n**Как:**\n1. На github.com нажмите **New repository**, имя — tracker-zayavok, видимость — **Private**.\n2. **SPEC.md и ARCHITECTURE.md оставьте в корне** — там их ищут все навыки AIRL.\n3. **CLAUDE.md** — правила и память проекта: агент читает его перед каждой задачей. /airl-spec уже записал в него состояние проекта.\n4. Остальная документация — в папке **docs/**: IDEA.md, позже TASKS.md.\n**Результат шага:** приватный репозиторий с этой структурой и первым commit.',
     '3-QADAM · LOYIHANI TAYYORLASH\n**Maqsad:** loyiha ishonchli saqlansin va agent doim bir xil qoidalar boʻyicha ishlasin.\n**Qanday:**\n1. github.com da **New repository** ni bosing, nomi — tracker-zayavok, koʻrinish — **Private**.\n2. **SPEC.md va ARCHITECTURE.md ni ildizda qoldiring** — AIRL koʻnikmalari ularni oʻsha yerdan qidiradi.\n3. **CLAUDE.md** — loyiha qoidalari va xotirasi: agent uni har bir vazifadan oldin oʻqiydi. /airl-spec unga loyiha holatini allaqachon yozgan.\n4. Qolgan hujjatlar — **docs/** papkasida: IDEA.md, keyinroq TASKS.md.\n**Qadam natijasi:** shu tuzilmali yopiq repozitoriy va birinchi commit.',
+  ),
+  img('git-1.png', 'Git и GitHub простыми словами: репозиторий, commit, push, pull, ветка, .gitignore · Git va GitHub'),
+  img('git-2.png', 'Версии проекта: commit после каждой задачи, понятная подпись, откат · Loyiha versiyalari'),
+  t(
+    'ФАЙЛ · .gitignore — что никогда не попадёт в git\n.env\n.env.*\n!.env.example',
+    'FAYL · .gitignore — gitga hech qachon tushmaydigan narsa\n.env\n.env.*\n!.env.example',
+  ),
+  t(
+    'ПРОМПТ · подготовить git (для агента)\nПроверь git status. Если репозитория нет: сделай git init и файл .gitignore со строками .env, .env.* и !.env.example. Сделай первый commit с SPEC.md и ARCHITECTURE.md с подписью «Документы проекта». Объясни мне по шагам, как создать приватный репозиторий на GitHub, привяжи его и отправь commit (push). Ключи и пароли в commit не добавляй.',
+    'PROMPT · gitni tayyorlash (agent uchun)\ngit status ni tekshir. Repozitoriy boʻlmasa: git init qil va .env, .env.* va !.env.example qatorlari bilan .gitignore faylini yarat. SPEC.md va ARCHITECTURE.md bilan «Loyiha hujjatlari» imzoli birinchi commitni qil. GitHubda yopiq repozitoriyni qanday yaratishni bosqichma-bosqich tushuntir, uni ulab commitni yubor (push). Commitga kalit va parollarni qoʻshma.',
   ),
   t(
     'ПРОМПТ · для агента Claude Code в VS Code\nПодготовь проект к работе. SPEC.md и ARCHITECTURE.md оставь в корне. Создай папку docs/ и перенеси туда IDEA.md. Проверь CLAUDE.md: в нём должны быть правила — перед каждой задачей читать SPEC.md; делать одну задачу за раз; ничего вне первой версии; никаких паролей, ключей и данных пациентов в коде. Сделай commit «Документы проекта» и отправь в GitHub. Покажи итоговую структуру папок.',
@@ -228,6 +258,37 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'Упражнение 3.2 · Ссылка на ваш репозиторий (пригласите тренера в репозиторий, чтобы он его видел)',
     '3.2-mashq · Repozitoriyingiz havolasi (trener koʻrishi uchun uni repozitoriyga taklif qiling)',
     'task',
+  ),
+  quiz(
+    'Проверка · Что такое commit?',
+    'Tekshiruv · Commit nima?',
+    [
+      opt('Письмо коллеге с изменениями', 'Hamkasbga oʻzgarishlar haqida xat'),
+      opt('Сохранение версии проекта с подписью, что изменилось', 'Nima oʻzgarganini yozib loyiha versiyasini saqlash'),
+      opt('Удаление старых файлов', 'Eski fayllarni oʻchirish'),
+    ],
+    1,
+  ),
+  quiz(
+    'Проверка · Где хранить API-ключ или пароль от базы?',
+    'Tekshiruv · API-kalit yoki baza parolini qayerda saqlash kerak?',
+    [
+      opt('В SPEC.md, чтобы агент его видел', 'Agent koʻrishi uchun SPEC.md da'),
+      opt('В файле .env, который записан в .gitignore', '.gitignore ga yozilgan .env faylida'),
+      opt('В подписи commit', 'Commit imzosida'),
+    ],
+    1,
+  ),
+  checklist('Упражнение 3.3 · Git готов — отметьте всё', '3.3-mashq · Git tayyor — hammasini belgilang', [
+    opt('git установлен (команда git --version показывает версию)', 'git oʻrnatilgan (git --version versiyani koʻrsatadi)'),
+    opt('Есть .gitignore со строкой .env', '.env qatori bilan .gitignore bor'),
+    opt('Сделан первый commit с SPEC.md и ARCHITECTURE.md', 'SPEC.md va ARCHITECTURE.md bilan birinchi commit qilindi'),
+    opt('Commit отправлен в GitHub (push)', 'Commit GitHubga yuborildi (push)'),
+    opt('Файлы видны на странице репозитория', 'Fayllar repozitoriy sahifasida koʻrinadi'),
+  ]),
+  ask(
+    'Упражнение 3.4 · Подпись вашего первого commit — что в нём изменилось?',
+    '3.4-mashq · Birinchi commitingiz imzosi — unda nima oʻzgardi?',
   ),
 
   // ═══════════════════════════════════════════════════════════════════
@@ -277,6 +338,10 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'ПРОМПТ · если что-то не так\nЯ открыл форму и вижу: [опишите, что происходит]. Ожидал: [что должно быть]. Исправь только это, ничего другого не меняй.\n\nПРОМПТ · фиксация\nСделай commit с понятным сообщением на русском: что изменилось для пользователя. Отправь его в GitHub.',
     'PROMPT · biror narsa notoʻgʻri boʻlsa\nShaklni ochdim va koʻryapman: [nima boʻlayotganini yozing]. Kutgandim: [qanday boʻlishi kerak]. Faqat shuni tuzat, boshqa hech narsani oʻzgartirma.\n\nPROMPT · saqlash\nFoydalanuvchi uchun nima oʻzgarganini tushunarli yozib commit qil. Uni GitHubga yubor.',
   ),
+  t(
+    'ПРОМПТ · откат к рабочей версии\nПоследнее изменение сломало форму. Покажи последние 5 commit простыми словами и верни проект к последнему рабочему. Ничего не удаляй без моего «да».',
+    'PROMPT · ishlaydigan versiyaga qaytish\nOxirgi oʻzgarish shaklni buzdi. Oxirgi 5 ta commitni oddiy soʻzlar bilan koʻrsat va loyihani oxirgi ishlaydigan versiyaga qaytar. Mening «ha»imsiz hech narsani oʻchirma.',
+  ),
   ask(
     'Упражнение 5.1 · Ваш промпт для первой задачи — вставьте целиком',
     '5.1-mashq · Birinchi vazifa uchun promptingiz — toʻliq qoʻying',
@@ -290,6 +355,16 @@ export const ORZU_WEEK1_WORKBOOK: SeedBlock[] = [
     'Упражнение 5.3 · Ссылка на ваш первый commit или текст его сообщения',
     '5.3-mashq · Birinchi commitingiz havolasi yoki uning xabari matni',
     'task',
+  ),
+  quiz(
+    'Проверка · Агент сломал то, что раньше работало. Что делаем?',
+    'Tekshiruv · Agent avval ishlagan narsani buzdi. Nima qilamiz?',
+    [
+      opt('Пишем весь проект заново', 'Butun loyihani qaytadan yozamiz'),
+      opt('Откатываемся к последнему рабочему commit', 'Oxirgi ishlaydigan commitga qaytamiz'),
+      opt('Удаляем репозиторий', 'Repozitoriyni oʻchiramiz'),
+    ],
+    1,
   ),
 
   // ═══════════════════════════════════════════════════════════════════
