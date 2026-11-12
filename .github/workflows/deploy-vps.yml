@@ -111,6 +111,10 @@ jobs:
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" bash -s <<'REMOTE'
           echo "== host: $(hostname) · $(. /etc/os-release; echo $PRETTY_NAME) · up $(uptime -p)"
           echo "== disk"; df -h / | tail -1
+          echo "== capacity: $(nproc) CPU · load $(cut -d' ' -f1-3 /proc/loadavg)"; free -m | head -2
+          docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' 2>/dev/null | head -10
+          f=/root/lms/.env.prod; [ -f "$f" ] && echo "TURN configured: $(grep -qE '^TURN_URLS=.+' "$f" && echo yes || echo no)"
+          (ufw status 2>/dev/null | head -3) || true
           echo "== docker"; (docker --version && docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}') 2>&1 | head -30
           echo "== compose projects with an LMS"
           find / -xdev -name docker-compose.prod.yml -path '*' 2>/dev/null | while read f; do
