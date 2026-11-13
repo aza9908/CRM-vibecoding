@@ -96,7 +96,7 @@ interface GoogleOauth2 {
     scope: string;
     callback: (res: TokenResponse) => void;
     error_callback?: (err: { type?: string; message?: string }) => void;
-  }): { requestAccessToken(opts?: { prompt?: string }): void };
+  }): { requestAccessToken(opts?: { prompt?: string; login_hint?: string }): void };
 }
 
 function loadGis(): Promise<GoogleOauth2> {
@@ -124,7 +124,11 @@ function loadGis(): Promise<GoogleOauth2> {
  * called from a click (it opens Google's consent window). The permission is
  * `drive.file`: the LMS can only see the files and folders it created itself.
  */
-export async function requestDriveToken(clientId: string): Promise<string> {
+export async function requestDriveToken(
+  clientId: string,
+  /** Email to pre-select in Google's account chooser (the LMS user's). */
+  loginHint?: string | null,
+): Promise<string> {
   const oauth2 = await loadGis();
   return new Promise<string>((resolve, reject) => {
     const client = oauth2.initTokenClient({
@@ -136,7 +140,13 @@ export async function requestDriveToken(clientId: string): Promise<string> {
       },
       error_callback: (err) => reject(new Error(err.type ?? 'google_denied')),
     });
-    client.requestAccessToken();
+    // Always show the account chooser: with several Google accounts in the
+    // browser, Google would otherwise silently pick one — and a wrong one is
+    // refused («access_denied») while the app is limited to test users.
+    client.requestAccessToken({
+      prompt: 'select_account',
+      ...(loginHint ? { login_hint: loginHint } : {}),
+    });
   });
 }
 

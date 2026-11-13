@@ -743,7 +743,7 @@
     "recOn": "Жазылып жатыр",
     "recDefaultTitle": "Сабақ",
     "recFailed": "Бұл браузерде жазбаны бастау мүмкін болмады. Компьютерде Chrome қолданыңыз.",
-    "recDriveDenied": "Google Drive-қа рұқсат жоқ — жазба осы компьютерге сақталады.",
+    "recDriveDenied": "Google Drive-қа рұқсат бермеді (дұрыс Google аккаунты таңдалғанын тексеріңіз) — жазба осы компьютерге сақталады.",
     "recSavedDrive": "Жазба Google Drive-қа сақталды, «Уроки LMS» қалтасы",
     "recSavedDownload": "Жазба компьютерге сақталды («Жүктеулер» қалтасы)",
     "recOpenDrive": "Google Drive-та ашу",

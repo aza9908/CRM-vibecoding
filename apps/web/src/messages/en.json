@@ -743,7 +743,7 @@
     "recOn": "Recording",
     "recDefaultTitle": "Lesson",
     "recFailed": "Could not start recording in this browser. Use Chrome on a computer.",
-    "recDriveDenied": "No access to Google Drive — the recording will be saved to this computer.",
+    "recDriveDenied": "Google did not grant access to Drive (check that the right Google account is selected) — the recording will be saved to this computer.",
     "recSavedDrive": "Recording saved to Google Drive, folder «Уроки LMS»",
     "recSavedDownload": "Recording saved to this computer (Downloads folder)",
     "recOpenDrive": "Open in Google Drive",

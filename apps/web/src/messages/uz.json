@@ -743,7 +743,7 @@
     "recOn": "Yozib olinmoqda",
     "recDefaultTitle": "Dars",
     "recFailed": "Bu brauzerda yozuvni boshlab bo‘lmadi. Kompyuterda Chrome’dan foydalaning.",
-    "recDriveDenied": "Google Drive’ga ruxsat yo‘q — yozuv shu kompyuterga saqlanadi.",
+    "recDriveDenied": "Google Drive’ga ruxsat bermadi (to‘g‘ri Google akkaunt tanlanganini tekshiring) — yozuv shu kompyuterga saqlanadi.",
     "recSavedDrive": "Yozuv Google Drive’ga saqlandi, «Уроки LMS» papkasi",
     "recSavedDownload": "Yozuv kompyuterga saqlandi («Yuklamalar» papkasi)",
     "recOpenDrive": "Google Drive’da ochish",

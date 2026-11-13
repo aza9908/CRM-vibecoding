@@ -36,6 +36,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 /** Plays a MediaStream in a <video>. Audio is played separately (see below). */
 function StreamVideo({
@@ -899,7 +900,7 @@ export function VideoRoom({
     const clientId = googleClientId();
     if (clientId) {
       // Opens Google's window; must run inside this click.
-      driveToken = await requestDriveToken(clientId).catch(() => null);
+      driveToken = await requestDriveToken(clientId, useAuthStore.getState().user?.email).catch(() => null);
       if (!driveToken) showToast(t('recDriveDenied'), 7000);
     }
     try {

@@ -743,7 +743,7 @@
     "recOn": "Идёт запись",
     "recDefaultTitle": "Урок",
     "recFailed": "Не удалось начать запись в этом браузере. Используйте Chrome на компьютере.",
-    "recDriveDenied": "Нет доступа к Google Drive — запись сохранится на этот компьютер.",
+    "recDriveDenied": "Google не дал доступ к Drive (проверьте, что выбран нужный аккаунт Google) — запись сохранится на этот компьютер.",
     "recSavedDrive": "Запись сохранена в Google Drive, папка «Уроки LMS»",
     "recSavedDownload": "Запись сохранена на компьютер (папка «Загрузки»)",
     "recOpenDrive": "Открыть в Google Drive",
