@@ -693,6 +693,21 @@ jobs:
           [ -n "$TOKEN" ] || { echo "::error::no token"; exit 1; }
           # Which provider is live (mock = no GROQ_API_KEY on the server).
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker logs lms-api-1 2>&1 | grep -ciE 'Mock LLM provider is active' | sed 's/^/mock-provider log lines: /'" || true
+          # Is the server's Groq key valid, and which models does it see? (key never printed)
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-api-1 node -e '
+            const k = (process.env.GROQ_API_KEY || \"\").trim();
+            console.log(\"groq key: \" + (k ? \"set, \" + k.length + \" chars, prefix \" + k.slice(0, 4) : \"EMPTY\"));
+            fetch(\"https://api.groq.com/openai/v1/models\", { headers: { authorization: \"Bearer \" + k } })
+              .then(async (r) => {
+                const j = await r.json().catch(() => ({}));
+                const ids = (j.data || []).map((m) => m.id);
+                console.log(\"groq /models: HTTP \" + r.status + \" · models \" + ids.length);
+                console.log(\"  whisper: \" + (ids.filter((i) => /whisper/.test(i)).join(\", \") || \"none\"));
+                console.log(\"  chat default present (openai/gpt-oss-120b): \" + ids.includes(\"openai/gpt-oss-120b\"));
+                if (r.status !== 200) console.log(\"  error: \" + JSON.stringify(j.error || j).slice(0, 200));
+              })
+              .catch((e) => console.log(\"groq unreachable: \" + e.message));
+          '" || true
           TOKEN="$TOKEN" node .github/scripts/analysis-smoke.js
 
       - name: Roll back on failure
