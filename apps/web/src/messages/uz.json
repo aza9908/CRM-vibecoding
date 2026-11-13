@@ -841,5 +841,58 @@
     "errorAlready": "So‘rov allaqachon ketmoqda.",
     "errorOffline": "Server bilan aloqa yo‘q. Qayta urinib ko‘ring.",
     "errorGeneric": "So‘rovni boshlab bo‘lmadi."
+  },
+  "analysis": {
+    "title": "Darsning SI-tahlili",
+    "listTitle": "Darslarning SI-tahlillari",
+    "stage": {
+      "queued": "Yozuv tahlil navbatida…",
+      "transcribing": "Yozuv matnga aylantirilmoqda…",
+      "context": "Dars ma’lumotlari yig‘ilmoqda…",
+      "notes": "SI darsni qismlarga bo‘lib o‘rganmoqda…",
+      "report": "SI tahlil yozmoqda…",
+      "done": "Tayyor"
+    },
+    "progressHint": "Tahlil serverda bajariladi: sahifani yopish mumkin, natija shu yerda paydo bo‘ladi. 1,5 soatlik dars odatda bir necha daqiqa oladi.",
+    "failedTitle": "Tahlil qilib bo‘lmadi",
+    "errors": {
+      "no_speech": "Yozuvda nutq eshitilmayapti — mikrofon yoqilganini tekshiring.",
+      "no_audio": "Yozuv ovozi serverga yetib bormadi.",
+      "audio_too_large": "Yozuv tahlil uchun juda uzun (2 soat 15 daqiqadan ko‘p).",
+      "interrupted": "Tahlil vaqtida server qayta ishga tushdi. Tahlil olish uchun darsni qayta yozing.",
+      "timeout": "Tahlil juda uzoq davom etdi va to‘xtatildi.",
+      "llm_unavailable": "SI-xizmat hozir mavjud emas. Keyinroq urinib ko‘ring.",
+      "llm_rate_limited": "SI-xizmat so‘rovlar bilan band. Keyinroq urinib ko‘ring.",
+      "llm_unauthorized": "SI-xizmat sozlanmagan: serverdagi GROQ_API_KEY kalitini tekshiring.",
+      "bad_report": "SI tahlilni noto‘g‘ri formatda qaytardi. Darsni qayta yozib ko‘ring.",
+      "generic": "Nimadir xato ketdi. Darsni qayta yozib ko‘ring."
+    },
+    "overall": "Umumiy baho",
+    "outOf10": "10 dan",
+    "scores": {
+      "clarity": "Tushunarlilik",
+      "structure": "Tuzilma",
+      "engagement": "Jalb qilish",
+      "pace": "Temp",
+      "practice": "Amaliyot"
+    },
+    "strengths": "Kuchli tomonlar",
+    "weaknesses": "Nimani yaxshilash kerak",
+    "howToFix": "Qanday tuzatish",
+    "noStrengths": "SI bu yozuvda aniq kuchli tomonlarni topmadi.",
+    "noWeaknesses": "Aniq zaif joylar topilmadi.",
+    "recommendations": "Keyingi darsda nima qilish kerak",
+    "timeline": "Dars borishi",
+    "engagement": "Ishtirok",
+    "teacherTalk": "O‘qituvchi gapiradi",
+    "studentQuestions": "Ishtirokchilar savollari",
+    "pulse": "Sinf pulsi",
+    "passive": "Passiv ishtirokchilar",
+    "quotes": "Darsdan iqtiboslar",
+    "showTranscript": "Matnni ko‘rsatish",
+    "hideTranscript": "Matnni yashirish",
+    "copy": "Tahlilni nusxalash",
+    "copied": "Nusxalandi",
+    "duration": "Yozuv davomiyligi"
   }
 }

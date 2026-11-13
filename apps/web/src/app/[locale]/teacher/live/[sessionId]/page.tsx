@@ -30,6 +30,7 @@ import { GroupChatTab } from '@/components/live/GroupChatTab';
 import { ChatDock } from '@/components/live/ChatDock';
 import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
+import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
 import { useLesson } from '@/lib/api/hooks/use-lessons';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { QaPanel } from '@/components/live/QaPanel';
@@ -276,6 +277,8 @@ export default function TeacherLivePage() {
             <Card className="border-primary/30 p-4 shadow-sm">
               <PulseTeacherCard channel={pulse} sessionId={sessionId} />
             </Card>
+            {/* «ИИ-разбор урока»: appears once a recording was sent for review. */}
+            <LessonAnalysisCard sessionId={sessionId} />
             {/* Chat first: it is what people look for during a class. */}
             <Card className="border-primary/30 p-4 shadow-sm">
               <h2 className="mb-2 text-sm font-semibold">{t('groupChat')}</h2>

@@ -16,6 +16,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { ProgramModule } from './program/program.module';
 import { AdminModule } from './admin/admin.module';
 import { TasksModule } from './tasks/tasks.module';
+import { AnalysisModule } from './analysis/analysis.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { TasksModule } from './tasks/tasks.module';
     ProgramModule,
     AdminModule,
     TasksModule,
+    AnalysisModule,
   ],
 })
 export class AppModule {}

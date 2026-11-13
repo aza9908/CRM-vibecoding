@@ -9,6 +9,7 @@ import {
   useSessionReport,
 } from '@/lib/api/hooks/use-reports';
 import { Brand } from '@/components/brand';
+import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
@@ -132,6 +133,9 @@ export function SessionEndedReport({
         {exportError && (
           <p className="text-sm text-destructive">{exportError}</p>
         )}
+
+        {/* «ИИ-разбор урока» — progress, then the review, if it was recorded. */}
+        <LessonAnalysisCard sessionId={sessionId} wide />
 
         {report && (
           <>

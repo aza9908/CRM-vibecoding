@@ -841,5 +841,58 @@
     "errorAlready": "A check is already running.",
     "errorOffline": "No connection to the server. Try again.",
     "errorGeneric": "Could not start the check."
+  },
+  "analysis": {
+    "title": "AI lesson review",
+    "listTitle": "AI lesson reviews",
+    "stage": {
+      "queued": "The recording is queued for review…",
+      "transcribing": "Transcribing the recording…",
+      "context": "Gathering lesson data…",
+      "notes": "The AI is studying the lesson part by part…",
+      "report": "The AI is writing the review…",
+      "done": "Done"
+    },
+    "progressHint": "The review runs on the server: you can close this page, the result will appear here. A 1.5-hour lesson usually takes a few minutes.",
+    "failedTitle": "The review could not be made",
+    "errors": {
+      "no_speech": "No speech can be heard in the recording — check that the microphone was on.",
+      "no_audio": "The recording’s audio did not reach the server.",
+      "audio_too_large": "The recording is too long to review (over 2 hours 15 minutes).",
+      "interrupted": "The server restarted during the review. Record the lesson again to get a review.",
+      "timeout": "The review took too long and was stopped.",
+      "llm_unavailable": "The AI service is unavailable right now. Try again later.",
+      "llm_rate_limited": "The AI service is overloaded with requests. Try again later.",
+      "llm_unauthorized": "The AI service is not configured: check GROQ_API_KEY on the server.",
+      "bad_report": "The AI returned the review in a wrong format. Try recording the lesson again.",
+      "generic": "Something went wrong. Try recording the lesson again."
+    },
+    "overall": "Overall score",
+    "outOf10": "out of 10",
+    "scores": {
+      "clarity": "Clarity",
+      "structure": "Structure",
+      "engagement": "Engagement",
+      "pace": "Pace",
+      "practice": "Practice"
+    },
+    "strengths": "Strong sides",
+    "weaknesses": "What to improve",
+    "howToFix": "How to fix it",
+    "noStrengths": "The AI found no clear strong sides in this recording.",
+    "noWeaknesses": "No clear weak spots were found.",
+    "recommendations": "What to do in the next lesson",
+    "timeline": "How the lesson went",
+    "engagement": "Engagement",
+    "teacherTalk": "Teacher talking",
+    "studentQuestions": "Questions from participants",
+    "pulse": "Class pulse",
+    "passive": "Passive participants",
+    "quotes": "Quotes from the lesson",
+    "showTranscript": "Show the transcript",
+    "hideTranscript": "Hide the transcript",
+    "copy": "Copy the review",
+    "copied": "Copied",
+    "duration": "Recording length"
   }
 }

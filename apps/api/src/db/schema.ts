@@ -577,6 +577,7 @@ export const schema = {
   lessonBlocks,
   liveSessions,
   participants,
+  lessonAnalyses,
   responses,
   sessionChatMessages,
   userProgress,
