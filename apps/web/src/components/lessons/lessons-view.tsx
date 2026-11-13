@@ -220,17 +220,13 @@ export function LessonsView() {
               role="tablist"
               aria-label={t('category')}
             >
-              <FilterChip
-                active={filter === ALL}
-                onClick={() => setFilter(ALL)}
-                label={t('categoryAll')}
-                count={groups.reduce((n, g) => n + g.lessons.length, 0)}
-              />
+              {/* No «All» chip: the board already shows everything. A chip
+                  narrows to one company; pressing it again shows all. */}
               {groups.map((g) => (
                 <FilterChip
                   key={g.key}
                   active={filter === g.key}
-                  onClick={() => setFilter(g.key)}
+                  onClick={() => setFilter((cur) => (cur === g.key ? ALL : g.key))}
                   label={g.label}
                   count={g.lessons.length}
                 />
@@ -331,18 +327,19 @@ export function LessonsView() {
                     isCollapsed ? 'hidden lg:flex' : 'flex',
                   )}
                 >
-                  {g.lessons.length > 0 ? (
-                    cards(g.lessons)
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => openCreate(addTo)}
-                      className="flex items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-6 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t('categoryEmptyAdd')}
-                    </button>
-                  )}
+                  {/* «Add a lesson» always comes first in a column. */}
+                  <button
+                    type="button"
+                    onClick={() => openCreate(addTo)}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      g.lessons.length > 0 ? 'py-3' : 'py-6',
+                    )}
+                  >
+                    <Plus className="h-4 w-4" />
+                    {t('categoryEmptyAdd')}
+                  </button>
+                  {cards(g.lessons)}
                 </div>
               </section>
             );
@@ -350,6 +347,14 @@ export function LessonsView() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
+            className="flex min-h-[8rem] items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="h-4 w-4" />
+            {t('categoryEmptyAdd')}
+          </button>
           {cards(shownGroups.flatMap((g) => g.lessons))}
         </div>
       )}
