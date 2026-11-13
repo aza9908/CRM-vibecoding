@@ -20,6 +20,16 @@ import {
   type ClientToServerEvents,
   type FocusSetPayload,
   type ParticipantPayload,
+  PULSE_DURATION_MS,
+  PULSE_QUESTION_MAX,
+  PULSE_VALUES,
+  pulseUnderstanding,
+  type PulseAck,
+  type PulseAnswerPayload,
+  type PulseClosePayload,
+  type PulseStartPayload,
+  type PulseStatePayload,
+  type PulseValue,
   type QaAskPayload,
   type QaQuestion,
   type QaStatusPayload,
@@ -92,6 +102,21 @@ const QA_MAX_LEN = 300;
 const QA_CAP = 100;
 const CHAT_HISTORY_CAP = 100;
 
+/** One «Пульс класса» check — running, or the last closed one. */
+interface PulseRun {
+  id: string;
+  sessionId: string;
+  orgId: string | null;
+  question: string;
+  startedAt: number;
+  endsAt: number;
+  closed: boolean;
+  /** Everyone who was asked: id → display name. */
+  people: Map<string, string>;
+  answers: Map<string, PulseValue>;
+  timer: NodeJS.Timeout | null;
+}
+
 function isParticipant(id: SocketIdentity): id is ParticipantPayload {
   return id.aud === 'participant';
 }
@@ -128,6 +153,9 @@ export class SessionGateway
   private readonly chatRate = new Map<string, number[]>();
   /** Q&A queue per session — in-memory like the chat buffer. */
   private readonly qaBySession = new Map<string, QaQuestion[]>();
+  /** «Пульс класса»: the running (or last closed) check per session. */
+  private readonly pulseBySession = new Map<string, PulseRun>();
+  private readonly pulseRate = new Map<string, number>();
 
   constructor(
     private readonly auth: AuthService,
@@ -584,6 +612,14 @@ export class SessionGateway
     if (questions?.length) {
       socket.emit(WS_EVENTS.qaList, { sessionId, questions });
     }
+    // Joined in the middle of a «Пульс класса» check → show it right away.
+    const pulse = this.pulseBySession.get(sessionId);
+    if (pulse && !pulse.closed) {
+      socket.emit(WS_EVENTS.pulseState, this.pulsePublic(pulse));
+      if (!isParticipant(identity) && isStaffRole(identity.role)) {
+        socket.emit(WS_EVENTS.pulseDetail, this.pulseDetail(pulse));
+      }
+    }
 
     if (isParticipant(identity)) {
       const name = await this.sessions.getParticipantName(identity.sub);
@@ -867,7 +903,218 @@ export class SessionGateway
     this.io?.to(room(sessionId)).emit(WS_EVENTS.sessionEnded, { sessionId });
     this.chatBySession.delete(sessionId);
     this.qaBySession.delete(sessionId);
+    const pulse = this.pulseBySession.get(sessionId);
+    if (pulse && !pulse.closed) this.closePulse(pulse);
+    this.pulseBySession.delete(sessionId);
     this.endCall(sessionId);
+  }
+
+  // ── Class pulse («всё понятно?») ─────────────────────────────────────────
+  // The teacher asks, everyone answers with an emoji; the room sees the
+  // aggregate, teachers also see who answered what and who stayed silent.
+  // The running check is in memory (single API instance, like the Q&A
+  // queue); a closed check is stored in `pulse_checks` for reports.
+
+  private pulsePublic(run: PulseRun): PulseStatePayload {
+    const counts: Record<PulseValue, number> = { yes: 0, partly: 0, no: 0 };
+    for (const v of run.answers.values()) counts[v] += 1;
+    const answered = run.answers.size;
+    const eligible = run.people.size;
+    return {
+      sessionId: run.sessionId,
+      id: run.id,
+      question: run.question,
+      startedAt: new Date(run.startedAt).toISOString(),
+      endsAt: new Date(run.endsAt).toISOString(),
+      closed: run.closed,
+      eligible,
+      answered,
+      counts,
+      understanding: pulseUnderstanding(counts),
+      participation: eligible > 0 ? Math.round((100 * answered) / eligible) : 0,
+    };
+  }
+
+  private pulseDetail(run: PulseRun) {
+    const answers = [];
+    const pending = [];
+    for (const [id, name] of run.people) {
+      const value = run.answers.get(id);
+      if (value) answers.push({ id, name, value });
+      else pending.push({ id, name });
+    }
+    return { sessionId: run.sessionId, id: run.id, answers, pending };
+  }
+
+  private broadcastPulse(run: PulseRun): void {
+    this.io?.to(room(run.sessionId)).emit(WS_EVENTS.pulseState, this.pulsePublic(run));
+    this.io
+      ?.to(teachersRoom(run.sessionId))
+      .emit(WS_EVENTS.pulseDetail, this.pulseDetail(run));
+  }
+
+  private closePulse(run: PulseRun): void {
+    if (run.closed) return;
+    run.closed = true;
+    run.endsAt = Math.min(run.endsAt, Date.now());
+    if (run.timer) clearTimeout(run.timer);
+    run.timer = null;
+    this.broadcastPulse(run);
+    const pub = this.pulsePublic(run);
+    const detail = this.pulseDetail(run);
+    void this.sessions
+      .savePulseCheck({
+        id: run.id,
+        sessionId: run.sessionId,
+        organizationId: run.orgId,
+        question: run.question,
+        startedAt: new Date(run.startedAt),
+        closedAt: new Date(),
+        eligible: pub.eligible,
+        answered: pub.answered,
+        understanding: pub.understanding,
+        answers: detail.answers,
+        pending: detail.pending,
+      })
+      .catch((err: unknown) =>
+        this.logger.warn(
+          `pulse save failed: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+  }
+
+  /** Display name of a non-staff member of the session. */
+  private async pulseName(identity: SocketIdentity): Promise<string> {
+    const name = isParticipant(identity)
+      ? await this.sessions.getParticipantName(identity.sub)
+      : await this.sessions.getUserName(identity.sub);
+    return name ?? 'Участник';
+  }
+
+  @SubscribeMessage(WS_EVENTS.pulseStart)
+  async onPulseStart(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: PulseStartPayload,
+  ): Promise<PulseAck> {
+    const actor = await this.qaActor(socket, body?.sessionId);
+    if (!actor) return { ok: false, error: 'forbidden' };
+    const { identity, sessionId } = actor;
+    if (isParticipant(identity) || !isStaffRole(identity.role)) {
+      return { ok: false, error: 'forbidden' };
+    }
+    const current = this.pulseBySession.get(sessionId);
+    if (current && !current.closed) return { ok: false, error: 'already_running' };
+
+    let orgId: string | null = identity.orgId || null;
+    try {
+      const session = await this.sessions.get(sessionId);
+      if (session.status === 'ended') return { ok: false, error: 'session_ended' };
+      if (session.organizationId !== identity.orgId) {
+        return { ok: false, error: 'forbidden' };
+      }
+      orgId = session.organizationId ?? orgId;
+    } catch {
+      return { ok: false, error: 'forbidden' };
+    }
+
+    const question = (typeof body?.question === 'string' ? body.question : '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, PULSE_QUESTION_MAX);
+
+    // Everyone asked = the students connected right now (staff do not count).
+    const people = new Map<string, string>();
+    const sockets = await this.io.in(room(sessionId)).fetchSockets();
+    const asked = new Map<string, SocketIdentity>();
+    for (const s of sockets) {
+      const id = (s.data as LiveSocketData).identity;
+      if (!id) continue;
+      if (!isParticipant(id) && isStaffRole(id.role)) continue;
+      asked.set(id.sub, id);
+    }
+    await Promise.all(
+      [...asked.values()].map(async (id) => {
+        people.set(id.sub, await this.pulseName(id));
+      }),
+    );
+    // A second teacher may have started one while we were looking names up.
+    const raced = this.pulseBySession.get(sessionId);
+    if (raced && !raced.closed) return { ok: false, error: 'already_running' };
+
+    const now = Date.now();
+    const run: PulseRun = {
+      id: randomUUID(),
+      sessionId,
+      orgId,
+      question,
+      startedAt: now,
+      endsAt: now + PULSE_DURATION_MS,
+      closed: false,
+      people,
+      answers: new Map(),
+      timer: null,
+    };
+    run.timer = setTimeout(() => this.closePulse(run), PULSE_DURATION_MS);
+    run.timer.unref?.();
+    this.pulseBySession.set(sessionId, run);
+    this.broadcastPulse(run);
+    return { ok: true };
+  }
+
+  @SubscribeMessage(WS_EVENTS.pulseAnswer)
+  async onPulseAnswer(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: PulseAnswerPayload,
+  ): Promise<PulseAck> {
+    const actor = await this.qaActor(socket, body?.sessionId);
+    if (!actor) return { ok: false, error: 'forbidden' };
+    const { identity, sessionId } = actor;
+    // Staff run the check; they are not part of the audience.
+    if (!isParticipant(identity) && isStaffRole(identity.role)) {
+      return { ok: false, error: 'forbidden' };
+    }
+    const value = body?.value;
+    if (!PULSE_VALUES.includes(value)) return { ok: false, error: 'bad_request' };
+    const run = this.pulseBySession.get(sessionId);
+    if (!run || run.closed) return { ok: false, error: 'closed' };
+
+    const now = Date.now();
+    const rateKey = `${sessionId}:${identity.sub}`;
+    if (now - (this.pulseRate.get(rateKey) ?? 0) < 300) {
+      return { ok: false, error: 'too_fast' };
+    }
+    this.pulseRate.set(rateKey, now);
+    if (this.pulseRate.size > 5000) this.pulseRate.clear();
+
+    if (!run.people.has(identity.sub)) {
+      // Came in after the question was asked — still counts.
+      const name = await this.pulseName(identity);
+      if (run.closed) return { ok: false, error: 'closed' };
+      run.people.set(identity.sub, name);
+    }
+    if (run.answers.get(identity.sub) === value) return { ok: true };
+    run.answers.set(identity.sub, value);
+    this.io?.to(room(sessionId)).emit(WS_EVENTS.pulseReaction, { sessionId, value });
+    if (run.answers.size >= run.people.size) this.closePulse(run);
+    else this.broadcastPulse(run);
+    return { ok: true };
+  }
+
+  @SubscribeMessage(WS_EVENTS.pulseClose)
+  async onPulseClose(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: PulseClosePayload,
+  ): Promise<PulseAck> {
+    const actor = await this.qaActor(socket, body?.sessionId);
+    if (!actor) return { ok: false, error: 'forbidden' };
+    const { identity, sessionId } = actor;
+    if (isParticipant(identity) || !isStaffRole(identity.role)) {
+      return { ok: false, error: 'forbidden' };
+    }
+    const run = this.pulseBySession.get(sessionId);
+    if (!run || run.closed) return { ok: false, error: 'closed' };
+    this.closePulse(run);
+    return { ok: true };
   }
 
   private allowChat(senderId: string): boolean {

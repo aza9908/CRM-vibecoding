@@ -17,9 +17,14 @@ import {
   type QaQuestion,
   type QaStatus,
   type RtcRoomStatePayload,
+  type PulseAck,
+  type PulseDetailPayload,
+  type PulseReactionPayload,
+  type PulseStatePayload,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from './url';
+import { PulseChannel } from './pulse-channel';
 
 
 type LiveSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -66,6 +71,8 @@ export interface UseSessionSocketResult {
   clearFloor: () => void;
   /** Is a video call running in this session (teacher in it)? */
   callState: RtcRoomStatePayload | null;
+  /** «Пульс класса» — a stable object; subscribe with `usePulse(pulse)`. */
+  pulse: PulseChannel;
 }
 
 function responseKey(participantId: string, blockId: string): string {
@@ -87,6 +94,10 @@ export function useSessionSocket(
   const [questions, setQuestions] = useState<QaQuestion[]>([]);
   const [floor, setFloor] = useState<UseSessionSocketResult['floor']>(null);
   const [callState, setCallState] = useState<RtcRoomStatePayload | null>(null);
+
+  const pulseRef = useRef<PulseChannel | null>(null);
+  if (!pulseRef.current) pulseRef.current = new PulseChannel();
+  const pulse = pulseRef.current;
 
   const socketRef = useRef<LiveSocket | null>(null);
   const sessionIdRef = useRef(sessionId);
@@ -231,6 +242,37 @@ export function useSessionSocket(
       );
     });
 
+    socket.on(WS_EVENTS.pulseState, (payload: PulseStatePayload) => {
+      if (payload.sessionId === sessionId) pulse.pushState(payload);
+    });
+    socket.on(WS_EVENTS.pulseDetail, (payload: PulseDetailPayload) => {
+      if (payload.sessionId === sessionId) pulse.pushDetail(payload);
+    });
+    socket.on(WS_EVENTS.pulseReaction, (payload: PulseReactionPayload) => {
+      if (payload.sessionId === sessionId) pulse.pushReaction(payload.value);
+    });
+    const pulseEmit = (
+      emit: (ack: (res: PulseAck) => void) => void,
+    ): Promise<PulseAck> =>
+      new Promise((resolve) => {
+        if (!socket.connected) {
+          resolve({ ok: false, error: 'offline' });
+          return;
+        }
+        const timer = setTimeout(() => resolve({ ok: false, error: 'timeout' }), 8000);
+        emit((res) => {
+          clearTimeout(timer);
+          resolve(res ?? { ok: false });
+        });
+      });
+    pulse.send = {
+      start: (question) =>
+        pulseEmit((ack) => socket.emit(WS_EVENTS.pulseStart, { sessionId, question }, ack)),
+      answer: (value) =>
+        pulseEmit((ack) => socket.emit(WS_EVENTS.pulseAnswer, { sessionId, value }, ack)),
+      close: () => pulseEmit((ack) => socket.emit(WS_EVENTS.pulseClose, { sessionId }, ack)),
+    };
+
     socket.on(WS_EVENTS.qaFloor, (payload: QaFloorPayload) => {
       if (payload.sessionId !== sessionId) return;
       setFloor({ ...payload, at: Date.now() });
@@ -248,6 +290,7 @@ export function useSessionSocket(
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
+      pulse.reset();
       setStatus('idle');
     };
     // Only reconnect when the session changes — not on every 15m token rotate.
@@ -396,5 +439,6 @@ export function useSessionSocket(
     floor,
     clearFloor,
     callState,
+    pulse,
   };
 }

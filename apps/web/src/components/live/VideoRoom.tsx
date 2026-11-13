@@ -26,12 +26,17 @@ import {
 import type { RtcMediaState } from '@lms/shared';
 import { readCallResume, useVideoRoom, type RemotePeer } from '@/lib/rtc/useVideoRoom';
 import {
+  discardSavedRecording,
   googleClientId,
+  listUnfinishedRecordings,
   recordingSupported,
-  requestDriveToken,
+  recoverRecording,
+  requestGoogleToken,
   startCallRecording,
   type CallRecorder,
   type RecordingResult,
+  type RecordingTarget,
+  type SavedRecording,
 } from '@/lib/rtc/recorder';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -877,7 +882,45 @@ export function VideoRoom({
   const [rec, setRec] = React.useState<'idle' | 'starting' | 'on' | 'saving'>('idle');
   const [recSince, setRecSince] = React.useState(0);
   const [recResult, setRecResult] = React.useState<RecordingResult | null>(null);
+  const [recMenu, setRecMenu] = React.useState(false);
+  const [recProgress, setRecProgress] = React.useState<number | null>(null);
+  const [recTarget, setRecTarget] = React.useState<RecordingTarget>('download');
   const { setRecording: announceRecording } = room;
+
+  // Recordings left unfinished by a crash, a power cut or a closed tab.
+  const [orphans, setOrphans] = React.useState<SavedRecording[]>([]);
+  const [recovering, setRecovering] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!isHost) return;
+    let alive = true;
+    const check = () =>
+      void listUnfinishedRecordings().then((list) => {
+        if (alive) setOrphans(list);
+      });
+    check();
+    // A recording interrupted seconds ago only counts as abandoned after a
+    // short while, so look again.
+    const id = window.setInterval(check, 12_000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [isHost]);
+  const recoverOrphan = React.useCallback(async (rec: SavedRecording) => {
+    setRecovering(rec.recId);
+    setRecProgress(0);
+    try {
+      setRecResult(await recoverRecording(rec, setRecProgress));
+    } finally {
+      setRecovering(null);
+      setRecProgress(null);
+      setOrphans((list) => list.filter((r) => r.recId !== rec.recId));
+    }
+  }, []);
+  const discardOrphan = React.useCallback(async (rec: SavedRecording) => {
+    await discardSavedRecording(rec.recId);
+    setOrphans((list) => list.filter((r) => r.recId !== rec.recId));
+  }, []);
 
   const stopRecording = React.useCallback(async () => {
     const recorder = recorderRef.current;
@@ -886,39 +929,74 @@ export function VideoRoom({
     setRec('saving');
     announceRecording(false);
     try {
-      setRecResult(await recorder.stop());
+      setRecResult(await recorder.stop(setRecProgress));
     } finally {
       setRec('idle');
+      setRecProgress(null);
     }
   }, [announceRecording]);
 
-  const startRecording = React.useCallback(async () => {
-    if (recorderRef.current || rec !== 'idle') return;
-    setRecResult(null);
-    setRec('starting');
-    let driveToken: string | null = null;
-    const clientId = googleClientId();
-    if (clientId) {
-      // Opens Google's window; must run inside this click.
-      driveToken = await requestDriveToken(clientId, useAuthStore.getState().user?.email).catch(() => null);
-      if (!driveToken) showToast(t('recDriveDenied'), 7000);
-    }
+  const startRecording = React.useCallback(
+    async (target: RecordingTarget) => {
+      if (recorderRef.current || rec !== 'idle') return;
+      setRecMenu(false);
+      setRecResult(null);
+      setRec('starting');
+      try {
+        window.localStorage.setItem('lms-rec-target', target);
+      } catch {
+        /* preference only */
+      }
+      let token: string | null = null;
+      const clientId = googleClientId();
+      if (target !== 'download' && clientId) {
+        // Opens Google's window; must run inside this click.
+        token = await requestGoogleToken(
+          clientId,
+          target,
+          useAuthStore.getState().user?.email,
+        ).catch(() => null);
+        if (!token) showToast(t('recDriveDenied'), 7000);
+      }
+      try {
+        const recorder = await startCallRecording({
+          title: recordingTitle || t('recDefaultTitle'),
+          target,
+          token,
+        });
+        recorder.onError = () => void stopRecording();
+        recorderRef.current = recorder;
+        setRecTarget(recorder.target);
+        setRecSince(Date.now());
+        setRec('on');
+        announceRecording(true);
+        if (token && recorder.target === 'download') showToast(t('recCloudFailed'), 7000);
+      } catch {
+        setRec('idle');
+        showToast(t('recFailed'), 6000);
+      }
+    },
+    [rec, recordingTitle, announceRecording, showToast, stopRecording, t],
+  );
+  React.useEffect(() => {
+    if (!recMenu && !leaveMenu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setRecMenu(false);
+      setLeaveMenu(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [recMenu, leaveMenu]);
+  const lastRecTarget = React.useMemo<RecordingTarget>(() => {
     try {
-      const recorder = await startCallRecording({
-        title: recordingTitle || t('recDefaultTitle'),
-        driveToken,
-      });
-      recorder.onError = () => void stopRecording();
-      recorderRef.current = recorder;
-      setRecSince(Date.now());
-      setRec('on');
-      announceRecording(true);
-      if (driveToken && recorder.target !== 'drive') showToast(t('recDriveDenied'), 7000);
+      const v = window.localStorage.getItem('lms-rec-target');
+      if (v === 'youtube' || v === 'drive' || v === 'download') return v;
     } catch {
-      setRec('idle');
-      showToast(t('recFailed'), 6000);
+      /* default below */
     }
-  }, [rec, recordingTitle, announceRecording, showToast, stopRecording, t]);
+    return googleClientId() ? 'youtube' : 'download';
+  }, []);
 
   // Keep the recorder's picture and sound in step with the call.
   React.useEffect(() => {
@@ -987,6 +1065,45 @@ export function VideoRoom({
     </div>
   ) : null;
 
+  // A recording that never got finished (crash / power cut): offer to save it.
+  const orphanEl =
+    isHost && orphans.length > 0 && rec === 'idle' ? (
+      <div
+        role="alert"
+        className="flex flex-wrap items-center gap-3 rounded-xl border border-warning/50 bg-warning/10 p-4 text-sm"
+      >
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warning text-warning-foreground">
+          <Circle className="h-3.5 w-3.5 fill-current" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">{t('recOrphanTitle')}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {orphans[0]!.fileName} · {Math.max(1, Math.round(orphans[0]!.bytes / 1048576))} МБ
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => void recoverOrphan(orphans[0]!)}
+          disabled={recovering != null}
+        >
+          {recovering ? <Spinner className="h-4 w-4" /> : null}
+          {recovering && recProgress != null
+            ? t('recSavingPct', { pct: Math.round(recProgress * 100) })
+            : t('recOrphanSave')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => void discardOrphan(orphans[0]!)}
+          disabled={recovering != null}
+        >
+          {t('recOrphanDiscard')}
+        </Button>
+      </div>
+    ) : null;
+
   // Where the finished recording went — stays until dismissed.
   const recResultEl = recResult ? (
     <div
@@ -998,22 +1115,32 @@ export function VideoRoom({
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">
-          {recResult.where === 'drive' ? t('recSavedDrive') : t('recSavedDownload')}
+          {recResult.where === 'youtube'
+            ? t('recSavedYoutube')
+            : recResult.where === 'drive'
+              ? t('recSavedDrive')
+              : t('recSavedDownload')}
         </p>
         <p className="truncate text-xs text-muted-foreground">{recResult.fileName}</p>
-        {recResult.where === 'drive' && recResult.link ? (
-          <a
-            href={recResult.link}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          >
-            {t('recOpenDrive')} <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ) : recResult.where === 'download' ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {googleClientId() ? t('recDriveFallback') : t('recDriveNotSetUp')}
-          </p>
+        {recResult.where !== 'download' && recResult.link ? (
+          <>
+            <a
+              href={recResult.link}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              {recResult.where === 'youtube' ? t('recOpenYoutube') : t('recOpenDrive')}{' '}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            {recResult.where === 'youtube' ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {recResult.privacy === 'private' ? t('recYoutubePrivate') : t('recYoutubeUnlisted')}
+              </p>
+            ) : null}
+          </>
+        ) : recResult.cloudError ? (
+          <p className="mt-1 text-xs text-muted-foreground">{t('recDriveFallback')}</p>
         ) : null}
       </div>
       <button
@@ -1035,6 +1162,7 @@ export function VideoRoom({
     const rejoinHost = !!isHost && callActive;
     return (
       <>
+        {orphanEl}
         <section
           id="video-room"
           ref={dockRef}
@@ -1372,6 +1500,7 @@ export function VideoRoom({
         </React.Fragment>
       ))}
 
+      {orphanEl}
       <section
         id="video-room"
         ref={dockRef}
@@ -1400,6 +1529,11 @@ export function VideoRoom({
               <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
               {t('recOn')}
               {rec === 'on' ? <Elapsed since={recSince} /> : null}
+              {rec === 'on' && recTarget !== 'download' ? (
+                <span className="font-normal opacity-90">
+                  → {recTarget === 'youtube' ? 'YouTube' : 'Drive'}
+                </span>
+              ) : null}
             </span>
           ) : null}
           <span className="ml-auto hidden text-xs text-white/50 md:inline">{t('scrollHint')}</span>
@@ -1513,32 +1647,77 @@ export function VideoRoom({
           ) : null}
           {fullBtn()}
           {amHost && recordingSupported() ? (
-            <button
-              type="button"
-              onClick={() => void (rec === 'on' ? stopRecording() : startRecording())}
-              disabled={rec === 'starting' || rec === 'saving'}
-              className={cn(
-                'inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-60 sm:h-12',
-                rec === 'on'
-                  ? 'bg-white text-red-600 hover:bg-white/90'
-                  : 'bg-white/10 text-white hover:bg-white/20',
-              )}
-            >
-              {rec === 'starting' || rec === 'saving' ? (
-                <Spinner className="h-4 w-4" />
-              ) : rec === 'on' ? (
-                <Square className="h-4 w-4 fill-current" />
-              ) : (
-                <Circle className="h-4 w-4 fill-red-500 text-red-500" />
-              )}
-              {rec === 'saving'
-                ? t('recSaving')
-                : rec === 'on'
-                  ? t('recStop')
-                  : rec === 'starting'
-                    ? t('recStarting')
-                    : t('recStart')}
-            </button>
+            <span className="relative">
+              <button
+                type="button"
+                onClick={() =>
+                  rec === 'on' ? void stopRecording() : setRecMenu((v) => !v)
+                }
+                disabled={rec === 'starting' || rec === 'saving'}
+                aria-haspopup={rec === 'on' ? undefined : 'menu'}
+                aria-expanded={rec === 'on' ? undefined : recMenu}
+                className={cn(
+                  'inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-60 sm:h-12',
+                  rec === 'on'
+                    ? 'bg-white text-red-600 hover:bg-white/90'
+                    : 'bg-white/10 text-white hover:bg-white/20',
+                )}
+              >
+                {rec === 'starting' || rec === 'saving' ? (
+                  <Spinner className="h-4 w-4" />
+                ) : rec === 'on' ? (
+                  <Square className="h-4 w-4 fill-current" />
+                ) : (
+                  <Circle className="h-4 w-4 fill-red-500 text-red-500" />
+                )}
+                {rec === 'saving'
+                  ? recProgress != null
+                    ? t('recSavingPct', { pct: Math.round(recProgress * 100) })
+                    : t('recSaving')
+                  : rec === 'on'
+                    ? t('recStop')
+                    : rec === 'starting'
+                      ? t('recStarting')
+                      : t('recStart')}
+              </button>
+              {recMenu && rec === 'idle' ? (
+                <span
+                  role="menu"
+                  aria-label={t('recWhere')}
+                  className="absolute bottom-full left-1/2 z-10 mb-2 flex w-72 -translate-x-1/2 flex-col gap-1 rounded-xl border bg-card p-1.5 text-left text-foreground shadow-2xl"
+                >
+                  <span className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t('recWhere')}
+                  </span>
+                  {(
+                    [
+                      ['youtube', t('recToYoutube'), t('recToYoutubeHint')],
+                      ['drive', t('recToDrive'), t('recToDriveHint')],
+                      ['download', t('recToComputer'), t('recToComputerHint')],
+                    ] as [RecordingTarget, string, string][]
+                  )
+                    .filter(([target]) => target === 'download' || !!googleClientId())
+                    .map(([target, label, hint]) => (
+                      <button
+                        key={target}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => void startRecording(target)}
+                        className={cn(
+                          'rounded-lg px-3 py-2 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          target === lastRecTarget && 'bg-primary/5 ring-1 ring-primary/30',
+                        )}
+                      >
+                        <span className="block text-sm font-semibold">{label}</span>
+                        <span className="block text-xs text-muted-foreground">{hint}</span>
+                      </button>
+                    ))}
+                  <span className="px-3 pb-1.5 pt-1 text-[11px] leading-snug text-muted-foreground">
+                    {t('recSafeHint')}
+                  </span>
+                </span>
+              ) : null}
+            </span>
           ) : null}
           <span className="mx-1 hidden h-6 w-px bg-white/15 sm:block" aria-hidden />
           {leaveBtn()}

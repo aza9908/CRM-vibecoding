@@ -23,7 +23,7 @@ export function SessionCode({ code }: { code: string }) {
   }, [code]);
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col items-center gap-1 text-center">
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {t('sessionCode')}
       </span>

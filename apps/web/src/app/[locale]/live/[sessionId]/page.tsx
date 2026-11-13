@@ -22,6 +22,8 @@ import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
 import { ChatDock } from '@/components/live/ChatDock';
+import { PulsePrompt } from '@/components/live/PulsePrompt';
+import { PulseRain } from '@/components/live/PulseRain';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { Brand } from '@/components/brand';
@@ -104,6 +106,7 @@ export default function StudentLivePage() {
     floor,
     clearFloor,
     callState,
+    pulse,
   } = useSessionSocket(sessionId, { token: participantToken, debounceMs: 150 });
 
   const saveRest = useSaveSessionResponse(sessionId);
@@ -509,6 +512,8 @@ export default function StudentLivePage() {
         autoJoin
       />
       <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
+      <PulsePrompt channel={pulse} />
+      <PulseRain channel={pulse} />
 
       {/* minmax(0,1fr): without it the mobile track grows to the right panel's
           min-content width and the whole page scrolls sideways on phones. */}

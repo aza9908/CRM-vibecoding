@@ -36,6 +36,29 @@ and the `rtc:*` events in `packages/shared/src/ws-events.ts`.
 - **Check from the internet:** `deploy-vps.yml` mode `call-smoke` runs
   `.github/scripts/call-smoke.js` (teacher + student in a throw-away lesson).
 
+## Call recording
+
+`apps/web/src/lib/rtc/recorder.ts`, driven from `VideoRoom.tsx` (host only).
+
+- **What:** the host's browser composes the stage (screen share or speaker,
+  speaker in a corner) on a 1920×1080 canvas at 30 fps, mixes everyone's audio
+  with Web Audio and records it with `MediaRecorder` (4 Mbps video).
+- **Where:** the host picks YouTube (unlisted, scope `youtube.upload`), Google
+  Drive (folder «Уроки LMS», scope `drive.file`) or a download. Google access
+  uses `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (public OAuth client id; the deploy
+  workflow input `google_client_id` sets it). The API project must have the
+  Drive API and the YouTube Data API v3 enabled.
+- **Nothing gets lost:** every 4 s chunk is first written to IndexedDB
+  (`lms-recordings`), then streamed through a Google resumable upload session.
+  A network drop makes the uploader wait, ask the server how much it has, and
+  continue. A crashed tab / power cut leaves the chunks on disk: the next
+  visit shows «Найдена незавершённая запись» and finishes the upload or
+  downloads the file. If a service refuses a stream of unknown length, the
+  finished file is re-sent whole through a new session.
+- **YouTube caveat:** videos uploaded through the API by an unaudited Google
+  project can be forced to `private` by YouTube; the UI says so when it happens.
+- Everyone in the call sees «Идёт запись» (`rtc:recording` → `rtc:room-state`).
+
 ## Q&A queue
 
 `qa:*` events let students ask questions and upvote (▲) each other's.

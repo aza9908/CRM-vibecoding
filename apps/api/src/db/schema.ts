@@ -286,6 +286,35 @@ export const liveSessions = pgTable(
   }),
 );
 
+/**
+ * «Пульс класса» — one closed understanding check of a live session: the
+ * teacher asked "is everything clear?", people answered with an emoji.
+ * Written once, when the check closes; the running check lives in memory in
+ * the realtime gateway. `answers` / `pending` are snapshots of who answered
+ * what and who stayed silent, for involvement reports.
+ */
+export const pulseChecks = pgTable(
+  'pulse_checks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => liveSessions.id, { onDelete: 'cascade' }),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    question: text('question').notNull(),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    closedAt: timestamp('closed_at', { withTimezone: true }).notNull().defaultNow(),
+    eligible: integer('eligible').notNull().default(0),
+    answered: integer('answered').notNull().default(0),
+    understanding: integer('understanding').notNull().default(0),
+    answers: jsonb('answers').notNull().default([]), // [{id, name, value}]
+    pending: jsonb('pending').notNull().default([]), // [{id, name}]
+  },
+  (t) => ({
+    sessionIdx: index('pulse_checks_session_idx').on(t.sessionId),
+  }),
+);
+
 export const participants = pgTable(
   'participants',
   {

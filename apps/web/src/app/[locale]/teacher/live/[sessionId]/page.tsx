@@ -28,6 +28,8 @@ import { SessionEndedReport } from '@/components/live/SessionEndedReport';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { GroupChatTab } from '@/components/live/GroupChatTab';
 import { ChatDock } from '@/components/live/ChatDock';
+import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
+import { PulseRain } from '@/components/live/PulseRain';
 import { useLesson } from '@/lib/api/hooks/use-lessons';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { QaPanel } from '@/components/live/QaPanel';
@@ -82,6 +84,7 @@ export default function TeacherLivePage() {
     voteQuestion,
     setQuestionStatus,
     callState,
+    pulse,
   } = useSessionSocket(sessionId, { token: accessToken });
 
   const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId);
@@ -195,8 +198,9 @@ export default function TeacherLivePage() {
     <main className="flex min-h-screen flex-col bg-background">
       {/* Top control bar */}
       <header className="sticky top-0 z-10 border-b bg-card">
-        <div className="container flex flex-wrap items-center gap-x-6 gap-y-3 py-3">
-          <div className="flex items-center gap-3">
+        {/* Three zones: navigation · session code (centred) · status + end. */}
+        <div className="container grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-3 py-3 md:grid-cols-[1fr_auto_1fr]">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/teacher/lessons"
               aria-label={tn('lessons')}
@@ -209,12 +213,12 @@ export default function TeacherLivePage() {
           </div>
 
           {sessionQuery.data?.code && (
-            <div className="order-last w-full sm:order-none sm:w-auto">
+            <div className="order-last col-span-2 flex justify-center md:order-none md:col-span-1">
               <SessionCode code={sessionQuery.data.code} />
             </div>
           )}
 
-          <div className="ml-auto flex items-center gap-4">
+          <div className="flex items-center justify-end gap-4 md:col-start-3">
             <span className="hidden text-sm text-muted-foreground lg:inline">
               {t('teacherTitle')}
             </span>
@@ -268,6 +272,10 @@ export default function TeacherLivePage() {
 
           {/* Right column: sticky + independently scrollable through all panels. */}
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            {/* «Пульс класса»: ask "is everything clear?" in one click. */}
+            <Card className="border-primary/30 p-4 shadow-sm">
+              <PulseTeacherCard channel={pulse} sessionId={sessionId} />
+            </Card>
             {/* Chat first: it is what people look for during a class. */}
             <Card className="border-primary/30 p-4 shadow-sm">
               <h2 className="mb-2 text-sm font-semibold">{t('groupChat')}</h2>
@@ -322,6 +330,7 @@ export default function TeacherLivePage() {
           </aside>
         </div>
       </div>
+      <PulseRain channel={pulse} />
       <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
       <ConfirmDialog
         open={endOpen}

@@ -82,10 +82,27 @@ const config: Config = {
           '0%, 100%': { transform: 'scaleY(0.35)' },
           '50%': { transform: 'scaleY(1)' },
         },
+        // «Пульс класса»: an answered emoji floats up the screen.
+        'float-up': {
+          '0%': { transform: 'translate3d(0, 0, 0) scale(0.6)', opacity: '0' },
+          '12%': { transform: 'translate3d(0, -8vh, 0) scale(1.15)', opacity: '1' },
+          '70%': { opacity: '1' },
+          '100%': {
+            transform: 'translate3d(var(--drift, 0px), -78vh, 0) scale(1)',
+            opacity: '0',
+          },
+        },
+        // The prompt card slides up from the bottom edge.
+        'pulse-in': {
+          from: { transform: 'translate3d(0, 24px, 0)', opacity: '0' },
+          to: { transform: 'translate3d(0, 0, 0)', opacity: '1' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'float-up': 'float-up 2.6s ease-out forwards',
+        'pulse-in': 'pulse-in 0.28s ease-out both',
       },
     },
   },

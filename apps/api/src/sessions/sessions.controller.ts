@@ -596,6 +596,20 @@ export class SessionsController {
   }
 
   /**
+   * GET /sessions/:id/pulses — closed «Пульс класса» checks of the session
+   * (understanding %, who answered, who stayed silent). Staff, org-scoped.
+   */
+  @Get(':id/pulses')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher', 'methodist', 'admin')
+  listPulses(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.sessions.listPulseChecks(user.orgId, id);
+  }
+
+  /**
    * POST /sessions/:id/end — teacher ends the session (status=ended, endTime
    * stamped, code freed). After the status is persisted we ask the gateway to
    * broadcast `session:ended` to everyone in the room.

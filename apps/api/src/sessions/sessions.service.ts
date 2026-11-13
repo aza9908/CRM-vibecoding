@@ -6,9 +6,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
+import type { PulseAnswerEntry, PulseCheckRecord, PulsePerson } from '@lms/shared';
 import { DRIZZLE, type Db } from '../db/db.module';
-import { lessons, liveSessions, participants, users } from '../db/schema';
+import {
+  lessons,
+  liveSessions,
+  participants,
+  pulseChecks,
+  users,
+} from '../db/schema';
 
 /**
  * Alphabet for session codes: A-Z and 0-9, minus visually ambiguous
@@ -242,6 +249,51 @@ export class SessionsService {
       columns: { id: true },
     });
     return row?.id ?? null;
+  }
+
+  // ── Class pulse («всё понятно?» checks) ───────────────────────────────────
+
+  /** Store one closed check. Called by the realtime gateway. */
+  async savePulseCheck(row: {
+    id: string;
+    sessionId: string;
+    organizationId: string | null;
+    question: string;
+    startedAt: Date;
+    closedAt: Date;
+    eligible: number;
+    answered: number;
+    understanding: number;
+    answers: PulseAnswerEntry[];
+    pending: PulsePerson[];
+  }): Promise<void> {
+    await this.db.insert(pulseChecks).values(row).onConflictDoNothing();
+  }
+
+  /** Closed checks of a session, oldest first. Scoped to the caller's org. */
+  async listPulseChecks(orgId: string, sessionId: string): Promise<PulseCheckRecord[]> {
+    await this.assertSessionInOrg(sessionId, orgId);
+    const rows = await this.db
+      .select()
+      .from(pulseChecks)
+      .where(
+        and(
+          eq(pulseChecks.sessionId, sessionId),
+          eq(pulseChecks.organizationId, orgId),
+        ),
+      )
+      .orderBy(asc(pulseChecks.startedAt));
+    return rows.map((r) => ({
+      id: r.id,
+      question: r.question,
+      startedAt: r.startedAt.toISOString(),
+      closedAt: r.closedAt.toISOString(),
+      eligible: r.eligible,
+      answered: r.answered,
+      understanding: r.understanding,
+      answers: (r.answers ?? []) as PulseAnswerEntry[],
+      pending: (r.pending ?? []) as PulsePerson[],
+    }));
   }
 
   /**

@@ -92,6 +92,13 @@
       "when": 1794568976039,
       "tag": "0012_lesson_category",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794586137137,
+      "tag": "0013_pulse_checks",
+      "breakpoints": true
     }
   ]
 }

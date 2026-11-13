@@ -93,6 +93,20 @@ export const WS_EVENTS = {
   qaList: 'qa:list',
   /** server → the asker: the host gave you the floor */
   qaFloor: 'qa:floor',
+
+  // ── Class pulse («всё понятно?» emoji check) ─────────────────────────────
+  /** teacher → server: ask everyone "is everything clear?" (ack: PulseAck) */
+  pulseStart: 'pulse:start',
+  /** participant → server: my emoji answer (ack: PulseAck) */
+  pulseAnswer: 'pulse:answer',
+  /** teacher → server: close the running check (ack: PulseAck) */
+  pulseClose: 'pulse:close',
+  /** server → room: public aggregate of the current / last check */
+  pulseState: 'pulse:state',
+  /** server → room: someone answered — float this emoji on every screen */
+  pulseReaction: 'pulse:reaction',
+  /** server → teachers: who answered what, who is still silent */
+  pulseDetail: 'pulse:detail',
 } as const;
 
 export type WsEventName = (typeof WS_EVENTS)[keyof typeof WS_EVENTS];
@@ -416,6 +430,107 @@ export interface QaFloorPayload {
   text: string;
 }
 
+// ── Class pulse payloads ─────────────────────────────────────────────────────
+
+/** 👍 all clear · 🤔 partly · 🆘 lost. */
+export type PulseValue = 'yes' | 'partly' | 'no';
+export const PULSE_VALUES: readonly PulseValue[] = ['yes', 'partly', 'no'];
+export const PULSE_EMOJI: Record<PulseValue, string> = {
+  yes: '👍',
+  partly: '🤔',
+  no: '🆘',
+};
+/** Max length of a custom pulse question. */
+export const PULSE_QUESTION_MAX = 120;
+/** A check closes by itself after this long. */
+export const PULSE_DURATION_MS = 45_000;
+
+/**
+ * Understanding in percent: a «partly» counts as half a «yes».
+ * 0 when nobody answered.
+ */
+export function pulseUnderstanding(counts: Record<PulseValue, number>): number {
+  const answered = counts.yes + counts.partly + counts.no;
+  if (answered === 0) return 0;
+  return Math.round((100 * (counts.yes + 0.5 * counts.partly)) / answered);
+}
+
+/** `pulse:state` (server → room). Public: no names. */
+export interface PulseStatePayload {
+  sessionId: string;
+  id: string;
+  /** Empty string = the default localized question. */
+  question: string;
+  startedAt: string;
+  endsAt: string;
+  closed: boolean;
+  /** People who were asked (connected students + anyone who answered). */
+  eligible: number;
+  answered: number;
+  counts: Record<PulseValue, number>;
+  /** 0–100, see `pulseUnderstanding`. */
+  understanding: number;
+  /** 0–100: answered / eligible. */
+  participation: number;
+}
+
+export interface PulsePerson {
+  id: string;
+  name: string;
+}
+export interface PulseAnswerEntry extends PulsePerson {
+  value: PulseValue;
+}
+
+/** `pulse:detail` (server → teachers). */
+export interface PulseDetailPayload {
+  sessionId: string;
+  id: string;
+  answers: PulseAnswerEntry[];
+  pending: PulsePerson[];
+}
+
+/** `pulse:reaction` (server → room). */
+export interface PulseReactionPayload {
+  sessionId: string;
+  value: PulseValue;
+}
+
+/** `pulse:start` (teacher → server). */
+export interface PulseStartPayload {
+  sessionId: string;
+  question?: string;
+}
+
+/** `pulse:answer` (participant → server). */
+export interface PulseAnswerPayload {
+  sessionId: string;
+  value: PulseValue;
+}
+
+/** `pulse:close` (teacher → server). */
+export interface PulseClosePayload {
+  sessionId: string;
+}
+
+export interface PulseAck {
+  ok: boolean;
+  error?: string;
+}
+
+/** A closed check as stored / returned by `GET /sessions/:id/pulses`. */
+export interface PulseCheckRecord {
+  id: string;
+  question: string;
+  startedAt: string;
+  closedAt: string;
+  eligible: number;
+  answered: number;
+  understanding: number;
+  answers: PulseAnswerEntry[];
+  pending: PulsePerson[];
+}
+
 // ── Typed event maps for socket.io ───────────────────────────────────────────
 
 /** Events emitted by the server and listened to by clients. */
@@ -438,6 +553,9 @@ export interface ServerToClientEvents {
   [WS_EVENTS.rtcReset]: () => void;
   [WS_EVENTS.qaList]: (payload: QaListPayload) => void;
   [WS_EVENTS.qaFloor]: (payload: QaFloorPayload) => void;
+  [WS_EVENTS.pulseState]: (payload: PulseStatePayload) => void;
+  [WS_EVENTS.pulseReaction]: (payload: PulseReactionPayload) => void;
+  [WS_EVENTS.pulseDetail]: (payload: PulseDetailPayload) => void;
 }
 
 /** Events emitted by clients and handled by the server. */
@@ -485,4 +603,16 @@ export interface ClientToServerEvents {
   [WS_EVENTS.qaAsk]: (payload: QaAskPayload) => void;
   [WS_EVENTS.qaVote]: (payload: QaVotePayload) => void;
   [WS_EVENTS.qaStatus]: (payload: QaStatusPayload) => void;
+  [WS_EVENTS.pulseStart]: (
+    payload: PulseStartPayload,
+    ack?: (res: PulseAck) => void,
+  ) => void;
+  [WS_EVENTS.pulseAnswer]: (
+    payload: PulseAnswerPayload,
+    ack?: (res: PulseAck) => void,
+  ) => void;
+  [WS_EVENTS.pulseClose]: (
+    payload: PulseClosePayload,
+    ack?: (res: PulseAck) => void,
+  ) => void;
 }
