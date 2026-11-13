@@ -115,6 +115,7 @@ interface GoogleOauth2 {
     scope: string;
     callback: (res: TokenResponse) => void;
     error_callback?: (err: { type?: string; message?: string }) => void;
+    include_granted_scopes?: boolean;
   }): { requestAccessToken(opts?: { prompt?: string; login_hint?: string }): void };
 }
 
@@ -155,6 +156,10 @@ export async function requestGoogleToken(
     const client = oauth2.initTokenClient({
       client_id: clientId,
       scope: SCOPES[target],
+      // Ask ONLY for this target's scope. By default Google adds every scope
+      // granted earlier, and it refuses youtube.upload together with
+      // drive.file («scopes that cannot be requested together»).
+      include_granted_scopes: false,
       callback: (res) => {
         if (res.access_token) resolve(res.access_token);
         else reject(new Error(res.error ?? 'google_denied'));
