@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowUpToLine,
   Circle,
@@ -42,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { createAnalysisAudioSink } from '@/lib/api/lesson-analysis';
 
 /** Plays a MediaStream in a <video>. Audio is played separately (see below). */
 function StreamVideo({
@@ -594,6 +595,7 @@ export function VideoRoom({
   className?: string;
 }) {
   const t = useTranslations('videoRoom');
+  const locale = useLocale();
   const room = useVideoRoom(sessionId, token);
   const [preJoinOpen, setPreJoinOpen] = React.useState(false);
   // Floating UI while the docked panel is out of view.
@@ -963,6 +965,16 @@ export function VideoRoom({
           title: recordingTitle || t('recDefaultTitle'),
           target,
           token,
+          // A light audio copy goes to the server for the AI lesson review.
+          audioSink: (mimeType) =>
+            sessionId
+              ? createAnalysisAudioSink({
+                  sessionId,
+                  title: recordingTitle || t('recDefaultTitle'),
+                  mimeType,
+                  locale,
+                })
+              : null,
         });
         recorder.onError = () => void stopRecording();
         recorderRef.current = recorder;
@@ -976,7 +988,7 @@ export function VideoRoom({
         showToast(t('recFailed'), 6000);
       }
     },
-    [rec, recordingTitle, announceRecording, showToast, stopRecording, t],
+    [rec, recordingTitle, announceRecording, showToast, stopRecording, t, sessionId, locale],
   );
   React.useEffect(() => {
     if (!recMenu && !leaveMenu) return;

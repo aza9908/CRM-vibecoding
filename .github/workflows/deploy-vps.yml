@@ -496,7 +496,7 @@ jobs:
           # Database migrations that this release needs, applied through the
           # still-running API container before the new one starts. Each file
           # runs once (recorded in _deploy_migrations), in one transaction.
-          for f in apps/api/drizzle/0012_lesson_category.sql apps/api/drizzle/0013_pulse_checks.sql; do
+          for f in apps/api/drizzle/0012_lesson_category.sql apps/api/drizzle/0013_pulse_checks.sql apps/api/drizzle/0014_lesson_analyses.sql; do
             [ -f "$f" ] || { echo "missing migration $f"; exit 1; }
             echo "== migration $f"
             { basename "$f"; cat "$f"; } | docker exec -i -w /app/apps/api lms-api-1 node -e '
