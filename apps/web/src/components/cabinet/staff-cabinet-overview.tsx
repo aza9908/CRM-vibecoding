@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
 import { KpiCard } from '@/components/reports/kpi-card';
 
 /**
@@ -77,8 +76,17 @@ export function StaffCabinetOverview() {
       </Card>
 
       {isLoading && (
-        <div className="flex justify-center py-16">
-          <Spinner />
+        <div
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          role="status"
+          aria-busy="true"
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="space-y-3 rounded-lg border bg-card p-5">
+              <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+              <div className="h-7 w-16 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
         </div>
       )}
       {isError && (

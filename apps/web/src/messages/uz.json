@@ -207,7 +207,25 @@
     "rename": "Nomini oʻzgartirish",
     "renameFailed": "Dars nomini oʻzgartirib boʻlmadi",
     "blocks": "Bloklar",
-    "outcomes": "Taʼlim natijalari"
+    "outcomes": "Taʼlim natijalari",
+    "staffHint": "Darslar kompaniyalar bo‘yicha ajratilgan. Faqat kerakli darslarni ko‘rish uchun toifani tanlang.",
+    "category": "Toifa",
+    "categoryAll": "Barchasi",
+    "categoryNone": "Toifasiz",
+    "categoryNew": "+ Yangi toifa…",
+    "categoryNewPlaceholder": "Kompaniya nomi",
+    "categoryHint": "Odatda bu dars tayyorlangan kompaniya.",
+    "categoryEmpty": "Bu toifada hali darslar yo‘q",
+    "categoryEmptyAdd": "Dars qo‘shish",
+    "categoryFailed": "Toifani o‘zgartirib bo‘lmadi",
+    "searchPlaceholder": "Dars nomi bo‘yicha qidirish",
+    "nothingFound": "Hech narsa topilmadi",
+    "nothingFoundHint": "Boshqa nom yozib ko‘ring yoki qidiruvni tozalang.",
+    "clearSearch": "Qidiruvni tozalash",
+    "noLessonsHint": "Birinchi darsni yarating — bloklar va mashqlar qo‘shing, so‘ng live boshlang.",
+    "deleteBody": "«{title}» darsi bloklari bilan birga o‘chiriladi. Bu amalni ortga qaytarib bo‘lmaydi.",
+    "deleteHasSessions": "Bu darsda o‘quvchilar javoblari bilan live-sessiyalar o‘tgan, shuning uchun uni o‘chirib bo‘lmaydi. Darsni arxivga o‘tkazing.",
+    "deleteFailed": "Darsni o‘chirib bo‘lmadi."
   },
   "editor": {
     "title": "Dars muharriri",
@@ -384,7 +402,11 @@
     "nextSlide": "Keyingi",
     "exitFullscreen": "Yopish",
     "fullscreenMode": "Toʻliq ekran rejimi",
-    "checklistProgress": "{total} tadan {checked} tasi belgilandi"
+    "checklistProgress": "{total} tadan {checked} tasi belgilandi",
+    "endTitle": "Sessiya yakunlansinmi?",
+    "endBody": "O‘quvchilar uziladi, videoqo‘ng‘iroq hamma uchun tugaydi.",
+    "endBodySaved": "Barcha javoblar saqlanadi — hisobot darhol ochiladi.",
+    "endAction": "Sessiyani yakunlash"
   },
   "materials": {
     "title": "Materiallar",
@@ -698,13 +720,28 @@
     "mutedByHost": "Boshlovchi mikrofoningizni oʻchirdi",
     "videoStoppedByHost": "Boshlovchi kamerangizni oʻchirdi",
     "handLoweredByHost": "Boshlovchi qoʻlingizni tushirdi",
+    "pin": "Asosiy ekranga mahkamlash",
+    "unpin": "Mahkamlashni bekor qilish",
+    "speakingNow": "gapirmoqda",
+    "callRunningHost": "Videoaloqa davom etmoqda (ishtirokchilar: {count}). Qayting — o‘quvchilar aloqada.",
+    "rejoin": "Videoaloqaga qaytish",
+    "fullscreen": "To‘liq ekran",
+    "exitFullscreen": "To‘liq ekrandan chiqish",
+    "leaveShort": "Chiqish",
+    "endForAll": "Hamma uchun tugatish",
+    "endForAllHint": "Videoaloqa barcha ishtirokchilarda tugaydi",
+    "leaveOnly": "Faqat o‘zim chiqaman",
+    "leaveOnlyHint": "Videoaloqa sizsiz davom etadi",
+    "reconnecting": "Aloqa uzildi — tiklanmoqda…",
     "errors": {
       "timeout": "Videoaloqa serveri javob bermadi. Internetni tekshiring va «Qayta urinish»ni bosing.",
       "media_denied": "Kamera yoki mikrofonga ruxsat yoʻq — brauzer sozlamalarida ruxsat bering.",
       "forbidden": "Bu darsning videoaloqasiga ruxsatingiz yoʻq.",
       "room_full": "Videoaloqa toʻla.",
       "no_token": "Ulanish uchun darsga kod orqali kiring.",
-      "join_failed": "Ulanib boʻlmadi. Internetni tekshiring va qaytadan urinib koʻring."
+      "join_failed": "Ulanib boʻlmadi. Internetni tekshiring va qaytadan urinib koʻring.",
+      "media_unavailable": "Videoaloqa serveri vaqtincha ishlamayapti. Bir necha soniyadan so‘ng qayta urinib ko‘ring.",
+      "offline": "Server bilan aloqa yo‘q. Internetni tekshiring."
     }
   },
   "qa": {

@@ -9,7 +9,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Server, Socket } from 'socket.io';
 import {
   WS_EVENTS,
@@ -25,12 +25,26 @@ import {
   type QaStatusPayload,
   type QaVotePayload,
   type ResponseSavePayload,
+  type RtcAck,
+  type RtcCallEndPayload,
+  type RtcConsumeAck,
+  type RtcConsumePayload,
+  type RtcConsumerLayersPayload,
+  type RtcConsumerPausePayload,
   type RtcJoinAck,
+  type RtcProduceAck,
+  type RtcProducePayload,
+  type RtcProducerClosePayload,
+  type RtcProducerPausePayload,
+  type RtcTransportConnectPayload,
+  type RtcTransportCreateAck,
+  type RtcTransportCreatePayload,
+  type RtcTransportRestartIceAck,
+  type RtcTransportRestartIcePayload,
   type RtcJoinPayload,
   type RtcLeavePayload,
   type RtcModeratePayload,
   type RtcPeer,
-  type RtcSignalPayload,
   type RtcStatePayload,
   type ServerToClientEvents,
   type SessionJoinPayload,
@@ -41,9 +55,9 @@ import { WsRolesGuard } from '../auth/guards/ws-roles.guard';
 import { SessionsService } from '../sessions/sessions.service';
 import { ResponsesService } from '../responses/responses.service';
 import {
-  RTC_SIGNAL_MAX_BYTES,
   VIDEO_ROOM_MAX_PEERS,
   VideoRoomService,
+  isRtcSource,
   sanitizeMedia,
 } from './video-room.service';
 
@@ -144,6 +158,13 @@ export class SessionGateway
         next(new Error('unauthorized'));
       }
     });
+    this.video.onSpeakers = (sessionId, speakers) => {
+      this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcSpeakers, { speakers });
+    };
+    this.video.onIdle = (sessionId) => this.endCall(sessionId);
+    this.video.onReset = (sessionIds) => {
+      for (const id of sessionIds) this.io?.to(rtcRoom(id)).emit(WS_EVENTS.rtcReset);
+    };
     this.logger.log('Socket.IO /live middleware auth installed');
   }
 
@@ -159,8 +180,8 @@ export class SessionGateway
   }
 
   // ── Video room ─────────────────────────────────────────────────────────
-  // Browsers stream to each other directly (WebRTC). The server only keeps
-  // the roster and relays SDP/ICE between members of the same session.
+  // Media goes through the server-side SFU (VideoRoomService). This gateway
+  // authorises people, keeps the roster and carries the SFU signaling.
 
   /**
    * Who may enter a session's video room:
@@ -207,29 +228,52 @@ export class SessionGateway
     const who = await this.videoIdentity(identity, sessionId);
     if (!who) return { ok: false, error: 'forbidden' };
 
+    // Stable id per (account, tab): a reload or reconnect replaces the old
+    // entry instead of showing the person twice. Bound to the token's
+    // subject so nobody can take over someone else's id.
+    const clientId =
+      typeof body.clientId === 'string' && /^[\w-]{8,64}$/.test(body.clientId)
+        ? body.clientId
+        : socket.id;
+    const peerId = createHash('sha256')
+      .update(`${identity.sub}:${clientId}`)
+      .digest('hex')
+      .slice(0, 20);
+
     // One video room per socket — re-joining replaces the previous entry.
-    this.leaveVideo(socket);
-    if (this.video.size(sessionId) >= VIDEO_ROOM_MAX_PEERS) {
+    this.leaveVideo(socket, { silent: true });
+    const returning = !!this.video.peer(sessionId, peerId);
+    if (!returning && this.video.size(sessionId) >= VIDEO_ROOM_MAX_PEERS) {
       return { ok: false, error: 'room_full' };
     }
 
     const peer: RtcPeer = {
-      peerId: socket.id,
+      peerId,
       name: who.name,
       role: who.role,
       media: sanitizeMedia(body.media),
     };
-    const others = this.video.peers(sessionId);
-    this.video.add(sessionId, peer);
+    let added;
+    try {
+      added = await this.video.add(sessionId, socket.id, peer);
+    } catch (err) {
+      this.logger.error(`rtc join failed: ${err instanceof Error ? err.message : String(err)}`);
+      return { ok: false, error: 'media_unavailable' };
+    }
+    if (added.replacedSocketId && added.replacedSocketId !== socket.id) {
+      void this.io.in(added.replacedSocketId).socketsLeave(rtcRoom(sessionId));
+    }
     await socket.join(rtcRoom(sessionId));
     socket.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerJoined, peer);
     this.broadcastRoomState(sessionId);
     return {
       ok: true,
-      selfId: socket.id,
+      selfId: peerId,
       role: who.role,
-      peers: others,
-      iceServers: this.video.iceServers(identity.sub),
+      peers: this.video.peers(sessionId).filter((p) => p.peerId !== peerId),
+      producers: this.video.producers(sessionId, peerId),
+      routerRtpCapabilities: this.video.routerCapabilities(sessionId),
+      startedAt: this.video.state(sessionId).startedAt,
     };
   }
 
@@ -238,38 +282,199 @@ export class SessionGateway
     this.leaveVideo(socket);
   }
 
+  /** Host ends the call for everybody. */
+  @SubscribeMessage(WS_EVENTS.rtcCallEnd)
+  onRtcCallEnd(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcCallEndPayload,
+  ): void {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || me.sessionId !== body?.sessionId || me.info.role !== 'host') return;
+    this.endCall(me.sessionId);
+  }
+
+  private endCall(sessionId: string): void {
+    this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcCallEnded, { sessionId });
+    this.video.close(sessionId);
+    this.io?.in(rtcRoom(sessionId)).socketsLeave(rtcRoom(sessionId));
+    this.broadcastRoomState(sessionId);
+  }
+
   @SubscribeMessage(WS_EVENTS.rtcState)
   onRtcState(
     @ConnectedSocket() socket: LiveSocket,
     @MessageBody() body: RtcStatePayload,
   ): void {
-    const sessionId = this.video.sessionOf(socket.id);
-    if (!sessionId || body?.sessionId !== sessionId) return;
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || body?.sessionId !== me.sessionId) return;
     const media = sanitizeMedia(body.media);
-    if (!this.video.setMedia(sessionId, socket.id, media)) return;
+    this.video.setMedia(me, media);
     socket
-      .to(rtcRoom(sessionId))
-      .emit(WS_EVENTS.rtcPeerState, { peerId: socket.id, media });
+      .to(rtcRoom(me.sessionId))
+      .emit(WS_EVENTS.rtcPeerState, { peerId: me.info.peerId, media });
   }
 
-  @SubscribeMessage(WS_EVENTS.rtcSignal)
-  onRtcSignal(
+  @SubscribeMessage(WS_EVENTS.rtcTransportCreate)
+  async onRtcTransportCreate(
     @ConnectedSocket() socket: LiveSocket,
-    @MessageBody() body: RtcSignalPayload,
-  ): void {
-    const sessionId = this.video.sessionOf(socket.id);
-    if (!sessionId || body?.sessionId !== sessionId) return;
-    // Relay only between two members of the same video room.
-    if (typeof body.to !== 'string' || !this.video.get(sessionId, body.to)) {
-      return;
+    @MessageBody() body: RtcTransportCreatePayload,
+  ): Promise<RtcTransportCreateAck> {
+    const me = this.video.peerOfSocket(socket.id);
+    const direction = body?.direction;
+    if (!me || (direction !== 'send' && direction !== 'recv')) {
+      return { ok: false, error: 'bad_request' };
     }
-    const relay = {
-      from: socket.id,
-      description: body.description,
-      candidate: body.candidate,
-    };
-    if (JSON.stringify(relay).length > RTC_SIGNAL_MAX_BYTES) return;
-    this.io.to(body.to).emit(WS_EVENTS.rtcSignal, relay);
+    try {
+      const params = await this.video.createTransport(me);
+      this.video.tagTransport(me, params.id, direction);
+      return { ok: true, params };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'failed' };
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcTransportConnect)
+  async onRtcTransportConnect(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcTransportConnectPayload,
+  ): Promise<RtcAck> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.transportId !== 'string') {
+      return { ok: false, error: 'bad_request' };
+    }
+    try {
+      await this.video.connectTransport(me, body.transportId, body.dtlsParameters);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'failed' };
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcTransportRestartIce)
+  async onRtcTransportRestartIce(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcTransportRestartIcePayload,
+  ): Promise<RtcTransportRestartIceAck> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.transportId !== 'string') {
+      return { ok: false, error: 'bad_request' };
+    }
+    try {
+      return { ok: true, iceParameters: await this.video.restartIce(me, body.transportId) };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'failed' };
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcProduce)
+  async onRtcProduce(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcProducePayload,
+  ): Promise<RtcProduceAck> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (
+      !me ||
+      typeof body?.transportId !== 'string' ||
+      (body.kind !== 'audio' && body.kind !== 'video') ||
+      !isRtcSource(body.source)
+    ) {
+      return { ok: false, error: 'bad_request' };
+    }
+    const audioSource = body.source === 'mic' || body.source === 'screen-audio';
+    if (audioSource !== (body.kind === 'audio')) {
+      return { ok: false, error: 'bad_request' };
+    }
+    try {
+      const info = await this.video.produce(
+        me,
+        body.transportId,
+        body.kind,
+        body.rtpParameters,
+        body.source,
+      );
+      const sessionId = me.sessionId;
+      const owner = me;
+      // Tell the room when this producer goes away (close, leave, replace).
+      owner.producers.get(info.producerId)?.observer.on('close', () => {
+        this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcProducerClosed, {
+          producerId: info.producerId,
+          peerId: info.peerId,
+        });
+      });
+      socket.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcProducerNew, info);
+      return { ok: true, producerId: info.producerId };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'failed' };
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcProducerClose)
+  onRtcProducerClose(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcProducerClosePayload,
+  ): void {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.producerId !== 'string') return;
+    this.video.closeProducer(me, body.producerId);
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcProducerPause)
+  async onRtcProducerPause(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcProducerPausePayload,
+  ): Promise<void> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.producerId !== 'string') return;
+    await this.video
+      .pauseProducer(me, body.producerId, body.paused === true)
+      .catch(() => undefined);
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcConsume)
+  async onRtcConsume(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcConsumePayload,
+  ): Promise<RtcConsumeAck> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.producerId !== 'string') {
+      return { ok: false, error: 'bad_request' };
+    }
+    try {
+      const params = await this.video.consume(
+        me,
+        body.producerId,
+        body.rtpCapabilities,
+        () => undefined,
+      );
+      return { ok: true, params };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'failed' };
+    }
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcConsumerPause)
+  async onRtcConsumerPause(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcConsumerPausePayload,
+  ): Promise<RtcAck> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.consumerId !== 'string') {
+      return { ok: false, error: 'bad_request' };
+    }
+    const ok = await this.video
+      .pauseConsumer(me, body.consumerId, body.paused === true)
+      .catch(() => false);
+    return { ok };
+  }
+
+  @SubscribeMessage(WS_EVENTS.rtcConsumerLayers)
+  async onRtcConsumerLayers(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcConsumerLayersPayload,
+  ): Promise<void> {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || typeof body?.consumerId !== 'string') return;
+    await this.video.setConsumerLayer(me, body.consumerId, Number(body.spatialLayer) || 0);
   }
 
   @SubscribeMessage(WS_EVENTS.rtcModerate)
@@ -277,9 +482,9 @@ export class SessionGateway
     @ConnectedSocket() socket: LiveSocket,
     @MessageBody() body: RtcModeratePayload,
   ): void {
-    const sessionId = this.video.sessionOf(socket.id);
-    if (!sessionId || body?.sessionId !== sessionId) return;
-    if (this.video.get(sessionId, socket.id)?.role !== 'host') return;
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || body?.sessionId !== me.sessionId || me.info.role !== 'host') return;
+    const sessionId = me.sessionId;
     const action = body.action;
     if (action !== 'mute' && action !== 'stop-video' && action !== 'lower-hand') {
       return;
@@ -288,19 +493,26 @@ export class SessionGateway
       socket.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcModerate, { action });
       return;
     }
-    if (typeof body.target === 'string' && this.video.get(sessionId, body.target)) {
-      this.io.to(body.target).emit(WS_EVENTS.rtcModerate, { action });
-    }
+    const target =
+      typeof body.target === 'string' ? this.video.peer(sessionId, body.target) : undefined;
+    if (target) this.io.to(target.socketId).emit(WS_EVENTS.rtcModerate, { action });
   }
 
-  private leaveVideo(socket: LiveSocket): void {
-    const sessionId = this.video.remove(socket.id);
-    if (!sessionId) return;
-    void socket.leave(rtcRoom(sessionId));
+  /**
+   * The socket's peer leaves the room. The call itself keeps running — it
+   * ends only when a host ends it or the session ends.
+   */
+  private leaveVideo(socket: LiveSocket, opts: { silent?: boolean } = {}): void {
+    const peer = this.video.removeSocket(socket.id);
+    if (!peer) return;
+    void socket.leave(rtcRoom(peer.sessionId));
+    // Replaced by a newer socket of the same tab → not a real departure.
+    const current = this.video.peer(peer.sessionId, peer.info.peerId);
+    if (current) return;
     this.io
-      ?.to(rtcRoom(sessionId))
-      .emit(WS_EVENTS.rtcPeerLeft, { peerId: socket.id });
-    this.broadcastRoomState(sessionId);
+      ?.to(rtcRoom(peer.sessionId))
+      .emit(WS_EVENTS.rtcPeerLeft, { peerId: peer.info.peerId });
+    if (!opts.silent) this.broadcastRoomState(peer.sessionId);
   }
 
   /** Everyone in the session learns whether a call is running (auto-join). */
@@ -641,9 +853,7 @@ export class SessionGateway
     this.io?.to(room(sessionId)).emit(WS_EVENTS.sessionEnded, { sessionId });
     this.chatBySession.delete(sessionId);
     this.qaBySession.delete(sessionId);
-    for (const peerId of this.video.close(sessionId)) {
-      this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerLeft, { peerId });
-    }
+    this.endCall(sessionId);
   }
 
   private allowChat(senderId: string): boolean {

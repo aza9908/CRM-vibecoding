@@ -52,13 +52,17 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION}
       S3_PUBLIC_URL: https://lms-api.magauin.kz
-      # Video room ICE servers (optional TURN for strict NAT / firewalls)
-      RTC_STUN_URLS: ${RTC_STUN_URLS:-}
-      TURN_URLS: ${TURN_URLS:-}
-      TURN_SECRET: ${TURN_SECRET:-}
+      # Video room: media server (SFU) inside the API. Browsers send/receive
+      # media on RTC_PORT.. (one UDP+TCP port per worker), reached at the
+      # server's public IP.
+      RTC_ANNOUNCED_IP: ${RTC_ANNOUNCED_IP:-}
+      RTC_PORT: "44444"
+      RTC_WORKERS: "2"
       PORT: "3001"
     ports:
       - "0.0.0.0:3002:3001"
+      - "0.0.0.0:44444-44445:44444-44445/udp"
+      - "0.0.0.0:44444-44445:44444-44445/tcp"
 
   web:
     build:
@@ -74,34 +78,6 @@ services:
       - api
     ports:
       - "0.0.0.0:3001:3000"
-
-  # Optional TURN relay for the video room (start with: --profile turn).
-  # Needed when participants sit behind strict NAT / corporate firewalls.
-  # Open UDP/TCP 3478 and UDP 49160-49460 on the VPS; set TURN_SECRET,
-  # TURN_REALM and TURN_URLS=turn:<host>:3478 for the api service.
-  coturn:
-    image: coturn/coturn:4.6
-    profiles: ["turn"]
-    restart: unless-stopped
-    network_mode: host
-    command:
-      - -n
-      - --listening-port=3478
-      - --fingerprint
-      - --use-auth-secret
-      - --static-auth-secret=${TURN_SECRET}
-      - --realm=${TURN_REALM:-airl.kz}
-      - --min-port=49160
-      - --max-port=49460
-      - --no-tls
-      - --no-dtls
-      - --log-file=stdout
-      - --simple-log
-      - --no-cli
-      - --no-multicast-peers
-      - --denied-peer-ip=10.0.0.0-10.255.255.255
-      - --denied-peer-ip=172.16.0.0-172.31.255.255
-      - --denied-peer-ip=192.168.0.0-192.168.255.255
 
 volumes:
   minio_data:

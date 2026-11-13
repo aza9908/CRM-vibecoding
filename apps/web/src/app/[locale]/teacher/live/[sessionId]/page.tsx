@@ -32,8 +32,10 @@ import { QaPanel } from '@/components/live/QaPanel';
 import { Brand } from '@/components/brand';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Card } from '@/components/ui/card';
-import { Users } from 'lucide-react';
+import { ArrowLeft, Users } from 'lucide-react';
+import { Link } from '@/i18n/routing';
 import { ApiError } from '@/lib/api/client';
 
 function responseKey(participantId: string, blockId: string): string {
@@ -56,6 +58,7 @@ export default function TeacherLivePage() {
   const sessionId = params?.sessionId;
   const t = useTranslations('live');
   const tc = useTranslations('common');
+  const tn = useTranslations('nav');
 
   const accessToken = useAuthStore((s) => s.accessToken);
 
@@ -75,6 +78,7 @@ export default function TeacherLivePage() {
     askQuestion,
     voteQuestion,
     setQuestionStatus,
+    callState,
   } = useSessionSocket(sessionId, { token: accessToken });
 
   const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId);
@@ -136,11 +140,12 @@ export default function TeacherLivePage() {
   const effectiveFocus =
     focusedBlockId ?? sessionQuery.data?.focusedBlockId ?? null;
 
-  const handleEnd = React.useCallback(() => {
+  const [endOpen, setEndOpen] = React.useState(false);
+  const handleEnd = React.useCallback(() => setEndOpen(true), []);
+  const confirmEnd = React.useCallback(() => {
     if (!sessionId) return;
-    if (!window.confirm(t('endConfirm'))) return;
-    endSession.mutate(sessionId);
-  }, [sessionId, endSession, t]);
+    endSession.mutate(sessionId, { onSettled: () => setEndOpen(false) });
+  }, [sessionId, endSession]);
 
   if (sessionQuery.isLoading && !sessionQuery.data) {
     return (
@@ -189,6 +194,14 @@ export default function TeacherLivePage() {
       <header className="sticky top-0 z-10 border-b bg-card">
         <div className="container flex flex-wrap items-center gap-x-6 gap-y-3 py-3">
           <div className="flex items-center gap-3">
+            <Link
+              href="/teacher/lessons"
+              aria-label={tn('lessons')}
+              title={tn('lessons')}
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
             <Brand />
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {t('teacherTitle')}
@@ -224,7 +237,7 @@ export default function TeacherLivePage() {
       </header>
 
       <div className="container flex flex-1 flex-col gap-6 py-6">
-        <VideoRoom sessionId={sessionId} token={accessToken} isHost />
+        <VideoRoom sessionId={sessionId} token={accessToken} isHost callState={callState} />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
           {/* Workbook preview — click a block to focus it for students. */}
           <section className="min-w-0 space-y-3">
@@ -297,6 +310,20 @@ export default function TeacherLivePage() {
           </aside>
         </div>
       </div>
+      <ConfirmDialog
+        open={endOpen}
+        title={t('endTitle')}
+        description={
+          <>
+            <p>{t('endBody')}</p>
+            <p>{t('endBodySaved')}</p>
+          </>
+        }
+        confirmLabel={t('endAction')}
+        pending={endSession.isPending}
+        onConfirm={confirmEnd}
+        onCancel={() => setEndOpen(false)}
+      />
     </main>
   );
 }

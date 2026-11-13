@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -25,6 +26,12 @@ import { BlocksService } from './blocks.service';
  * Ownership is derived through `lesson -> module -> course -> organization`.
  */
 type LessonRow = typeof lessons.$inferSelect;
+
+/** Empty / whitespace-only category means "uncategorised" (stored as null). */
+function normalizeCategory(value: string | null): string | null {
+  const v = value?.trim().replace(/\s+/g, ' ') ?? '';
+  return v.length > 0 ? v : null;
+}
 
 /**
  * CRUD for lessons, scoped to the caller's organization.
@@ -76,6 +83,9 @@ export class LessonsService {
           ? { scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null }
           : {}),
         ...(dto.archived !== undefined ? { archived: dto.archived } : {}),
+        ...(dto.category !== undefined
+          ? { category: normalizeCategory(dto.category) }
+          : {}),
       })
       .returning();
 
@@ -120,6 +130,9 @@ export class LessonsService {
       patch.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
     }
     if (dto.archived !== undefined) patch.archived = dto.archived;
+    if (dto.category !== undefined) {
+      patch.category = normalizeCategory(dto.category);
+    }
 
     if (Object.keys(patch).length === 0) {
       // Nothing to change — return the current row.
@@ -138,7 +151,17 @@ export class LessonsService {
   /** Delete a lesson; tenant-scoped. Cascades to blocks/outcomes via FKs. */
   async remove(orgId: string, lessonId: string): Promise<{ id: string }> {
     await this.assertLessonInOrg(lessonId, orgId);
-    await this.db.delete(lessons).where(eq(lessons.id, lessonId));
+    try {
+      await this.db.delete(lessons).where(eq(lessons.id, lessonId));
+    } catch (err) {
+      // A lesson that was already run keeps its sessions and student answers
+      // (foreign key) — it can be archived, not deleted.
+      const code =
+        (err as { code?: string; cause?: { code?: string } })?.code ??
+        (err as { cause?: { code?: string } })?.cause?.code;
+      if (code === '23503') throw new ConflictException('lesson_has_sessions');
+      throw err;
+    }
     return { id: lessonId };
   }
 

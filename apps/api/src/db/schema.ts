@@ -221,6 +221,9 @@ export const lessons = pgTable(
     // lesson later replaced by a properly numbered one) can be tucked away
     // without losing their content or any student progress tied to them.
     archived: boolean('archived').notNull().default(false),
+    /** Free-form group shown as a column in the staff lesson list — usually the
+     * client company the lesson was made for ("Кайзен", "Orzu Medical"). */
+    category: text('category'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (t) => ({

@@ -350,6 +350,7 @@ export class WorkbookSeedService {
           moduleId: mod!.id,
           teacherId: opts.teacherId ?? null,
           title: ORZU_LESSON_TITLE,
+          category: 'Orzu Medical',
           type: 'stream',
           kind: 'workshop',
           order: 0,

@@ -46,6 +46,17 @@ export const blockSchema = z.object({
 });
 export type BlockDto = z.infer<typeof blockSchema>;
 
+/** Max length of a lesson category name. */
+export const LESSON_CATEGORY_MAX = 60;
+
+/** Categories always offered in the picker, even before any lesson uses them. */
+export const LESSON_CATEGORY_PRESETS = [
+  'Кайзен',
+  'Investudy',
+  'Pingwin',
+  'Orzu Medical',
+] as const;
+
 /** Body for `POST /lessons`. */
 export const createLessonSchema = z.object({
   title: z.string().min(1),
@@ -59,6 +70,9 @@ export const createLessonSchema = z.object({
   scheduledAt: z.string().datetime().nullable().optional(),
   /** Hides the lesson from curriculum/past-lessons views without deleting it. */
   archived: z.boolean().optional(),
+  /** Group (usually the client company) the lesson is filed under in the
+   * staff lesson list. `null` / empty string clears it. */
+  category: z.string().trim().max(LESSON_CATEGORY_MAX).nullable().optional(),
 });
 export type CreateLessonDto = z.infer<typeof createLessonSchema>;
 

@@ -32,23 +32,51 @@ export const WS_EVENTS = {
   /** server → joiner: recent chat history after session:join */
   chatHistory: 'chat:history',
 
-  // ── Video room (WebRTC mesh, signaling relayed over this namespace) ──────
+  // ── Video room (WebRTC through the server-side SFU; signaling here) ─────
   /** client → server: enter the session's video room (ack: RtcJoinAck) */
   rtcJoin: 'rtc:join',
   /** client → server: leave the video room */
   rtcLeave: 'rtc:leave',
   /** client → server: my mic/camera/screen/hand state changed */
   rtcState: 'rtc:state',
-  /** client ↔ server: SDP / ICE relay to one peer */
-  rtcSignal: 'rtc:signal',
   /** host → server → target: mute / lower hand / stop video */
   rtcModerate: 'rtc:moderate',
+  /** host → server: end the call for everyone */
+  rtcCallEnd: 'rtc:call-end',
+  /** client → server: create a send / receive transport (ack) */
+  rtcTransportCreate: 'rtc:transport-create',
+  /** client → server: DTLS connect a transport (ack) */
+  rtcTransportConnect: 'rtc:transport-connect',
+  /** client → server: restart ICE after a network change (ack) */
+  rtcTransportRestartIce: 'rtc:transport-restart-ice',
+  /** client → server: start publishing a track (ack) */
+  rtcProduce: 'rtc:produce',
+  /** client → server: stop publishing a track */
+  rtcProducerClose: 'rtc:producer-close',
+  /** client → server: pause / resume my track (mute) */
+  rtcProducerPause: 'rtc:producer-pause',
+  /** client → server: receive someone's track (ack) */
+  rtcConsume: 'rtc:consume',
+  /** client → server: pause / resume a received track */
+  rtcConsumerPause: 'rtc:consumer-pause',
+  /** client → server: quality wanted for a received video (stage vs tile) */
+  rtcConsumerLayers: 'rtc:consumer-layers',
   /** server → room: a peer entered the video room */
   rtcPeerJoined: 'rtc:peer-joined',
   /** server → room: a peer left the video room */
   rtcPeerLeft: 'rtc:peer-left',
   /** server → room: a peer's media state changed */
   rtcPeerState: 'rtc:peer-state',
+  /** server → room: a peer started publishing a track */
+  rtcProducerNew: 'rtc:producer-new',
+  /** server → room: a published track went away */
+  rtcProducerClosed: 'rtc:producer-closed',
+  /** server → room: who is speaking right now */
+  rtcSpeakers: 'rtc:speakers',
+  /** server → room: the host ended the call (or the session ended) */
+  rtcCallEnded: 'rtc:call-ended',
+  /** server → room: media server restarted — re-join to restore media */
+  rtcReset: 'rtc:reset',
   /** server → whole session (and each joiner): is a video call running? */
   rtcRoomState: 'rtc:room-state',
 
@@ -139,8 +167,8 @@ export interface ChatHistoryPayload {
 
 // ── Video room payloads ─────────────────────────────────────────────────────
 
-/** What a peer is currently publishing. Stream ids let receivers tell the
- * camera stream from the screen-share stream (msid survives the relay). */
+/** What a peer is currently publishing (plus the raised hand). The stream
+ * id fields are legacy and unused by the SFU client. */
 export interface RtcMediaState {
   audio: boolean;
   video: boolean;
@@ -150,7 +178,7 @@ export interface RtcMediaState {
   screenStreamId: string | null;
 }
 
-/** A member of the video room. `peerId` is the server-side socket id. */
+/** A member of the video room. `peerId` is stable across reconnects. */
 export interface RtcPeer {
   peerId: string;
   name: string;
@@ -159,27 +187,39 @@ export interface RtcPeer {
   media: RtcMediaState;
 }
 
-/** RTCIceServer as JSON (kept local so shared stays DOM-lib free). */
-export interface RtcIceServer {
-  urls: string | string[];
-  username?: string;
-  credential?: string;
+/** What a published track carries. */
+export type RtcSource = 'mic' | 'camera' | 'screen' | 'screen-audio';
+
+/** A track someone publishes into the room. */
+export interface RtcProducerInfo {
+  producerId: string;
+  peerId: string;
+  kind: 'audio' | 'video';
+  source: RtcSource;
+  paused: boolean;
 }
 
 /** `rtc:join` (client → server). */
 export interface RtcJoinPayload {
   sessionId: string;
   media: RtcMediaState;
+  /** Random per-tab id (kept across reloads/reconnects) so a returning
+   * client replaces its old entry instead of appearing twice. */
+  clientId: string;
 }
 
-/** Ack of `rtc:join`. */
+/** Ack of `rtc:join`. Media-server objects are opaque JSON here so `shared`
+ * stays free of mediasoup types. */
 export interface RtcJoinAck {
   ok: boolean;
   error?: string;
   selfId?: string;
   role?: RtcPeer['role'];
   peers?: RtcPeer[];
-  iceServers?: RtcIceServer[];
+  producers?: RtcProducerInfo[];
+  routerRtpCapabilities?: unknown;
+  /** Identifies the running call (changes when a new call starts). */
+  startedAt?: string | null;
 }
 
 /** `rtc:leave` (client → server). */
@@ -193,33 +233,92 @@ export interface RtcStatePayload {
   media: RtcMediaState;
 }
 
-/** SDP description as JSON (RTCSessionDescriptionInit). */
-export interface RtcDescription {
-  type: 'offer' | 'answer' | 'pranswer' | 'rollback';
-  sdp?: string;
+export interface RtcAck {
+  ok: boolean;
+  error?: string;
 }
 
-/** ICE candidate as JSON (RTCIceCandidateInit). */
-export interface RtcCandidate {
-  candidate?: string;
-  sdpMid?: string | null;
-  sdpMLineIndex?: number | null;
-  usernameFragment?: string | null;
+/** `rtc:transport-create`. */
+export interface RtcTransportCreatePayload {
+  direction: 'send' | 'recv';
+}
+export interface RtcTransportCreateAck extends RtcAck {
+  /** { id, iceParameters, iceCandidates, dtlsParameters } */
+  params?: unknown;
 }
 
-/** `rtc:signal` client → server: `to` is the target peerId. */
-export interface RtcSignalPayload {
+/** `rtc:transport-connect`. */
+export interface RtcTransportConnectPayload {
+  transportId: string;
+  dtlsParameters: unknown;
+}
+
+/** `rtc:transport-restart-ice`. */
+export interface RtcTransportRestartIcePayload {
+  transportId: string;
+}
+export interface RtcTransportRestartIceAck extends RtcAck {
+  iceParameters?: unknown;
+}
+
+/** `rtc:produce`. */
+export interface RtcProducePayload {
+  transportId: string;
+  kind: 'audio' | 'video';
+  rtpParameters: unknown;
+  source: RtcSource;
+}
+export interface RtcProduceAck extends RtcAck {
+  producerId?: string;
+}
+
+/** `rtc:producer-close`. */
+export interface RtcProducerClosePayload {
+  producerId: string;
+}
+
+/** `rtc:producer-pause`. */
+export interface RtcProducerPausePayload {
+  producerId: string;
+  paused: boolean;
+}
+
+/** `rtc:consume`. */
+export interface RtcConsumePayload {
+  producerId: string;
+  rtpCapabilities: unknown;
+}
+export interface RtcConsumeAck extends RtcAck {
+  /** { id, producerId, kind, rtpParameters } */
+  params?: unknown;
+}
+
+/** `rtc:consumer-pause`. */
+export interface RtcConsumerPausePayload {
+  consumerId: string;
+  paused: boolean;
+}
+
+/** `rtc:consumer-layers` — 0 = thumbnail, 2 = best. */
+export interface RtcConsumerLayersPayload {
+  consumerId: string;
+  spatialLayer: number;
+}
+
+/** `rtc:producer-closed` (server → room). */
+export interface RtcProducerClosedPayload {
+  producerId: string;
+  peerId: string;
+}
+
+/** `rtc:speakers` (server → room). Loudest first; empty = silence. */
+export interface RtcSpeakersPayload {
+  speakers: { peerId: string; volume: number }[];
+}
+
+/** `rtc:call-end` (host → server) and `rtc:call-ended` (server → room). */
+export interface RtcCallEndPayload {
   sessionId: string;
-  to: string;
-  description?: RtcDescription;
-  candidate?: RtcCandidate | null;
-}
-
-/** `rtc:signal` server → client: `from` is the sender peerId. */
-export interface RtcSignalRelay {
-  from: string;
-  description?: RtcDescription;
-  candidate?: RtcCandidate | null;
 }
 
 export type RtcModerateAction = 'mute' | 'stop-video' | 'lower-hand';
@@ -236,9 +335,10 @@ export interface RtcModerateRelay {
   action: RtcModerateAction;
 }
 
-/** `rtc:room-state` (server → session). A call is "active" while the host
- * (teacher) is in it; students auto-join active calls. `startedAt` changes
- * each time the host starts a new call. */
+/** `rtc:room-state` (server → session). A call becomes active when a host
+ * (teacher) enters it and stays active until the host ends it or the session
+ * ends — a host's reload or network blip does NOT end it. Students auto-join
+ * active calls. `startedAt` changes each time a new call starts. */
 export interface RtcRoomStatePayload {
   sessionId: string;
   active: boolean;
@@ -319,9 +419,13 @@ export interface ServerToClientEvents {
   [WS_EVENTS.rtcPeerJoined]: (payload: RtcPeer) => void;
   [WS_EVENTS.rtcPeerLeft]: (payload: RtcPeerLeftPayload) => void;
   [WS_EVENTS.rtcPeerState]: (payload: RtcPeerStatePayload) => void;
-  [WS_EVENTS.rtcSignal]: (payload: RtcSignalRelay) => void;
   [WS_EVENTS.rtcModerate]: (payload: RtcModerateRelay) => void;
   [WS_EVENTS.rtcRoomState]: (payload: RtcRoomStatePayload) => void;
+  [WS_EVENTS.rtcProducerNew]: (payload: RtcProducerInfo) => void;
+  [WS_EVENTS.rtcProducerClosed]: (payload: RtcProducerClosedPayload) => void;
+  [WS_EVENTS.rtcSpeakers]: (payload: RtcSpeakersPayload) => void;
+  [WS_EVENTS.rtcCallEnded]: (payload: RtcCallEndPayload) => void;
+  [WS_EVENTS.rtcReset]: () => void;
   [WS_EVENTS.qaList]: (payload: QaListPayload) => void;
   [WS_EVENTS.qaFloor]: (payload: QaFloorPayload) => void;
 }
@@ -338,7 +442,34 @@ export interface ClientToServerEvents {
   ) => void;
   [WS_EVENTS.rtcLeave]: (payload: RtcLeavePayload) => void;
   [WS_EVENTS.rtcState]: (payload: RtcStatePayload) => void;
-  [WS_EVENTS.rtcSignal]: (payload: RtcSignalPayload) => void;
+  [WS_EVENTS.rtcCallEnd]: (payload: RtcCallEndPayload) => void;
+  [WS_EVENTS.rtcTransportCreate]: (
+    payload: RtcTransportCreatePayload,
+    ack?: (res: RtcTransportCreateAck) => void,
+  ) => void;
+  [WS_EVENTS.rtcTransportConnect]: (
+    payload: RtcTransportConnectPayload,
+    ack?: (res: RtcAck) => void,
+  ) => void;
+  [WS_EVENTS.rtcTransportRestartIce]: (
+    payload: RtcTransportRestartIcePayload,
+    ack?: (res: RtcTransportRestartIceAck) => void,
+  ) => void;
+  [WS_EVENTS.rtcProduce]: (
+    payload: RtcProducePayload,
+    ack?: (res: RtcProduceAck) => void,
+  ) => void;
+  [WS_EVENTS.rtcProducerClose]: (payload: RtcProducerClosePayload) => void;
+  [WS_EVENTS.rtcProducerPause]: (payload: RtcProducerPausePayload) => void;
+  [WS_EVENTS.rtcConsume]: (
+    payload: RtcConsumePayload,
+    ack?: (res: RtcConsumeAck) => void,
+  ) => void;
+  [WS_EVENTS.rtcConsumerPause]: (
+    payload: RtcConsumerPausePayload,
+    ack?: (res: RtcAck) => void,
+  ) => void;
+  [WS_EVENTS.rtcConsumerLayers]: (payload: RtcConsumerLayersPayload) => void;
   [WS_EVENTS.rtcModerate]: (payload: RtcModeratePayload) => void;
   [WS_EVENTS.qaAsk]: (payload: QaAskPayload) => void;
   [WS_EVENTS.qaVote]: (payload: QaVotePayload) => void;

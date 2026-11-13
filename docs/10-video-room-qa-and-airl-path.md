@@ -2,28 +2,39 @@
 
 ## Video room (own meeting room, no Google Meet)
 
-Google Meet cannot run inside our pages: Google blocks it in iframes, and the
-Meet SDK only works the other way round (our app inside Meet). So live
-lessons get their own room, «Видеосвязь», built on WebRTC.
+Built into every live session: `apps/web/src/components/live/VideoRoom.tsx`,
+`apps/web/src/lib/rtc/useVideoRoom.ts`, `apps/api/src/realtime/video-room.service.ts`
+and the `rtc:*` events in `packages/shared/src/ws-events.ts`.
 
-- **Topology:** a mesh. Each pair of people shares one `RTCPeerConnection` and media
-  goes browser-to-browser. The API only relays SDP/ICE over the existing
-  Socket.IO `/live` namespace (`rtc:*` events in `packages/shared/src/ws-events.ts`).
-- **Server:** `apps/api/src/realtime/video-room.service.ts` holds the roster and the ICE config.
-  `session.gateway.ts` has the handlers and authorization: a participant token
-  for this session, or a user from the session's org. Staff roles are hosts.
-- **Client:** `apps/web/src/lib/rtc/useVideoRoom.ts` uses perfect negotiation. The UI
-  is `components/live/VideoRoom.tsx`: stage, thumbnails, mic/camera/screen/hand,
-  host "mute everyone", and a floating mini-player.
-- **Capacity:** camera ≤450 kbps and screen ≤1.2 Mbps per receiver. That suits a
-  lecture of ~25–30 people with a few cameras on. `RTC_MAX_PEERS` (default 40)
-  is the hard cap. For bigger rooms, move to an SFU (e.g. LiveKit) behind the
-  same UI.
-- **TURN:** needed behind strict NAT or corporate Wi-Fi. Start coturn with
-  `docker compose -f docker-compose.prod.yml --profile turn up -d coturn`, open
-  3478/udp+tcp and 49160–49200/udp, and set `TURN_URLS=turn:<host>:3478` and
-  `TURN_SECRET` on the api service. Credentials are short-lived (HMAC) and
-  never stored in the client bundle.
+- **Topology:** an SFU (mediasoup) inside the API process. Everyone sends each
+  track once to the server and receives the others from it, so a class of 50+
+  costs the teacher one upload. (The first version was a browser-to-browser
+  mesh; it froze the teacher's tab at ~20 people.) Signaling rides the existing
+  Socket.IO `/live` namespace.
+- **Ports:** one UDP+TCP port per media worker — `RTC_PORT` (44444) and up,
+  `RTC_WORKERS` (2) of them — announced at `RTC_ANNOUNCED_IP` (the server's
+  public IP; the deploy workflow sets it and opens the ports in ufw). TCP on
+  the same ports is the fallback for networks that block UDP; no TURN server.
+- **Quality:** cameras are sent with simulcast (3 layers). The person on the
+  stage is received in the best layer, the film strip in the smallest; at most
+  16 remote cameras (6 on phones) are received at once, the rest show avatars.
+- **Call lifetime:** a call starts when a host enters and ends only when a host
+  presses «Завершить для всех», the session ends, or the room stays empty for
+  2 minutes (`RTC_EMPTY_CALL_GRACE_MS`). A host's reload or network blip does
+  NOT end it — that was the cause of the "everyone got kicked" incident.
+- **Resilience (client):** socket drop or API restart → status `reconnecting`,
+  local mic/camera tracks stay alive, the hook re-joins by itself; a flaky
+  path → ICE restart first, full re-join after ~10 s; a reloaded tab comes
+  back with the mic/camera it had (`sessionStorage`), under the same stable
+  peer id, so nobody appears twice.
+- **UX:** stage = screen share, else pinned person, else active speaker on
+  camera, else the host. The speaker gets a green ring (server-side audio
+  levels, `rtc:speakers`). The stage goes full screen (button / double click /
+  Esc). Students auto-join a running call listen-only.
+- **State is in memory** (single API instance). After an API restart the
+  clients re-join and a returning host re-activates the call.
+- **Check from the internet:** `deploy-vps.yml` mode `call-smoke` runs
+  `.github/scripts/call-smoke.js` (teacher + student in a throw-away lesson).
 
 ## Q&A queue
 

@@ -23,6 +23,8 @@ export interface Lesson {
   order: number;
   scheduledAt: string | null;
   archived: boolean;
+  /** Group (usually the client company) in the staff lesson list; null = uncategorised. */
+  category: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

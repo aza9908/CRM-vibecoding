@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -113,7 +113,6 @@ jobs:
           echo "== disk"; df -h / | tail -1
           echo "== capacity: $(nproc) CPU · load $(cut -d' ' -f1-3 /proc/loadavg)"; free -m | head -2
           docker stats --no-stream --format '{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' 2>/dev/null | head -10
-          f=/root/lms/.env.prod; [ -f "$f" ] && echo "TURN configured: $(grep -qE '^TURN_URLS=.+' "$f" && echo yes || echo no)"
           (ufw status 2>/dev/null | head -3) || true
           echo "== docker"; (docker --version && docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}') 2>&1 | head -30
           echo "== compose projects with an LMS"
@@ -467,27 +466,42 @@ jobs:
 
           if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
 
-          # TURN relay for the video room (students behind strict NAT / clinic
-          # Wi-Fi). Generated once; the secret never leaves the server.
-          if ! grep -qE '^TURN_SECRET=.+' "$ENV_FILE"; then
-            printf '\nTURN_SECRET=%s\n' "$(openssl rand -hex 24)" >> "$ENV_FILE"
-          fi
+          # Video room media server (SFU, inside the API container): announce
+          # the public IP and open its two media ports (UDP + TCP fallback).
           PUB=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<NF;i++) if($i=="src") print $(i+1)}')
-          TURN_LINE="TURN_URLS=turn:$PUB:3478?transport=udp,turn:$PUB:3478?transport=tcp"
-          if grep -q '^TURN_URLS=' "$ENV_FILE"; then sed -i "s#^TURN_URLS=.*#$TURN_LINE#" "$ENV_FILE"; else echo "$TURN_LINE" >> "$ENV_FILE"; fi
-          grep -q '^TURN_REALM=' "$ENV_FILE" || echo 'TURN_REALM=airl.kz' >> "$ENV_FILE"
+          if grep -q '^RTC_ANNOUNCED_IP=' "$ENV_FILE"; then sed -i "s#^RTC_ANNOUNCED_IP=.*#RTC_ANNOUNCED_IP=$PUB#" "$ENV_FILE"; else printf '\nRTC_ANNOUNCED_IP=%s\n' "$PUB" >> "$ENV_FILE"; fi
           if command -v ufw >/dev/null && ufw status | grep -q 'Status: active'; then
-            ufw allow 3478/udp >/dev/null; ufw allow 3478/tcp >/dev/null; ufw allow 49160:49460/udp >/dev/null
+            ufw allow 44444:44445/udp >/dev/null; ufw allow 44444:44445/tcp >/dev/null
+            # The TURN relay of the old browser-to-browser call is retired.
+            ufw delete allow 3478/udp >/dev/null 2>&1 || true; ufw delete allow 3478/tcp >/dev/null 2>&1 || true
+            ufw delete allow 49160:49460/udp >/dev/null 2>&1 || true
           fi
-          echo "== TURN on $PUB:3478 (secret set: yes)"
-          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml --profile turn up -d coturn
+          docker rm -f lms-coturn-1 >/dev/null 2>&1 || true
+          echo "== media server announced on the public IP, ports 44444-44445 udp+tcp"
 
           # Build first: if the build fails, the running containers stay untouched.
           $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml build api web
+          # Database migrations that this release needs (idempotent SQL), applied
+          # through the still-running API container before the new one starts.
+          for f in apps/api/drizzle/0012_lesson_category.sql; do
+            echo "== migration $f"
+            docker exec -i -w /app/apps/api lms-api-1 node -e '
+              const sql = require("fs").readFileSync(0, "utf8");
+              const { Pool } = require("pg");
+              const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+              (async () => {
+                for (const st of sql.split("--> statement-breakpoint").map((x) => x.trim()).filter(Boolean)) {
+                  const r = await pool.query(st);
+                  console.log("ok", (r.command || ""), r.rowCount == null ? "" : r.rowCount);
+                }
+                await pool.end();
+              })().catch((e) => { console.error("migration failed: " + e.message); process.exit(1); });
+            ' < "$f"
+          done
           $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d api web
           $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml ps api web
           sleep 15
-          docker logs --tail 40 lms-api-1 2>&1 | grep -E 'Orzu|workbook|ERROR|listening|started' || true
+          docker logs --tail 40 lms-api-1 2>&1 | grep -E 'Orzu|workbook|ERROR|listening|started|SFU' || true
           docker image prune -f >/dev/null || true
           REMOTE
 
@@ -510,14 +524,54 @@ jobs:
           echo "root → $(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "${PUBLIC_URL%/}/")"
           echo "en   → $(curl -s -o /dev/null -w '%{http_code}' -H 'x-airl-lms-proxy: 1' "$url/en")"
 
-      - name: Check the TURN relay is reachable from the internet (informational)
+      - name: Check the media server port is reachable from the internet (informational)
         if: inputs.mode == 'deploy' || inputs.mode == 'verify'
         continue-on-error: true
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
-          timeout 6 bash -c "echo > /dev/tcp/$VPS_HOST/3478" && echo "TURN tcp/3478: open" || echo "TURN tcp/3478: CLOSED"
-          timeout 25 docker run --rm --network host coturn/coturn:4.6 timeout 15 turnutils_stunclient -p 3478 "$VPS_HOST" 2>&1 | grep -iE "UDP reflexive addr|error|timeout" | sed 's/[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/<ip>/g' | head -3 || true
+          for p in 44444 44445; do
+            timeout 6 bash -c "echo > /dev/tcp/$VPS_HOST/$p" && echo "media tcp/$p: open" || echo "media tcp/$p: CLOSED"
+          done
+
+      - uses: actions/checkout@v4
+        if: inputs.mode == 'call-smoke'
+
+      - name: Video call smoke test from the internet (teacher + student, temporary lesson)
+        if: inputs.mode == 'call-smoke'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          API: https://lms-api.magauin.kz
+          WEB: https://airl.kz/lms
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          # A 15-minute access token for the account, minted on the server and
+          # masked in the log. Never printed.
+          TOKEN=$(printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -e '
+            const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+            const { Pool } = require(\"pg\");
+            const jwt = require(\"jsonwebtoken\");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            (async () => {
+              const u = (await pool.query(\"select id, role, organization_id, is_platform_admin from users where encode(sha256(lower(email)::bytea), \\x27hex\\x27) = \$1\", [eh])).rows[0];
+              if (!u) { console.error(\"account not found\"); process.exit(2); }
+              const payload = { sub: u.id, role: u.role, orgId: u.organization_id || \"\", aud: \"user\" };
+              if (u.is_platform_admin) payload.isPlatformAdmin = true;
+              process.stdout.write(jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { expiresIn: \"15m\" }));
+              await pool.end();
+            })().catch((e) => { console.error(\"error: \" + e.message); process.exit(1); });
+          '")
+          echo "::add-mask::$TOKEN"
+          [ -n "$TOKEN" ] || { echo "::error::no token"; exit 1; }
+          mkdir -p /tmp/smoke && cp .github/scripts/call-smoke.js /tmp/smoke/ && cd /tmp/smoke
+          npm init -y >/dev/null && npm install --silent playwright@1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          TOKEN="$TOKEN" node call-smoke.js
 
       - name: Roll back on failure
         if: failure() && inputs.mode == 'deploy'

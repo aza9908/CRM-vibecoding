@@ -2,7 +2,7 @@
   "name": "@lms/web",
   "version": "0.1.0",
   "private": true,
-  "description": "LMS web \u2014 Next.js 16 frontend (live lessons, workbook, AI assistant)",
+  "description": "LMS web — Next.js 16 frontend (live lessons, workbook, AI assistant)",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -21,6 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
+    "mediasoup-client": "^3.26.0",
     "next": "^16.0.0",
     "next-intl": "^4.13.0",
     "react": "^19.0.0",

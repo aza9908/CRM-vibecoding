@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
+import { Device, type types as msc } from 'mediasoup-client';
 import {
   WS_EVENTS,
   type ClientToServerEvents,
@@ -9,7 +10,8 @@ import {
   type RtcMediaState,
   type RtcModerateAction,
   type RtcPeer,
-  type RtcSignalRelay,
+  type RtcProducerInfo,
+  type RtcSource,
   type ServerToClientEvents,
 } from '@lms/shared';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from '@/lib/ws/url';
@@ -17,92 +19,33 @@ import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from '@/lib/ws/url';
 /**
  * Video room for a live session — our own meeting room inside the LMS.
  *
- * Topology: WebRTC mesh. Every pair of people in the room shares one
- * RTCPeerConnection; media flows browser-to-browser and the API only relays
- * SDP/ICE over the existing Socket.IO `/live` namespace. A connection only
- * carries traffic when one side publishes (mic, camera or screen), so a
- * lecture — one host on camera + screen, viewers listening — stays light.
+ * Topology: SFU. Everyone sends each track once to the media server inside
+ * the API (mediasoup) and receives the others' tracks from it, so a class of
+ * 50+ costs the teacher one upload. Signaling rides the existing Socket.IO
+ * `/live` namespace.
  *
- * Negotiation uses the standard "perfect negotiation" pattern: the peer with
- * the smaller id is polite and yields on offer collisions.
+ * Resilience rules:
+ *  - a socket drop or a media-server restart never "kicks" anyone: the hook
+ *    goes to `reconnecting`, keeps the local mic/camera tracks alive and
+ *    re-joins by itself;
+ *  - a flaky network path triggers an ICE restart before a full re-join;
+ *  - the call ends only on `rtc:call-ended` (host ended it / session ended).
  */
 
 type LiveSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-export type VideoRoomStatus = 'idle' | 'joining' | 'joined' | 'error';
+export type VideoRoomStatus =
+  | 'idle'
+  | 'joining'
+  | 'joined'
+  | 'reconnecting'
+  | 'error';
 
 export interface RemotePeer extends RtcPeer {
-  /** Camera (+ mic) stream as received. */
+  /** Camera video + microphone audio as received. */
   camera: MediaStream | null;
-  /** Screen-share stream as received. */
+  /** Screen-share video (+ tab audio) as received. */
   screen: MediaStream | null;
-}
-
-const NO_MEDIA: RtcMediaState = {
-  audio: false,
-  video: false,
-  screen: false,
-  hand: false,
-  cameraStreamId: null,
-  screenStreamId: null,
-};
-
-/**
- * Mesh budget. A publisher (normally the teacher) encodes one copy of each
- * track per viewer, so caps are split across the room: with 20 people the
- * uplink and CPU stay within a normal laptop and office connection instead
- * of 19 × full quality (which froze the page and saturated the uplink).
- */
-const CAMERA_MAX_BITRATE = 450_000;
-const CAMERA_MIN_BITRATE = 110_000;
-const CAMERA_TOTAL_BUDGET = 2_500_000;
-const SCREEN_MAX_BITRATE = 1_200_000;
-const SCREEN_MIN_BITRATE = 180_000;
-const SCREEN_TOTAL_BUDGET = 4_000_000;
-
-type TrackKind = 'audio' | 'video' | 'screen';
-
-interface PeerLink {
-  pc: RTCPeerConnection;
-  polite: boolean;
-  makingOffer: boolean;
-  ignoreOffer: boolean;
-  senders: Partial<Record<TrackKind, RTCRtpSender>>;
-}
-
-
-async function capSender(
-  sender: RTCRtpSender,
-  kind: TrackKind,
-  viewers = 1,
-): Promise<void> {
-  if (kind === 'audio') return;
-  const n = Math.max(1, viewers);
-  try {
-    const params = sender.getParameters();
-    if (!params.encodings || params.encodings.length === 0) {
-      params.encodings = [{}];
-    }
-    const enc = params.encodings[0]!;
-    if (kind === 'screen') {
-      enc.maxBitrate = Math.round(
-        Math.min(SCREEN_MAX_BITRATE, Math.max(SCREEN_MIN_BITRATE, SCREEN_TOTAL_BUDGET / n)),
-      );
-      // Slides/text: keep it sharp, drop frames instead of resolution.
-      enc.maxFramerate = n > 8 ? 6 : n > 3 ? 10 : 15;
-      (params as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference =
-        'maintain-resolution';
-    } else {
-      enc.maxBitrate = Math.round(
-        Math.min(CAMERA_MAX_BITRATE, Math.max(CAMERA_MIN_BITRATE, CAMERA_TOTAL_BUDGET / n)),
-      );
-      enc.scaleResolutionDownBy = n > 10 ? 2 : n > 5 ? 1.5 : 1;
-      enc.maxFramerate = n > 5 ? 15 : 24;
-    }
-    await sender.setParameters(params);
-  } catch {
-    /* not supported before negotiation in some browsers — best-effort */
-  }
 }
 
 export interface UseVideoRoomResult {
@@ -114,15 +57,103 @@ export interface UseVideoRoomResult {
   media: RtcMediaState;
   localCamera: MediaStream | null;
   localScreen: MediaStream | null;
+  /** Peer ids (mine included) heard right now, loudest first. */
+  speaking: string[];
+  /** The person who "has the floor" — sticky, to avoid flicker. */
+  dominantId: string | null;
   join: (opts?: { audio?: boolean; video?: boolean }) => Promise<void>;
   leave: () => void;
+  /** Host: end the call for everyone. */
+  endCall: () => void;
   toggleAudio: () => Promise<void>;
   toggleVideo: () => Promise<void>;
   toggleScreen: () => Promise<void>;
   toggleHand: () => void;
   moderate: (target: string, action: RtcModerateAction) => void;
+  /** Tell the server whose camera is on the main stage (gets best quality). */
+  setStage: (peerId: string | null) => void;
   /** Last moderation applied to me (for a toast). */
   moderatedAt: { action: RtcModerateAction; at: number } | null;
+  /** Set when the host ended the call while I was in it (for a toast). */
+  endedAt: number | null;
+}
+
+const NO_MEDIA: RtcMediaState = {
+  audio: false,
+  video: false,
+  screen: false,
+  hand: false,
+  cameraStreamId: null,
+  screenStreamId: null,
+};
+
+/** How many remote cameras are received at once (others stay as avatars). */
+const MAX_REMOTE_VIDEOS =
+  typeof window !== 'undefined' && window.innerWidth < 640 ? 6 : 16;
+
+const CAMERA_ENCODINGS: RTCRtpEncodingParameters[] = [
+  { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 110_000, maxFramerate: 15 },
+  { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 320_000, maxFramerate: 24 },
+  { rid: 'f', scaleResolutionDownBy: 1, maxBitrate: 950_000, maxFramerate: 24 },
+];
+const SCREEN_ENCODINGS: RTCRtpEncodingParameters[] = [
+  { maxBitrate: 2_000_000, maxFramerate: 15 },
+];
+
+// ── reload survival ─────────────────────────────────────────────────────────
+
+interface CallResume {
+  callId: string | null;
+  audio: boolean;
+  video: boolean;
+}
+
+const resumeKey = (sessionId: string) => `airl-call:${sessionId}`;
+
+/** What I had on before a reload (same tab), if I was in this call. */
+export function readCallResume(sessionId: string | undefined): CallResume | null {
+  if (!sessionId || typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(resumeKey(sessionId));
+    return raw ? (JSON.parse(raw) as CallResume) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCallResume(sessionId: string | undefined, value: CallResume | null): void {
+  if (!sessionId || typeof window === 'undefined') return;
+  try {
+    if (value) window.sessionStorage.setItem(resumeKey(sessionId), JSON.stringify(value));
+    else window.sessionStorage.removeItem(resumeKey(sessionId));
+  } catch {
+    /* private mode — reload survival is best-effort */
+  }
+}
+
+/** Random id of this tab, stable across reloads and reconnects. */
+function tabClientId(): string {
+  const make = () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
+      b.toString(16).padStart(2, '0'),
+    ).join('');
+  try {
+    const key = 'airl-rtc-client';
+    const existing = window.sessionStorage.getItem(key);
+    if (existing) return existing;
+    const id = make();
+    window.sessionStorage.setItem(key, id);
+    return id;
+  } catch {
+    return make();
+  }
+}
+
+interface ConsumerEntry {
+  consumer: msc.Consumer;
+  info: RtcProducerInfo;
+  /** Paused by the "max remote videos" policy. */
+  parked: boolean;
 }
 
 export function useVideoRoom(
@@ -137,293 +168,493 @@ export function useVideoRoom(
   const [media, setMedia] = useState<RtcMediaState>(NO_MEDIA);
   const [localCamera, setLocalCamera] = useState<MediaStream | null>(null);
   const [localScreen, setLocalScreen] = useState<MediaStream | null>(null);
+  const [speaking, setSpeaking] = useState<string[]>([]);
+  const [dominantId, setDominantId] = useState<string | null>(null);
   const [moderatedAt, setModeratedAt] =
     useState<UseVideoRoomResult['moderatedAt']>(null);
+  const [endedAt, setEndedAt] = useState<number | null>(null);
 
   const socketRef = useRef<LiveSocket | null>(null);
-  const linksRef = useRef(new Map<string, PeerLink>());
+  const deviceRef = useRef<msc.Device | null>(null);
+  const sendRef = useRef<msc.Transport | null>(null);
+  const recvRef = useRef<msc.Transport | null>(null);
+  const producersRef = useRef(new Map<RtcSource, msc.Producer>());
+  /** producerId → consumer */
+  const consumersRef = useRef(new Map<string, ConsumerEntry>());
+  /** producerId → info, for everything published in the room (not by me). */
+  const knownRef = useRef(new Map<string, RtcProducerInfo>());
+  const consumingRef = useRef(new Set<string>());
+  const tracksRef = useRef<Partial<Record<RtcSource, MediaStreamTrack>>>({});
   const selfIdRef = useRef<string | null>(null);
-  const iceRef = useRef<RTCIceServer[]>([]);
   const mediaRef = useRef<RtcMediaState>(NO_MEDIA);
-  const tracksRef = useRef<Partial<Record<TrackKind, MediaStreamTrack>>>({});
-  // Stable stream objects so msid (stream id) stays constant for receivers.
-  const cameraStreamRef = useRef<MediaStream | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
+  const callIdRef = useRef<string | null>(null);
+  const stageRef = useRef<string | null>(null);
+  const lastSpokeRef = useRef(new Map<string, number>());
+  const peersRef = useRef<RemotePeer[]>([]);
+  peersRef.current = peers;
   const tokenRef = useRef(token);
   tokenRef.current = token;
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
-  const peersRef = useRef<RemotePeer[]>([]);
-  peersRef.current = peers;
+  const wantJoinedRef = useRef(false);
+  const everJoinedRef = useRef(false);
+  const joinSeqRef = useRef(0);
 
-  // ── helpers ──────────────────────────────────────────────────────────────
+  // ── small helpers ────────────────────────────────────────────────────────
 
-  const publishState = useCallback((next: RtcMediaState) => {
-    mediaRef.current = next;
-    setMedia(next);
-    const sid = sessionIdRef.current;
-    if (sid && socketRef.current?.connected && selfIdRef.current) {
-      socketRef.current.emit(WS_EVENTS.rtcState, { sessionId: sid, media: next });
-    }
-  }, []);
-
-  /** Route an incoming track to the camera or screen slot of its peer. */
-  const onRemoteTrack = useCallback(
-    (peerId: string, ev: RTCTrackEvent) => {
-      const stream = ev.streams[0] ?? new MediaStream([ev.track]);
-      setPeers((prev) =>
-        prev.map((p) => {
-          if (p.peerId !== peerId) return p;
-          const isScreen =
-            !!p.media.screenStreamId && stream.id === p.media.screenStreamId;
-          return isScreen ? { ...p, screen: stream } : { ...p, camera: stream };
-        }),
-      );
-      ev.track.onunmute = () => {
-        // Force a re-render so <video> elements pick up revived tracks.
-        setPeers((prev) => [...prev]);
-      };
-    },
-    [],
-  );
-
-  const sendSignal = useCallback(
-    (to: string, data: Omit<RtcSignalRelay, 'from'>) => {
-      const sid = sessionIdRef.current;
-      if (!sid) return;
-      socketRef.current?.emit(WS_EVENTS.rtcSignal, { sessionId: sid, to, ...data });
-    },
-    [],
-  );
-
-  /** Re-split the bitrate budget after someone joins or leaves. */
-  const recapTimer = useRef<number | null>(null);
-  const recapAll = useCallback(() => {
-    if (recapTimer.current) window.clearTimeout(recapTimer.current);
-    recapTimer.current = window.setTimeout(() => {
-      recapTimer.current = null;
-      const n = linksRef.current.size;
-      for (const link of linksRef.current.values()) {
-        for (const kind of ['video', 'screen'] as TrackKind[]) {
-          const sender = link.senders[kind];
-          if (sender) void capSender(sender, kind, n);
+  /** Emit with an ack and a timeout — never hangs forever. */
+  const request = useCallback(
+    <T extends { ok: boolean; error?: string }>(
+      event: string,
+      payload: unknown,
+      timeoutMs = 10_000,
+    ): Promise<T> =>
+      new Promise<T>((resolve, reject) => {
+        const socket = socketRef.current;
+        if (!socket?.connected) {
+          reject(new Error('offline'));
+          return;
         }
-      }
-    }, 500);
-  }, []);
+        const timer = window.setTimeout(() => reject(new Error('timeout')), timeoutMs);
+        (socket as unknown as Socket).emit(event, payload, (res: T) => {
+          window.clearTimeout(timer);
+          if (res?.ok) resolve(res);
+          else reject(new Error(res?.error ?? 'failed'));
+        });
+      }),
+    [],
+  );
 
-  const attachLocalTracks = useCallback((link: PeerLink) => {
-    const tracks = tracksRef.current;
-    (['audio', 'video', 'screen'] as TrackKind[]).forEach((kind) => {
-      const track = tracks[kind];
-      if (!track || link.senders[kind]) return;
-      const stream =
-        kind === 'screen' ? screenStreamRef.current : cameraStreamRef.current;
-      if (!stream) return;
-      link.senders[kind] = link.pc.addTrack(track, stream);
-      void capSender(link.senders[kind]!, kind, linksRef.current.size);
+  const saveResume = useCallback(() => {
+    const m = mediaRef.current;
+    writeCallResume(sessionIdRef.current, {
+      callId: callIdRef.current,
+      audio: m.audio,
+      video: m.video,
     });
   }, []);
 
-  const ensureLink = useCallback(
-    (peerId: string): PeerLink => {
-      const existing = linksRef.current.get(peerId);
-      if (existing) return existing;
-      const pc = new RTCPeerConnection({ iceServers: iceRef.current });
-      const link: PeerLink = {
-        pc,
-        polite: (selfIdRef.current ?? '') < peerId,
-        makingOffer: false,
-        ignoreOffer: false,
-        senders: {},
-      };
-      linksRef.current.set(peerId, link);
-
-      pc.onnegotiationneeded = async () => {
-        try {
-          link.makingOffer = true;
-          await pc.setLocalDescription();
-          if (pc.localDescription) {
-            sendSignal(peerId, {
-              description: pc.localDescription.toJSON() as RtcSignalRelay['description'],
-            });
-          }
-        } catch (err) {
-          console.warn('[video] negotiation failed', err);
-        } finally {
-          link.makingOffer = false;
-        }
-      };
-      pc.onicecandidate = ({ candidate }) => {
-        sendSignal(peerId, { candidate: candidate ? candidate.toJSON() : null });
-      };
-      pc.ontrack = (ev) => onRemoteTrack(peerId, ev);
-      pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'failed') pc.restartIce();
-        // Caps set before negotiation may be ignored — apply them again.
-        if (pc.iceConnectionState === 'connected') recapAll();
-      };
-
-      attachLocalTracks(link);
-      recapAll();
-      return link;
+  const publishState = useCallback(
+    (next: RtcMediaState) => {
+      mediaRef.current = next;
+      setMedia(next);
+      const sid = sessionIdRef.current;
+      if (sid && socketRef.current?.connected && selfIdRef.current) {
+        socketRef.current.emit(WS_EVENTS.rtcState, { sessionId: sid, media: next });
+      }
+      if (wantJoinedRef.current) saveResume();
     },
-    [attachLocalTracks, onRemoteTrack, sendSignal, recapAll],
+    [saveResume],
+  );
+
+  /** Rebuild one peer's MediaStreams from its live consumers. */
+  const rebuildStreams = useCallback((peerId: string) => {
+    const cam: MediaStreamTrack[] = [];
+    const scr: MediaStreamTrack[] = [];
+    for (const { consumer, info, parked } of consumersRef.current.values()) {
+      if (info.peerId !== peerId || parked || consumer.closed) continue;
+      if (info.source === 'mic' || info.source === 'camera') cam.push(consumer.track);
+      else scr.push(consumer.track);
+    }
+    setPeers((prev) =>
+      prev.map((p) =>
+        p.peerId === peerId
+          ? {
+              ...p,
+              camera: cam.length ? new MediaStream(cam) : null,
+              screen: scr.length ? new MediaStream(scr) : null,
+            }
+          : p,
+      ),
+    );
+  }, []);
+
+  const setLayer = useCallback((producerId: string, spatialLayer: number) => {
+    const entry = consumersRef.current.get(producerId);
+    if (!entry || entry.consumer.kind !== 'video') return;
+    socketRef.current?.emit(WS_EVENTS.rtcConsumerLayers, {
+      consumerId: entry.consumer.id,
+      spatialLayer,
+    });
+  }, []);
+
+  const consume = useCallback(
+    async (info: RtcProducerInfo) => {
+      const recv = recvRef.current;
+      const device = deviceRef.current;
+      if (!recv || !device) return;
+      if (consumersRef.current.has(info.producerId)) return;
+      if (consumingRef.current.has(info.producerId)) return;
+      consumingRef.current.add(info.producerId);
+      try {
+        const res = await request<{ ok: boolean; params?: unknown }>(
+          WS_EVENTS.rtcConsume,
+          { producerId: info.producerId, rtpCapabilities: device.rtpCapabilities },
+        );
+        if (recvRef.current !== recv || !knownRef.current.has(info.producerId)) return;
+        const consumer = await recv.consume(
+          res.params as Parameters<msc.Transport['consume']>[0],
+        );
+        consumersRef.current.set(info.producerId, { consumer, info, parked: false });
+        consumer.on('transportclose', () => consumersRef.current.delete(info.producerId));
+        await request(WS_EVENTS.rtcConsumerPause, {
+          consumerId: consumer.id,
+          paused: false,
+        }).catch(() => undefined);
+        if (info.source === 'screen') setLayer(info.producerId, 2);
+        else if (info.source === 'camera' && stageRef.current === info.peerId) {
+          setLayer(info.producerId, 2);
+        }
+        rebuildStreams(info.peerId);
+      } catch (err) {
+        console.warn('[video] consume failed', info.source, err);
+      } finally {
+        consumingRef.current.delete(info.producerId);
+      }
+    },
+    [rebuildStreams, request, setLayer],
   );
 
   /**
-   * Open links one at a time. When a call starts, 20+ students arrive within
-   * a second; creating every RTCPeerConnection and encoder at once blocked
-   * the teacher's tab. A short gap keeps the page responsive.
+   * Decide what to receive: every audio and screen track, plus cameras for
+   * the stage, hosts, recent speakers, then the rest — up to a cap, so 50
+   * cameras do not melt a phone. Parked cameras show as avatars.
    */
-  const linkQueue = useRef<string[]>([]);
-  const linkTimer = useRef<number | null>(null);
-  const queueLink = useCallback(
-    (peerId: string) => {
-      if (linksRef.current.has(peerId) || linkQueue.current.includes(peerId)) return;
-      linkQueue.current.push(peerId);
-      const pump = () => {
-        const next = linkQueue.current.shift();
-        if (!next) {
-          linkTimer.current = null;
+  const syncTimer = useRef<number | null>(null);
+  const syncConsumers = useCallback(() => {
+    if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    syncTimer.current = window.setTimeout(() => {
+      syncTimer.current = null;
+      const cams: RtcProducerInfo[] = [];
+      for (const info of knownRef.current.values()) {
+        if (info.source === 'camera') cams.push(info);
+        else void consume(info);
+      }
+      const hostIds = new Set(
+        peersRef.current.filter((p) => p.role === 'host').map((p) => p.peerId),
+      );
+      const rank = (i: RtcProducerInfo) =>
+        (i.peerId === stageRef.current ? 4e15 : 0) +
+        (hostIds.has(i.peerId) ? 2e15 : 0) +
+        (lastSpokeRef.current.get(i.peerId) ?? 0);
+      cams.sort((a, b) => rank(b) - rank(a));
+      cams.forEach((info, index) => {
+        const wanted = index < MAX_REMOTE_VIDEOS;
+        const entry = consumersRef.current.get(info.producerId);
+        if (!entry) {
+          if (wanted) void consume(info);
           return;
         }
-        if (Object.keys(tracksRef.current).length > 0) ensureLink(next);
-        linkTimer.current = window.setTimeout(pump, 150);
+        if (entry.parked === !wanted) return;
+        entry.parked = !wanted;
+        socketRef.current?.emit(WS_EVENTS.rtcConsumerPause, {
+          consumerId: entry.consumer.id,
+          paused: !wanted,
+        });
+        rebuildStreams(info.peerId);
+      });
+    }, 120);
+  }, [consume, rebuildStreams]);
+
+  // ── transports ───────────────────────────────────────────────────────────
+
+  const rejoinRef = useRef<() => void>(() => undefined);
+
+  const watchTransport = useCallback(
+    (transport: msc.Transport) => {
+      let timer: number | null = null;
+      const restart = async () => {
+        if (transport.closed) return;
+        try {
+          const res = await request<{ ok: boolean; iceParameters?: unknown }>(
+            WS_EVENTS.rtcTransportRestartIce,
+            { transportId: transport.id },
+          );
+          await transport.restartIce({
+            iceParameters: res.iceParameters as msc.IceParameters,
+          });
+        } catch {
+          /* fall through to the watchdog below */
+        }
       };
-      if (linkTimer.current == null) linkTimer.current = window.setTimeout(pump, 0);
+      transport.on('connectionstatechange', (state) => {
+        if (timer) {
+          window.clearTimeout(timer);
+          timer = null;
+        }
+        if (state === 'connected' || state === 'closed') return;
+        if (state === 'failed') void restart();
+        if (state === 'disconnected' || state === 'failed') {
+          // A short blip heals by itself; otherwise restart ICE, and if the
+          // path is still dead after that, rebuild the whole connection.
+          timer = window.setTimeout(() => {
+            if (transport.closed || transport.connectionState === 'connected') return;
+            void restart();
+            timer = window.setTimeout(() => {
+              if (transport.closed || transport.connectionState === 'connected') return;
+              rejoinRef.current();
+            }, 8_000);
+          }, 2_500);
+        }
+      });
     },
-    [ensureLink],
+    [request],
   );
 
-  const closeLink = useCallback((peerId: string) => {
-    const link = linksRef.current.get(peerId);
-    if (!link) return;
-    link.pc.ontrack = null;
-    link.pc.onicecandidate = null;
-    link.pc.onnegotiationneeded = null;
-    link.pc.close();
-    linksRef.current.delete(peerId);
-    recapAll();
-  }, [recapAll]);
+  const createTransport = useCallback(
+    async (direction: 'send' | 'recv'): Promise<msc.Transport> => {
+      const device = deviceRef.current;
+      if (!device) throw new Error('no_device');
+      const res = await request<{ ok: boolean; params?: unknown }>(
+        WS_EVENTS.rtcTransportCreate,
+        { direction },
+      );
+      const params = res.params as msc.TransportOptions;
+      const transport =
+        direction === 'send'
+          ? device.createSendTransport(params)
+          : device.createRecvTransport(params);
+      transport.on('connect', ({ dtlsParameters }, done, fail) => {
+        request(WS_EVENTS.rtcTransportConnect, {
+          transportId: transport.id,
+          dtlsParameters,
+        })
+          .then(() => done())
+          .catch((e: Error) => fail(e));
+      });
+      if (direction === 'send') {
+        transport.on('produce', ({ kind, rtpParameters, appData }, done, fail) => {
+          request<{ ok: boolean; producerId?: string }>(WS_EVENTS.rtcProduce, {
+            transportId: transport.id,
+            kind,
+            rtpParameters,
+            source: (appData as { source: RtcSource }).source,
+          })
+            .then((r) => done({ id: r.producerId! }))
+            .catch((e: Error) => fail(e));
+        });
+      }
+      watchTransport(transport);
+      return transport;
+    },
+    [request, watchTransport],
+  );
 
-  const handleSignal = useCallback(
-    async ({ from, description, candidate }: RtcSignalRelay) => {
-      const link = ensureLink(from);
-      const { pc } = link;
-      try {
-        if (description) {
-          const collision =
-            description.type === 'offer' &&
-            (link.makingOffer || pc.signalingState !== 'stable');
-          link.ignoreOffer = !link.polite && collision;
-          if (link.ignoreOffer) return;
-          await pc.setRemoteDescription(description as RTCSessionDescriptionInit);
-          if (description.type === 'offer') {
-            await pc.setLocalDescription();
-            if (pc.localDescription) {
-              sendSignal(from, {
-                description: pc.localDescription.toJSON() as RtcSignalRelay['description'],
-              });
+  /** Send a local track to the room (replacing a previous one of its kind). */
+  const publish = useCallback(
+    async (source: RtcSource, track: MediaStreamTrack) => {
+      tracksRef.current[source] = track;
+      const device = deviceRef.current;
+      if (!device || !selfIdRef.current) return; // sent on (re)join
+      const old = producersRef.current.get(source);
+      if (old && !old.closed) {
+        await old.replaceTrack({ track });
+        if (old.paused) {
+          old.resume();
+          socketRef.current?.emit(WS_EVENTS.rtcProducerPause, {
+            producerId: old.id,
+            paused: false,
+          });
+        }
+        return;
+      }
+      if (!sendRef.current || sendRef.current.closed) {
+        sendRef.current = await createTransport('send');
+      }
+      const video = track.kind === 'video';
+      const producer = await sendRef.current.produce({
+        track,
+        stopTracks: false,
+        appData: { source },
+        ...(video
+          ? {
+              encodings: source === 'screen' ? SCREEN_ENCODINGS : CAMERA_ENCODINGS,
+              codecOptions: { videoGoogleStartBitrate: 800 },
             }
-          }
-        } else if (candidate !== undefined) {
-          try {
-            await pc.addIceCandidate(
-              candidate ? (candidate as RTCIceCandidateInit) : undefined,
-            );
-          } catch (err) {
-            if (!link.ignoreOffer) throw err;
-          }
+          : { codecOptions: { opusDtx: true, opusFec: true, opusStereo: false } }),
+      });
+      producersRef.current.set(source, producer);
+      producer.on('transportclose', () => {
+        if (producersRef.current.get(source) === producer) {
+          producersRef.current.delete(source);
         }
-      } catch (err) {
-        console.warn('[video] signal error', err);
-      }
+      });
     },
-    [ensureLink, sendSignal],
+    [createTransport],
   );
 
-  /** Put a local track on every connection (add or replace). */
-  const publishTrack = useCallback(
-    (kind: TrackKind, track: MediaStreamTrack | null) => {
-      if (track) tracksRef.current[kind] = track;
-      else delete tracksRef.current[kind];
-      for (const link of linksRef.current.values()) {
-        const sender = link.senders[kind];
-        if (sender) {
-          void sender.replaceTrack(track);
-        } else if (track) {
-          const stream =
-            kind === 'screen' ? screenStreamRef.current : cameraStreamRef.current;
-          if (!stream) continue;
-          link.senders[kind] = link.pc.addTrack(track, stream);
-          void capSender(link.senders[kind]!, kind, linksRef.current.size);
-        }
-      }
-    },
-    [],
-  );
+  const unpublish = useCallback((source: RtcSource) => {
+    delete tracksRef.current[source];
+    const producer = producersRef.current.get(source);
+    if (!producer) return;
+    producersRef.current.delete(source);
+    if (!producer.closed) producer.close();
+    socketRef.current?.emit(WS_EVENTS.rtcProducerClose, { producerId: producer.id });
+  }, []);
+
+  /** Drop every server-side object; local tracks stay alive for a re-join. */
+  const teardown = useCallback(() => {
+    if (syncTimer.current) window.clearTimeout(syncTimer.current);
+    sendRef.current?.close();
+    recvRef.current?.close();
+    sendRef.current = null;
+    recvRef.current = null;
+    producersRef.current.clear();
+    consumersRef.current.clear();
+    consumingRef.current.clear();
+    knownRef.current.clear();
+    deviceRef.current = null;
+  }, []);
 
   const stopLocal = useCallback(() => {
     for (const track of Object.values(tracksRef.current)) track?.stop();
     tracksRef.current = {};
-    cameraStreamRef.current = null;
-    screenStreamRef.current = null;
     setLocalCamera(null);
     setLocalScreen(null);
   }, []);
 
-  const resetLinks = useCallback(() => {
-    linkQueue.current = [];
-    for (const id of [...linksRef.current.keys()]) closeLink(id);
-    setPeers([]);
-  }, [closeLink]);
-
-  // ── socket lifecycle ─────────────────────────────────────────────────────
-
-  const wantJoinedRef = useRef(false);
+  // ── join / socket lifecycle ──────────────────────────────────────────────
 
   const doJoin = useCallback(() => {
     const socket = socketRef.current;
     const sid = sessionIdRef.current;
     if (!socket || !sid) return;
-    setStatus('joining');
-    // Never spin forever: if the server does not answer, say so.
-    let answered = false;
+    const seq = ++joinSeqRef.current;
+    setStatus(everJoinedRef.current ? 'reconnecting' : 'joining');
+    teardown();
+    selfIdRef.current = null;
+    // Never spin forever: if the server does not answer, retry / say so.
     const timer = window.setTimeout(() => {
-      if (answered) return;
+      if (seq !== joinSeqRef.current) return;
+      if (everJoinedRef.current) {
+        if (socket.connected) rejoinRef.current();
+        return;
+      }
       setStatus('error');
       setError('timeout');
     }, 12_000);
     socket.emit(
       WS_EVENTS.rtcJoin,
-      { sessionId: sid, media: mediaRef.current },
+      { sessionId: sid, media: mediaRef.current, clientId: tabClientId() },
       (ack: RtcJoinAck) => {
-        answered = true;
-        window.clearTimeout(timer);
-        if (!ack?.ok || !ack.selfId) {
-          setStatus('error');
-          setError(ack?.error ?? 'join_failed');
-          return;
-        }
-        resetLinks();
-        selfIdRef.current = ack.selfId;
-        iceRef.current = (ack.iceServers ?? []) as RTCIceServer[];
-        setSelfId(ack.selfId);
-        setRole(ack.role ?? 'participant');
-        setPeers(
-          (ack.peers ?? []).map((p) => ({ ...p, camera: null, screen: null })),
-        );
-        setError(null);
-        setStatus('joined');
-        // Existing members: open a link now if I publish — negotiation starts
-        // from my side. If only they publish, they open it on peer-joined.
-        if (Object.keys(tracksRef.current).length > 0) {
-          for (const p of ack.peers ?? []) queueLink(p.peerId);
-        }
+        void (async () => {
+          if (seq !== joinSeqRef.current || !wantJoinedRef.current) return;
+          window.clearTimeout(timer);
+          if (!ack?.ok || !ack.selfId) {
+            if (everJoinedRef.current && ack?.error === 'media_unavailable') {
+              window.setTimeout(() => rejoinRef.current(), 3_000);
+              return;
+            }
+            setStatus('error');
+            setError(ack?.error ?? 'join_failed');
+            return;
+          }
+          // Apply the roster snapshot NOW, before anything async: from this
+          // moment the server sends peer/producer events for this room, and
+          // a snapshot applied later would overwrite them (lost people).
+          const roster = (ack.peers ?? []).map((p) => ({
+            ...p,
+            camera: null,
+            screen: null,
+          }));
+          selfIdRef.current = ack.selfId;
+          callIdRef.current = ack.startedAt ?? null;
+          peersRef.current = roster;
+          setSelfId(ack.selfId);
+          setRole(ack.role ?? 'participant');
+          setPeers(roster);
+          for (const info of ack.producers ?? []) {
+            knownRef.current.set(info.producerId, info);
+          }
+          try {
+            const device = new Device();
+            await device.load({
+              routerRtpCapabilities:
+                ack.routerRtpCapabilities as msc.RtpCapabilities,
+            });
+            if (seq !== joinSeqRef.current) return;
+            deviceRef.current = device;
+            recvRef.current = await createTransport('recv');
+            if (seq !== joinSeqRef.current) return;
+            everJoinedRef.current = true;
+            setError(null);
+            setStatus('joined');
+            saveResume();
+            syncConsumers();
+            // (Re)publish whatever is on locally.
+            const t = tracksRef.current;
+            const m = mediaRef.current;
+            const live = (x?: MediaStreamTrack) => !!x && x.readyState === 'live';
+            if (live(t.mic)) {
+              await publish('mic', t.mic!);
+              if (!m.audio) {
+                const p = producersRef.current.get('mic');
+                p?.pause();
+                if (p) {
+                  socket.emit(WS_EVENTS.rtcProducerPause, {
+                    producerId: p.id,
+                    paused: true,
+                  });
+                }
+              }
+            }
+            if (m.video && live(t.camera)) await publish('camera', t.camera!);
+            if (m.screen && live(t.screen)) {
+              await publish('screen', t.screen!);
+              if (live(t['screen-audio'])) {
+                await publish('screen-audio', t['screen-audio']!);
+              }
+            }
+          } catch (err) {
+            console.warn('[video] join failed', err);
+            if (seq !== joinSeqRef.current) return;
+            if (everJoinedRef.current) {
+              window.setTimeout(() => rejoinRef.current(), 2_000);
+            } else {
+              setStatus('error');
+              setError('join_failed');
+            }
+          }
+        })();
       },
     );
-  }, [queueLink, resetLinks]);
+  }, [createTransport, publish, saveResume, syncConsumers, teardown]);
+
+  rejoinRef.current = () => {
+    if (!wantJoinedRef.current) return;
+    if (socketRef.current?.connected) doJoin();
+    else setStatus('reconnecting');
+  };
+
+  const leaveInternal = useCallback(
+    (opts: { keepResume?: boolean } = {}) => {
+      wantJoinedRef.current = false;
+      everJoinedRef.current = false;
+      joinSeqRef.current++;
+      const sid = sessionIdRef.current;
+      if (sid) socketRef.current?.emit(WS_EVENTS.rtcLeave, { sessionId: sid });
+      if (!opts.keepResume) writeCallResume(sid, null);
+      teardown();
+      stopLocal();
+      mediaRef.current = NO_MEDIA;
+      setMedia(NO_MEDIA);
+      setPeers([]);
+      setSpeaking([]);
+      setDominantId(null);
+      lastSpokeRef.current.clear();
+      stageRef.current = null;
+      socketRef.current?.removeAllListeners();
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+      selfIdRef.current = null;
+      setSelfId(null);
+      setRole(null);
+      setStatus('idle');
+    },
+    [stopLocal, teardown],
+  );
+
+  const leave = useCallback(() => leaveInternal(), [leaveInternal]);
 
   const ensureSocket = useCallback((): LiveSocket | null => {
     if (socketRef.current) return socketRef.current;
@@ -434,106 +665,153 @@ export function useVideoRoom(
       auth: { token: auth },
       query: { token: auth },
       reconnection: true,
-      reconnectionAttempts: 30,
-      reconnectionDelay: 800,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 600,
+      reconnectionDelayMax: 4_000,
       timeout: 12_000,
       forceNew: true,
     });
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      // New socket id after a reconnect → every link must be rebuilt.
+      // First connect, or a new socket after a drop → (re)build everything.
       if (wantJoinedRef.current) doJoin();
     });
+    socket.on('disconnect', () => {
+      if (wantJoinedRef.current && everJoinedRef.current) setStatus('reconnecting');
+    });
     socket.on('connect_error', (err) => {
-      if (wantJoinedRef.current) {
-        setStatus('error');
-        setError(err.message);
+      if (!wantJoinedRef.current) return;
+      if (everJoinedRef.current) {
+        setStatus('reconnecting'); // socket.io keeps retrying
+        return;
       }
+      setStatus('error');
+      setError(err.message);
     });
 
     socket.on(WS_EVENTS.rtcPeerJoined, (peer) => {
-      setPeers((prev) => [
-        ...prev.filter((p) => p.peerId !== peer.peerId),
-        { ...peer, camera: null, screen: null },
-      ]);
-      if (Object.keys(tracksRef.current).length > 0) queueLink(peer.peerId);
+      setPeers((prev) => {
+        const old = prev.find((p) => p.peerId === peer.peerId);
+        const next: RemotePeer = { ...peer, camera: null, screen: null };
+        return old
+          ? prev.map((p) => (p.peerId === peer.peerId ? next : p))
+          : [...prev, next];
+      });
     });
     socket.on(WS_EVENTS.rtcPeerLeft, ({ peerId }) => {
-      linkQueue.current = linkQueue.current.filter((id) => id !== peerId);
-      closeLink(peerId);
+      for (const [id, info] of knownRef.current) {
+        if (info.peerId !== peerId) continue;
+        knownRef.current.delete(id);
+        const entry = consumersRef.current.get(id);
+        if (entry && !entry.consumer.closed) entry.consumer.close();
+        consumersRef.current.delete(id);
+      }
+      lastSpokeRef.current.delete(peerId);
       setPeers((prev) => prev.filter((p) => p.peerId !== peerId));
+      setDominantId((cur) => (cur === peerId ? null : cur));
+      syncConsumers();
     });
     socket.on(WS_EVENTS.rtcPeerState, ({ peerId, media: m }) => {
-      setPeers((prev) =>
-        prev.map((p) => {
-          if (p.peerId !== peerId) return p;
-          const next: RemotePeer = { ...p, media: m };
-          if (!m.screen) next.screen = null;
-          // A stream that arrived before its id was announced may sit in
-          // the camera slot — move it once we know it is the screen.
-          if (m.screenStreamId && p.camera?.id === m.screenStreamId) {
-            next.screen = p.camera;
-            next.camera = null;
-          }
-          return next;
-        }),
-      );
+      setPeers((prev) => prev.map((p) => (p.peerId === peerId ? { ...p, media: m } : p)));
     });
-    socket.on(WS_EVENTS.rtcSignal, (relay) => {
-      void handleSignal(relay);
+    socket.on(WS_EVENTS.rtcProducerNew, (info) => {
+      if (info.peerId === selfIdRef.current) return;
+      knownRef.current.set(info.producerId, info);
+      syncConsumers();
+    });
+    socket.on(WS_EVENTS.rtcProducerClosed, ({ producerId, peerId }) => {
+      knownRef.current.delete(producerId);
+      const entry = consumersRef.current.get(producerId);
+      if (entry) {
+        if (!entry.consumer.closed) entry.consumer.close();
+        consumersRef.current.delete(producerId);
+        rebuildStreams(peerId);
+      }
+      syncConsumers();
+    });
+    socket.on(WS_EVENTS.rtcSpeakers, ({ speakers }) => {
+      const now = Date.now();
+      const ids = speakers.map((s) => s.peerId);
+      for (const id of ids) lastSpokeRef.current.set(id, now);
+      setSpeaking((prev) =>
+        prev.length === ids.length && prev.every((id, i) => id === ids[i]) ? prev : ids,
+      );
+      // The floor goes to the loudest OTHER person; it stays with them
+      // through pauses, so the stage does not jump around.
+      const loudest = ids.find((id) => id !== selfIdRef.current);
+      if (loudest) setDominantId((cur) => (cur === loudest ? cur : loudest));
     });
     socket.on(WS_EVENTS.rtcModerate, ({ action }) => {
       setModeratedAt({ action, at: Date.now() });
       const cur = mediaRef.current;
       if (action === 'mute' && cur.audio) {
-        const t = tracksRef.current.audio;
-        if (t) t.enabled = false;
+        const p = producersRef.current.get('mic');
+        if (p && !p.closed) {
+          p.pause();
+          socket.emit(WS_EVENTS.rtcProducerPause, { producerId: p.id, paused: true });
+        }
         publishState({ ...cur, audio: false });
       } else if (action === 'stop-video' && cur.video) {
-        tracksRef.current.video?.stop();
-        publishTrack('video', null);
+        tracksRef.current.camera?.stop();
+        unpublish('camera');
+        setLocalCamera(null);
         publishState({ ...cur, video: false });
       } else if (action === 'lower-hand' && cur.hand) {
         publishState({ ...cur, hand: false });
       }
     });
+    socket.on(WS_EVENTS.rtcCallEnded, () => {
+      if (!wantJoinedRef.current) return;
+      setEndedAt(Date.now());
+      leaveInternal();
+    });
+    socket.on(WS_EVENTS.rtcReset, () => {
+      if (wantJoinedRef.current) doJoin();
+    });
     return socket;
-  }, [closeLink, doJoin, queueLink, handleSignal, publishState, publishTrack]);
+  }, [doJoin, leaveInternal, publishState, rebuildStreams, syncConsumers, unpublish]);
 
-  const leave = useCallback(() => {
-    wantJoinedRef.current = false;
-    const sid = sessionIdRef.current;
-    if (sid) socketRef.current?.emit(WS_EVENTS.rtcLeave, { sessionId: sid });
-    resetLinks();
-    stopLocal();
-    mediaRef.current = NO_MEDIA;
-    setMedia(NO_MEDIA);
-    socketRef.current?.removeAllListeners();
-    socketRef.current?.disconnect();
-    socketRef.current = null;
-    selfIdRef.current = null;
-    setSelfId(null);
-    setRole(null);
-    setStatus('idle');
-  }, [resetLinks, stopLocal]);
+  // Leave on unmount / session change — but remember the call, so a reload
+  // (where this cleanup may or may not run) brings the person straight back.
+  useEffect(
+    () => () => leaveInternal({ keepResume: true }),
+    [sessionId, leaveInternal],
+  );
 
-  // Leave on unmount / session change.
-  useEffect(() => () => leave(), [sessionId, leave]);
+  // Back online / tab visible again → make sure we are still connected.
+  useEffect(() => {
+    const check = () => {
+      if (!wantJoinedRef.current) return;
+      const socket = socketRef.current;
+      if (socket && !socket.connected) socket.connect();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    window.addEventListener('online', check);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('online', check);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   // ── local media ──────────────────────────────────────────────────────────
 
-  const getCameraStream = useCallback((): MediaStream => {
-    if (!cameraStreamRef.current) {
-      cameraStreamRef.current = new MediaStream();
-    }
-    return cameraStreamRef.current;
+  const refreshLocalCamera = useCallback(() => {
+    const t = tracksRef.current;
+    const tracks = [t.camera, t.mic].filter(
+      (x): x is MediaStreamTrack => !!x && x.readyState === 'live',
+    );
+    setLocalCamera(tracks.length ? new MediaStream(tracks) : null);
   }, []);
 
   const enableAudio = useCallback(async (): Promise<boolean> => {
-    const existing = tracksRef.current.audio;
+    const existing = tracksRef.current.mic;
     if (existing && existing.readyState === 'live') {
       existing.enabled = true;
+      await publish('mic', existing);
       return true;
     }
     const s = await navigator.mediaDevices.getUserMedia({
@@ -541,122 +819,111 @@ export function useVideoRoom(
     });
     const track = s.getAudioTracks()[0];
     if (!track) return false;
-    const cam = getCameraStream();
-    cam.getAudioTracks().forEach((t) => cam.removeTrack(t));
-    cam.addTrack(track);
-    setLocalCamera(new MediaStream(cam.getTracks()));
-    publishTrack('audio', track);
+    await publish('mic', track);
+    refreshLocalCamera();
     return true;
-  }, [getCameraStream, publishTrack]);
+  }, [publish, refreshLocalCamera]);
 
   const enableVideo = useCallback(async (): Promise<boolean> => {
     const s = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 640 },
-        height: { ideal: 360 },
+        width: { ideal: 960 },
+        height: { ideal: 540 },
         frameRate: { ideal: 24, max: 24 },
       },
     });
     const track = s.getVideoTracks()[0];
     if (!track) return false;
-    const cam = getCameraStream();
-    cam.getVideoTracks().forEach((t) => {
-      t.stop();
-      cam.removeTrack(t);
-    });
-    cam.addTrack(track);
-    setLocalCamera(new MediaStream(cam.getTracks()));
-    publishTrack('video', track);
+    tracksRef.current.camera?.stop();
+    await publish('camera', track);
+    refreshLocalCamera();
     return true;
-  }, [getCameraStream, publishTrack]);
-
-  /** After publishing new tracks, open links to everyone who has none yet. */
-  const linkEveryone = useCallback(() => {
-    for (const p of peersRef.current) queueLink(p.peerId);
-  }, [queueLink]);
+  }, [publish, refreshLocalCamera]);
 
   const join = useCallback(
     async (opts: { audio?: boolean; video?: boolean } = {}) => {
-      if (!sessionIdRef.current) return;
+      if (!sessionIdRef.current || wantJoinedRef.current) return;
       setError(null);
+      setEndedAt(null);
+      wantJoinedRef.current = true;
+      setStatus('joining');
       let next: RtcMediaState = { ...NO_MEDIA };
       try {
+        // Tracks are captured first and sent once the room is joined.
         if (opts.audio && (await enableAudio())) next = { ...next, audio: true };
         if (opts.video && (await enableVideo())) next = { ...next, video: true };
       } catch {
         setError('media_denied');
       }
-      next.cameraStreamId = cameraStreamRef.current?.id ?? null;
+      if (!wantJoinedRef.current) return; // left while the prompt was open
       mediaRef.current = next;
       setMedia(next);
-      wantJoinedRef.current = true;
       const socket = ensureSocket();
       if (!socket) {
+        wantJoinedRef.current = false;
         setStatus('error');
         setError('no_token');
         return;
       }
       if (socket.connected) doJoin();
-      else setStatus('joining');
     },
     [doJoin, enableAudio, enableVideo, ensureSocket],
   );
 
+  const endCall = useCallback(() => {
+    const sid = sessionIdRef.current;
+    if (sid) socketRef.current?.emit(WS_EVENTS.rtcCallEnd, { sessionId: sid });
+  }, []);
+
   const toggleAudio = useCallback(async () => {
     const cur = mediaRef.current;
     if (cur.audio) {
-      const t = tracksRef.current.audio;
-      if (t) t.enabled = false;
+      const p = producersRef.current.get('mic');
+      if (p && !p.closed) {
+        p.pause();
+        socketRef.current?.emit(WS_EVENTS.rtcProducerPause, {
+          producerId: p.id,
+          paused: true,
+        });
+      } else if (tracksRef.current.mic) {
+        tracksRef.current.mic.enabled = false;
+      }
       publishState({ ...cur, audio: false });
       return;
     }
     try {
       if (!(await enableAudio())) return;
-      publishState({
-        ...mediaRef.current,
-        audio: true,
-        cameraStreamId: cameraStreamRef.current?.id ?? null,
-      });
-      linkEveryone();
+      publishState({ ...mediaRef.current, audio: true });
     } catch {
       setError('media_denied');
     }
-  }, [enableAudio, linkEveryone, publishState]);
+  }, [enableAudio, publishState]);
 
   const toggleVideo = useCallback(async () => {
     const cur = mediaRef.current;
     if (cur.video) {
-      const t = tracksRef.current.video;
-      t?.stop();
-      if (t) cameraStreamRef.current?.removeTrack(t);
-      publishTrack('video', null);
-      setLocalCamera(
-        cameraStreamRef.current
-          ? new MediaStream(cameraStreamRef.current.getTracks())
-          : null,
-      );
+      tracksRef.current.camera?.stop();
+      unpublish('camera');
+      refreshLocalCamera();
       publishState({ ...cur, video: false });
       return;
     }
     try {
       if (!(await enableVideo())) return;
-      publishState({
-        ...mediaRef.current,
-        video: true,
-        cameraStreamId: cameraStreamRef.current?.id ?? null,
-      });
-      linkEveryone();
+      publishState({ ...mediaRef.current, video: true });
     } catch {
       setError('media_denied');
     }
-  }, [enableVideo, linkEveryone, publishState, publishTrack]);
+  }, [enableVideo, publishState, refreshLocalCamera, unpublish]);
 
   const stopScreen = useCallback(() => {
     tracksRef.current.screen?.stop();
-    publishTrack('screen', null);
+    tracksRef.current['screen-audio']?.stop();
+    unpublish('screen');
+    unpublish('screen-audio');
     setLocalScreen(null);
     publishState({ ...mediaRef.current, screen: false });
-  }, [publishState, publishTrack]);
+  }, [publishState, unpublish]);
 
   const toggleScreen = useCallback(async () => {
     if (mediaRef.current.screen) {
@@ -665,30 +932,26 @@ export function useVideoRoom(
     }
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 15, max: 15 } },
-        audio: false,
+        video: {
+          frameRate: { ideal: 15, max: 20 },
+          width: { max: 1920 },
+          height: { max: 1080 },
+        },
+        audio: true,
       });
       const track = s.getVideoTracks()[0];
       if (!track) return;
       if ('contentHint' in track) track.contentHint = 'detail';
       track.onended = () => stopScreen();
-      if (!screenStreamRef.current) screenStreamRef.current = new MediaStream();
-      const scr = screenStreamRef.current;
-      scr.getTracks().forEach((t) => scr.removeTrack(t));
-      scr.addTrack(track);
       setLocalScreen(new MediaStream([track]));
-      // Announce the stream id BEFORE the track lands so receivers route it.
-      publishState({
-        ...mediaRef.current,
-        screen: true,
-        screenStreamId: scr.id,
-      });
-      publishTrack('screen', track);
-      linkEveryone();
+      publishState({ ...mediaRef.current, screen: true });
+      await publish('screen', track);
+      const audio = s.getAudioTracks()[0];
+      if (audio) await publish('screen-audio', audio);
     } catch {
       /* user cancelled the picker */
     }
-  }, [linkEveryone, publishState, publishTrack, stopScreen]);
+  }, [publish, publishState, stopScreen]);
 
   const toggleHand = useCallback(() => {
     publishState({ ...mediaRef.current, hand: !mediaRef.current.hand });
@@ -700,6 +963,21 @@ export function useVideoRoom(
     socketRef.current?.emit(WS_EVENTS.rtcModerate, { sessionId: sid, target, action });
   }, []);
 
+  const setStage = useCallback(
+    (peerId: string | null) => {
+      const prev = stageRef.current;
+      if (prev === peerId) return;
+      stageRef.current = peerId;
+      for (const [producerId, info] of knownRef.current) {
+        if (info.source !== 'camera') continue;
+        if (info.peerId === prev) setLayer(producerId, 0);
+        if (info.peerId === peerId) setLayer(producerId, 2);
+      }
+      syncConsumers();
+    },
+    [setLayer, syncConsumers],
+  );
+
   return {
     status,
     error,
@@ -709,13 +987,18 @@ export function useVideoRoom(
     media,
     localCamera,
     localScreen,
+    speaking,
+    dominantId,
     join,
     leave,
+    endCall,
     toggleAudio,
     toggleVideo,
     toggleScreen,
     toggleHand,
     moderate,
+    setStage,
     moderatedAt,
+    endedAt,
   };
 }

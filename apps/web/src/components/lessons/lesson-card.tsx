@@ -1,5 +1,7 @@
 'use client';
 
+import { ApiError } from '@/lib/api/client';
+
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
@@ -35,6 +37,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { CategoryPicker } from './category-picker';
 
 const TYPE_META: Record<LessonType, { icon: LucideIcon; labelKey: string }> = {
   video: { icon: Video, labelKey: 'typeVideo' },
@@ -47,11 +51,14 @@ export function LessonCard({
   lesson,
   activeSession,
   dateFormatter,
+  categories,
 }: {
   lesson: Lesson;
   activeSession?: LiveSessionSummary;
   /** Shared across the whole list — built once by the parent, not per card. */
   dateFormatter: Intl.DateTimeFormat;
+  /** Known categories for the "move to category" control. */
+  categories: string[];
 }) {
   const t = useTranslations('lessons');
   const tCommon = useTranslations('common');
@@ -64,6 +71,7 @@ export function LessonCard({
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [titleDraft, setTitleDraft] = useState(lesson.title);
+  const [confirm, setConfirm] = useState<'delete' | 'archive' | null>(null);
 
   async function goLive() {
     setError(null);
@@ -76,8 +84,7 @@ export function LessonCard({
   }
 
   function onDelete() {
-    if (!window.confirm(t('deleteConfirm'))) return;
-    deleteLesson.mutate(lesson.id);
+    setConfirm('delete');
   }
 
   function toggleArchived() {
@@ -85,9 +92,39 @@ export function LessonCard({
     // default list, which would otherwise strand a teacher mid-class with
     // no obvious way back to an active session — confirm only for that case.
     if (!lesson.archived && activeSession) {
-      if (!window.confirm(t('archiveLiveConfirm'))) return;
+      setConfirm('archive');
+      return;
     }
     updateLesson.mutate({ archived: !lesson.archived });
+  }
+
+  function onConfirm() {
+    if (confirm === 'delete') {
+      setError(null);
+      deleteLesson.mutate(lesson.id, {
+        onError: (err) =>
+          setError(
+            err instanceof ApiError && err.status === 409
+              ? t('deleteHasSessions')
+              : err instanceof Error
+                ? err.message
+                : t('deleteFailed'),
+          ),
+      });
+    }
+    if (confirm === 'archive') updateLesson.mutate({ archived: true });
+    setConfirm(null);
+  }
+
+  function setCategory(next: string | null) {
+    setError(null);
+    updateLesson.mutate(
+      { category: next },
+      {
+        onError: (err) =>
+          setError(err instanceof Error ? err.message : t('categoryFailed')),
+      },
+    );
   }
 
   async function saveTitle() {
@@ -224,14 +261,24 @@ export function LessonCard({
             className="text-muted-foreground hover:text-destructive"
             onClick={onDelete}
             disabled={deleteLesson.isPending}
-            aria-label={t('deleteConfirm')}
+            aria-label={tCommon('delete')}
+            title={tCommon('delete')}
           >
             <Trash2 />
           </Button>
         </div>
       </CardHeader>
       <CardContent className="mt-auto flex flex-col gap-3">
-        <div className="grid grid-cols-2 gap-2">
+        <CategoryPicker
+          compact
+          value={lesson.category}
+          options={categories}
+          onChange={setCategory}
+          disabled={updateLesson.isPending}
+          className="self-start"
+        />
+        {/* Wraps to one button per row in narrow board columns. */}
+        <div className="flex flex-wrap gap-2 [&>*]:min-w-[9.5rem] [&>*]:flex-1">
           <Button asChild variant="outline">
             <Link href={`/editor/${lesson.id}`}>
               <Pencil />
@@ -264,6 +311,20 @@ export function LessonCard({
           </p>
         ) : null}
       </CardContent>
+      <ConfirmDialog
+        open={confirm !== null}
+        title={confirm === 'archive' ? t('archive') : t('deleteConfirm')}
+        description={
+          <p>
+            {confirm === 'archive'
+              ? t('archiveLiveConfirm')
+              : t('deleteBody', { title: lesson.title })}
+          </p>
+        }
+        confirmLabel={confirm === 'archive' ? t('archive') : tCommon('delete')}
+        onConfirm={onConfirm}
+        onCancel={() => setConfirm(null)}
+      />
     </Card>
   );
 }

@@ -178,6 +178,16 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.push('/login');
   }
 
+  // The most specific nav entry wins, so "/lessons/past" does not also light
+  // up "/lessons".
+  const activeHref = nav
+    .filter((item) =>
+      item.href === '/join'
+        ? pathname === '/join' || pathname.startsWith('/live')
+        : pathname === item.href || pathname.startsWith(`${item.href}/`),
+    )
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
   const initial =
     user?.fullName?.trim()?.[0]?.toUpperCase() ??
     user?.email?.[0]?.toUpperCase() ??
@@ -186,11 +196,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b bg-card">
-        <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-6">
           <Link href="/cabinet" aria-label="AI Research Labs">
             <Brand />
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <LocaleSwitcher />
             <ThemeToggle />
             {user ? (
@@ -208,11 +218,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <HelpCircle />
                   </Button>
                 ) : null}
-                <span
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
-                  title={user.fullName ?? user.email}
-                >
-                  {initial}
+                <span className="flex items-center gap-2 pl-1">
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
+                    title={user.fullName ?? user.email}
+                  >
+                    {initial}
+                  </span>
+                  <span className="hidden max-w-[12rem] truncate text-sm font-medium md:inline">
+                    {user.fullName ?? user.email}
+                  </span>
                 </span>
                 <Button
                   type="button"
@@ -235,37 +250,67 @@ export function AppShell({ children }: { children: ReactNode }) {
          * on the nav below pulls it left purely visually, so users don't
          * have to tab through the whole nav list to reach the page content
          * on every route. */}
-        <div className="min-w-0 flex-1">{children}</div>
+        <div className="min-w-0 flex-1 pb-20 sm:pb-0">{children}</div>
 
         <nav
           aria-label="Main"
-          className="sticky top-16 order-first hidden h-[calc(100vh-4rem)] w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-card/60 p-3 sm:flex"
+          className="sticky top-16 order-first hidden h-[calc(100vh-4rem)] w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r bg-card p-3 sm:flex"
         >
           {nav.map((item) => {
-            const active =
-              item.href === '/join'
-                ? pathname === '/join' || pathname.startsWith('/live')
-                : pathname.startsWith(item.href);
+            const active = item.href === activeHref;
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 data-tour-id={`nav-${item.tourId}`}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  'relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   active
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                    ? 'bg-primary/10 text-primary before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
-                {item.label}
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="truncate">{item.label}</span>
               </Link>
             );
           })}
         </nav>
       </div>
+
+      {/* Phones: the sidebar becomes a bottom tab bar, always within reach. */}
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-40 flex overflow-x-auto border-t bg-card pb-[env(safe-area-inset-bottom)] sm:hidden"
+      >
+        {nav.map((item) => {
+          const active = item.href === activeHref;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'flex min-w-[4.5rem] flex-1 flex-col items-center gap-1 px-1 pb-2 pt-2.5 text-[11px] font-medium leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                active ? 'text-primary' : 'text-muted-foreground',
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-7 w-12 items-center justify-center rounded-full transition-colors',
+                  active && 'bg-primary/10',
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="max-w-full truncate">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       <OnboardingTour steps={tourSteps} open={tourOpen} onFinish={finishTour} />
     </div>

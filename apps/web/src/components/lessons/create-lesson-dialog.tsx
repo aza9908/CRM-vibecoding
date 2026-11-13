@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   createLessonSchema,
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { FieldError } from '@/components/auth/field-error';
 import { Modal } from './modal';
+import { CategoryPicker } from './category-picker';
 
 const TYPE_LABEL_KEY: Record<LessonType, string> = {
   video: 'typeVideo',
@@ -45,9 +46,15 @@ const KIND_NONE = '__none__';
 export function CreateLessonDialog({
   open,
   onClose,
+  categories = [],
+  defaultCategory = null,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Known categories for the picker. */
+  categories?: string[];
+  /** Category preselected when the dialog opens (e.g. the column's "+"). */
+  defaultCategory?: string | null;
 }) {
   const t = useTranslations('lessons');
   const tc = useTranslations('common');
@@ -57,7 +64,12 @@ export function CreateLessonDialog({
   const [title, setTitle] = useState('');
   const [type, setType] = useState<LessonType>('text');
   const [kind, setKind] = useState<LessonKind | typeof KIND_NONE>(KIND_NONE);
+  const [category, setCategory] = useState<string | null>(defaultCategory);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) setCategory(defaultCategory);
+  }, [open, defaultCategory]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -67,6 +79,7 @@ export function CreateLessonDialog({
       title,
       type,
       kind: kind === KIND_NONE ? undefined : kind,
+      ...(category ? { category } : {}),
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input');
@@ -132,6 +145,17 @@ export function CreateLessonDialog({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="lesson-category">{t('category')}</Label>
+          <CategoryPicker
+            id="lesson-category"
+            value={category}
+            options={categories}
+            onChange={setCategory}
+          />
+          <p className="text-xs text-muted-foreground">{t('categoryHint')}</p>
         </div>
 
         <FieldError message={error} />
