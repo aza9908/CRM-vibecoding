@@ -1,11 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import OpenAI from 'openai';
+import OpenAI, { toFile } from 'openai';
 
 import type {
   ChatMessage,
   LlmProvider,
   LlmStreamOptions,
+  TranscribeInput,
+  TranscribeResult,
 } from './llm-provider.interface';
 
 /**
@@ -20,6 +22,7 @@ export class GroqProvider implements LlmProvider {
   private readonly logger = new Logger(GroqProvider.name);
   private readonly client: OpenAI;
   private readonly defaultModel: string;
+  private readonly transcribeModel: string;
 
   constructor(private readonly config: ConfigService) {
     // .trim(): a secret set via `echo "$key" | secrets:set` (rather than
@@ -46,7 +49,10 @@ export class GroqProvider implements LlmProvider {
     // produces well-formed Russian JSON output for this app's block-
     // generation prompts.
     this.defaultModel =
-      this.config.get<string>('GROQ_MODEL') ?? 'openai/gpt-oss-120b';
+      this.config.get<string>('GROQ_MODEL') ?? 'openai/gpt-oss-120b';    // Whisper on Groq: the turbo model is ~8× cheaper than large-v3 and
+    // handles Russian / Uzbek / Kazakh lessons well.
+    this.transcribeModel =
+      this.config.get<string>('GROQ_TRANSCRIBE_MODEL') ?? 'whisper-large-v3-turbo';
   }
 
   /** Stream completion tokens as they are generated. */
@@ -90,5 +96,42 @@ export class GroqProvider implements LlmProvider {
     );
 
     return res.choices[0]?.message?.content ?? '';
+  }
+
+  /**
+   * Speech-to-text through Groq's OpenAI-compatible `/audio/transcriptions`
+   * (Whisper). `verbose_json` returns segment timestamps. The endpoint
+   * accepts files up to 25 MB.
+   */
+  async transcribe(input: TranscribeInput): Promise<TranscribeResult> {
+    const file = await toFile(input.audio, input.fileName, { type: input.mimeType });
+    const res = (await this.client.audio.transcriptions.create(
+      {
+        file,
+        model: this.transcribeModel,
+        response_format: 'verbose_json',
+        temperature: 0,
+        ...(input.language ? { language: input.language } : {}),
+      },
+      { signal: input.signal, timeout: 10 * 60_000 },
+    )) as unknown as {
+      text?: string;
+      duration?: number;
+      language?: string;
+      segments?: { start?: number; end?: number; text?: string }[];
+    };
+    const segments = (res.segments ?? [])
+      .map((s) => ({
+        start: Number(s.start) || 0,
+        end: Number(s.end) || 0,
+        text: (s.text ?? '').trim(),
+      }))
+      .filter((s) => s.text.length > 0);
+    return {
+      text: (res.text ?? '').trim(),
+      segments,
+      durationSec: typeof res.duration === 'number' ? Math.round(res.duration) : null,
+      language: res.language ?? null,
+    };
   }
 }

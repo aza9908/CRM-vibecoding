@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { AuthModule } from '../auth/auth.module';
 import { LessonsModule } from '../lessons/lessons.module';
@@ -11,6 +12,7 @@ import { PdfSlidesService } from './pdf-slides.service';
 import { LLM_PROVIDER } from './providers/llm-provider.interface';
 import { GroqProvider } from './providers/groq.provider';
 import { ClaudeProvider } from './providers/claude.provider';
+import { MockLlmProvider } from './providers/mock.provider';
 
 /**
  * AI assistant module — Socratic chat (SSE) and AI workbook generation.
@@ -39,8 +41,20 @@ import { ClaudeProvider } from './providers/claude.provider';
     FileExtractionService,
     PdfSlidesService,
     ClaudeProvider,
-    { provide: LLM_PROVIDER, useClass: GroqProvider },
+    {
+      // Groq in production; the offline mock when it is asked for
+      // (`LLM_PROVIDER=mock`) or when there is no key to call Groq with.
+      provide: LLM_PROVIDER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const key = (config.get<string>('GROQ_API_KEY') ?? '').trim();
+        const mock = config.get<string>('LLM_PROVIDER') === 'mock' || !key;
+        return mock ? new MockLlmProvider() : new GroqProvider(config);
+      },
+    },
   ],
-  exports: [AiService],
+  // LLM_PROVIDER is exported for the lesson-analysis module (transcription
+  // + report), which must go through the same vendor abstraction.
+  exports: [AiService, LLM_PROVIDER],
 })
 export class AiModule {}

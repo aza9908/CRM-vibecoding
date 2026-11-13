@@ -315,6 +315,45 @@ export const pulseChecks = pgTable(
   }),
 );
 
+/**
+ * «ИИ-разбор урока» — one AI analysis of a recorded lesson. The browser
+ * uploads the recording's audio in pieces during the lesson; when recording
+ * stops a row is created (`queued`) and a background job transcribes the
+ * audio and asks the LLM for a report on the lesson's strong and weak sides.
+ * `report` follows `lessonAnalysisReportSchema` from `@lms/shared`.
+ */
+export const lessonAnalyses = pgTable(
+  'lesson_analyses',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => liveSessions.id, { onDelete: 'cascade' }),
+    lessonId: uuid('lesson_id').references(() => lessons.id, {
+      onDelete: 'set null',
+    }),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    /** Client-generated id of the recording — makes `finish` idempotent. */
+    recordingId: text('recording_id').notNull(),
+    status: text('status').notNull().default('queued'), // queued|processing|done|failed
+    progress: integer('progress').notNull().default(0), // 0–100
+    stage: text('stage').notNull().default('queued'),
+    title: text('title').notNull(),
+    locale: text('locale').notNull().default('ru'),
+    durationSec: integer('duration_sec'),
+    transcript: text('transcript'),
+    report: jsonb('report'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => ({
+    recordingIdx: uniqueIndex('lesson_analyses_recording_idx').on(t.recordingId),
+    sessionIdx: index('lesson_analyses_session_idx').on(t.sessionId, t.createdAt),
+    lessonIdx: index('lesson_analyses_lesson_idx').on(t.lessonId, t.createdAt),
+  }),
+);
+
 export const participants = pgTable(
   'participants',
   {

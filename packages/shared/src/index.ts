@@ -18,4 +18,5 @@ export * from './dto/program.dto.js';
 export * from './dto/admin.dto.js';
 export * from './dto/task.dto.js';
 export * from './dto/promo-code.dto.js';
+export * from './dto/analysis.dto.js';
 export * from './ws-events.js';

@@ -91,6 +91,14 @@ export interface RecorderScene {
   pipMirror?: boolean;
 }
 
+/** Where the audio-only copy for the AI lesson review goes. */
+export interface AudioOnlySink {
+  write(blob: Blob): void;
+  finish(): Promise<unknown>;
+}
+
+const SPEECH_BITS_PER_SECOND = 24_000;
+
 export interface CallRecorder {
   /** Where the file is going right now. */
   readonly target: RecordingTarget;
@@ -668,6 +676,11 @@ export async function startCallRecording(opts: {
   title: string;
   target: RecordingTarget;
   token?: string | null;
+  /**
+   * Receives a second, speech-quality audio-only recording (small enough to
+   * send to the server piece by piece) — the input of the AI lesson review.
+   */
+  audioSink?: (mimeType: string) => AudioOnlySink | null;
 }): Promise<CallRecorder> {
   const mimeType = pickMimeType();
   const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
@@ -840,6 +853,29 @@ export async function startCallRecording(opts: {
     return new Blob(memory, { type: baseType });
   };
 
+  // Audio-only copy for the AI review (never blocks or breaks the recording).
+  let speech: MediaRecorder | null = null;
+  let speechSink: AudioOnlySink | null = null;
+  try {
+    const speechType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) =>
+      MediaRecorder.isTypeSupported(m),
+    );
+    speechSink = speechType && opts.audioSink ? opts.audioSink(speechType.split(';')[0]!) : null;
+    if (speechSink && speechType) {
+      const sink = speechSink;
+      speech = new MediaRecorder(new MediaStream(mix.stream.getAudioTracks()), {
+        mimeType: speechType,
+        audioBitsPerSecond: SPEECH_BITS_PER_SECOND,
+      });
+      speech.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) sink.write(e.data);
+      };
+      speech.start(5000);
+    }
+  } catch {
+    speech = null;
+  }
+
   let stopped: Promise<RecordingResult> | null = null;
   const api: CallRecorder = {
     get target() {
@@ -883,6 +919,15 @@ export async function startCallRecording(opts: {
             recorder.stop();
           });
         }
+        if (speech && speech.state !== 'inactive') {
+          const s = speech;
+          await new Promise<void>((resolve) => {
+            s.addEventListener('stop', () => resolve(), { once: true });
+            s.stop();
+          });
+        }
+        // Hand the audio over for analysis; the video is saved regardless.
+        void speechSink?.finish().catch(() => undefined);
         stopTicker();
         canvasStream.getTracks().forEach((t) => t.stop());
         for (const node of sources.values()) node.disconnect();

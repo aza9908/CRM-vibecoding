@@ -4,6 +4,8 @@ import type {
   ChatMessage,
   LlmProvider,
   LlmStreamOptions,
+  TranscribeInput,
+  TranscribeResult,
 } from './llm-provider.interface';
 
 /**
@@ -43,6 +45,11 @@ export class ClaudeProvider implements LlmProvider {
     _messages: ChatMessage[],
     _opts?: LlmStreamOptions,
   ): Promise<string> {
+    this.notConfigured();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async transcribe(_input: TranscribeInput): Promise<TranscribeResult> {
     this.notConfigured();
   }
 }
