@@ -412,7 +412,14 @@ jobs:
           BASE_PATH: ${{ inputs.base_path }}
           EXTRA_ORIGIN: ${{ inputs.extra_origin }}
           GOOGLE_CLIENT_ID: ${{ inputs.google_client_id }}
+          GROQ_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
+          # Optional: a Groq API key kept as the repository secret GROQ_API_KEY
+          # is handed to the server through a root-only file (never an
+          # argument, never printed) and written into the env file below.
+          if [ -n "$GROQ_KEY" ]; then
+            printf '%s' "$GROQ_KEY" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "umask 077; cat > /tmp/.lms-groq-key"
+          fi
           [[ -z "$GOOGLE_CLIENT_ID" || "$GOOGLE_CLIENT_ID" =~ ^[0-9a-z.-]+\.apps\.googleusercontent\.com$ ]] || { echo "::error::google_client_id does not look like an OAuth client id"; exit 1; }
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
             "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' GOOGLE_CLIENT_ID='$GOOGLE_CLIENT_ID' EXPECTED_COMPOSE='acda3ae48a1bc4fddd085708d73a128e82c9c4b4' bash -s" <<'REMOTE'
@@ -467,6 +474,19 @@ jobs:
           else
             printf 'WEB_ORIGIN=%s\n' "$EXTRA_ORIGIN" >> "$ENV_FILE"
           fi
+          if [ -s /tmp/.lms-groq-key ]; then
+            python3 - "$ENV_FILE" <<'PY'
+          import sys, re
+          path = sys.argv[1]
+          key = open('/tmp/.lms-groq-key').read().strip()
+          text = open(path).read()
+          line = 'GROQ_API_KEY=' + key
+          text = re.sub(r'(?m)^GROQ_API_KEY=.*$', lambda m: line, text) if re.search(r'(?m)^GROQ_API_KEY=', text) else text.rstrip('\n') + '\n' + line + '\n'
+          open(path, 'w').write(text)
+          print('== GROQ_API_KEY updated from the repository secret (%d chars)' % len(key))
+          PY
+          fi
+          rm -f /tmp/.lms-groq-key
           if [ -n "$GOOGLE_CLIENT_ID" ]; then
             if grep -q '^NEXT_PUBLIC_GOOGLE_CLIENT_ID=' "$ENV_FILE"; then
               sed -i "s#^NEXT_PUBLIC_GOOGLE_CLIENT_ID=.*#NEXT_PUBLIC_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID#" "$ENV_FILE"
