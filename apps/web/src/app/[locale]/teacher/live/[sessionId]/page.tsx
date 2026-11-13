@@ -206,9 +206,6 @@ export default function TeacherLivePage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <Brand />
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              {t('teacherTitle')}
-            </span>
           </div>
 
           {sessionQuery.data?.code && (
@@ -218,6 +215,9 @@ export default function TeacherLivePage() {
           )}
 
           <div className="ml-auto flex items-center gap-4">
+            <span className="hidden text-sm text-muted-foreground lg:inline">
+              {t('teacherTitle')}
+            </span>
             <ConnectionBadge status={status} />
             <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
               <Users className="h-4 w-4" />

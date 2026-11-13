@@ -3,7 +3,7 @@
 /**
  * Recording of a video call, done in the host's browser.
  *
- * Picture: a 1280×720 canvas with whatever is on the main stage (screen share
+ * Picture: a Full HD (1920×1080, 30 fps) canvas with whatever is on the main stage (screen share
  * or the person who has the floor) plus the speaker in a corner. Sound: every
  * participant's audio and the host's microphone, mixed with Web Audio.
  * The result is one video file (WebM; MP4 on Safari).
@@ -32,9 +32,13 @@ function flushBytes(): number {
   return typeof override === 'number' && override >= CHUNK_UNIT ? override : FLUSH_BYTES;
 }
 
+/** Layout is drawn in 1280×720 units and rendered at 1.5× → Full HD. */
 const WIDTH = 1280;
 const HEIGHT = 720;
-const FPS = 15;
+const SCALE = 1.5;
+const FPS = 30;
+const VIDEO_BITS_PER_SECOND = 4_000_000;
+const AUDIO_BITS_PER_SECOND = 128_000;
 
 export function googleClientId(): string | null {
   return process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() || null;
@@ -360,8 +364,8 @@ export async function startCallRecording(opts: {
 
   // Picture.
   const canvas = document.createElement('canvas');
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
+  canvas.width = WIDTH * SCALE;
+  canvas.height = HEIGHT * SCALE;
   const ctx = canvas.getContext('2d', { alpha: false })!;
   const mainVideo = hiddenVideo();
   const pipVideo = hiddenVideo();
@@ -397,7 +401,9 @@ export async function startCallRecording(opts: {
     return true;
   };
 
+  ctx.imageSmoothingQuality = 'high';
   const draw = () => {
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
     ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     const drawn =
@@ -461,8 +467,8 @@ export async function startCallRecording(opts: {
   ]);
   const recorder = new MediaRecorder(recorded, {
     ...(mimeType ? { mimeType } : {}),
-    videoBitsPerSecond: 1_200_000,
-    audioBitsPerSecond: 96_000,
+    videoBitsPerSecond: VIDEO_BITS_PER_SECOND,
+    audioBitsPerSecond: AUDIO_BITS_PER_SECOND,
   });
   const chunks: Blob[] = [];
   let bytes = 0;

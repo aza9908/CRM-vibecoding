@@ -749,6 +749,9 @@
     "recOpenDrive": "Google Drive’da ochish",
     "recDriveFallback": "Google Drive’ga yuklab bo‘lmadi, shuning uchun fayl kompyuterga yuklab olindi.",
     "recDriveNotSetUp": "Google Drive’ga saqlash hali ulanmagan — fayl kompyuterga yuklab olindi.",
+    "muteAllShort": "Hammaning mikrofonini o‘chirish",
+    "mutedAllDone": "Ishtirokchilarning mikrofonlari o‘chirildi",
+    "mutedAllNobody": "Hozir hech bir ishtirokchining mikrofoni yoqilmagan",
     "errors": {
       "timeout": "Videoaloqa serveri javob bermadi. Internetni tekshiring va «Qayta urinish»ni bosing.",
       "media_denied": "Kamera yoki mikrofonga ruxsat yoʻq — brauzer sozlamalarida ruxsat bering.",

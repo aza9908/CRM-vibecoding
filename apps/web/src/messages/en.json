@@ -749,6 +749,9 @@
     "recOpenDrive": "Open in Google Drive",
     "recDriveFallback": "Uploading to Google Drive failed, so the file was downloaded to this computer.",
     "recDriveNotSetUp": "Saving to Google Drive is not connected yet — the file was downloaded to this computer.",
+    "muteAllShort": "Mute everyone",
+    "mutedAllDone": "Participants’ microphones are muted",
+    "mutedAllNobody": "Nobody else has their microphone on right now",
     "errors": {
       "timeout": "The video server did not respond. Check your internet and press Retry.",
       "media_denied": "No access to the camera or microphone. Allow it in your browser settings.",

@@ -1496,9 +1496,20 @@ export function VideoRoom({
           </CtrlButton>
           {handBtn()}
           {amHost ? (
-            <CtrlButton label={t('muteAll')} onClick={() => room.moderate('*', 'mute')}>
-              <VolumeX />
-            </CtrlButton>
+            <button
+              type="button"
+              onClick={() => {
+                room.moderate('*', 'mute');
+                showToast(
+                  room.peers.some((p) => p.media.audio) ? t('mutedAllDone') : t('mutedAllNobody'),
+                );
+              }}
+              title={t('muteAll')}
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 sm:h-12"
+            >
+              <MicOff className="h-4 w-4" />
+              <span className="hidden md:inline">{t('muteAllShort')}</span>
+            </button>
           ) : null}
           {fullBtn()}
           {amHost && recordingSupported() ? (

@@ -829,9 +829,11 @@ export function useVideoRoom(
   const enableVideo = useCallback(async (): Promise<boolean> => {
     const s = await navigator.mediaDevices.getUserMedia({
       video: {
-        width: { ideal: 960 },
-        height: { ideal: 540 },
-        frameRate: { ideal: 24, max: 24 },
+        // HD capture: the recording and the local picture use it in full;
+        // what goes to the others is shaped by CAMERA_ENCODINGS.
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
       },
     });
     const track = s.getVideoTracks()[0];
@@ -940,7 +942,8 @@ export function useVideoRoom(
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({
         video: {
-          frameRate: { ideal: 15, max: 20 },
+          // Captured at 30 fps for the recording; sent to viewers at 15.
+          frameRate: { ideal: 30, max: 30 },
           width: { max: 1920 },
           height: { max: 1080 },
         },
