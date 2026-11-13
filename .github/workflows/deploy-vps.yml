@@ -191,6 +191,47 @@ jobs:
           })().catch((e) => { console.error('db error:', e.message); process.exit(1); });
           NODE
 
+      - name: Diagnose — API health and lesson catalogue (catalogue printed only encrypted)
+        if: inputs.mode == 'diagnose'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          PUBKEY_B64: ${{ inputs.pubkey_b64 }}
+        run: |
+          set -uo pipefail
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" bash -s <<'REMOTE'
+          for c in lms-api-1 lms-web-1; do
+            echo "$c: $(docker inspect "$c" --format 'started {{.State.StartedAt}} · restarts {{.RestartCount}} · oom {{.State.OOMKilled}}')"
+          done
+          echo "api log (24h): lines $(docker logs --since 24h lms-api-1 2>&1 | wc -l) · errors $(docker logs --since 24h lms-api-1 2>&1 | grep -ciE 'error|exception|unhandled' )"
+          docker logs --since 24h lms-api-1 2>&1 | grep -iE 'error|exception|unhandled|ECONN|timeout' | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{22,}/<id>/g' | cut -c1-200 | sort | uniq -c | sort -rn | head -15
+          echo "nginx (today): 502/504 on the API → $(grep -cE '" (502|504) ' /var/log/nginx/access.log 2>/dev/null || echo n/a)"
+          dmesg -T 2>/dev/null | grep -i 'killed process' | tail -3 || true
+          REMOTE
+          if [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] && [ -n "$PUBKEY_B64" ]; then
+            printf '%s' "$PUBKEY_B64" | base64 -d > pub.pem
+            printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -e '
+              const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+              const { Pool } = require(\"pg\");
+              const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+              (async () => {
+                const rows = (await pool.query(\"select l.title, l.archived, l.kind, l.type, l.created_at::date as created, m.title as module, c.title as course, (select count(*)::int from lesson_blocks b where b.lesson_id = l.id) as blocks from lessons l left join modules m on m.id = l.module_id left join courses c on c.id = m.course_id join users u on u.organization_id = l.organization_id where encode(sha256(lower(u.email)::bytea), \\x27hex\\x27) = \$1 order by c.title nulls last, m.title, l.created_at\", [eh])).rows;
+                const courses = (await pool.query(\"select c.title, (select count(*)::int from modules m where m.course_id = c.id) as modules from courses c join users u on u.organization_id = c.organization_id where encode(sha256(lower(u.email)::bytea), \\x27hex\\x27) = \$1\", [eh])).rows;
+                console.log(JSON.stringify({ rows, courses }));
+                await pool.end();
+              })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
+            '" > catalogue.json
+            echo "catalogue bytes: $(wc -c < catalogue.json)"
+            openssl rand -hex 32 > k.txt
+            openssl enc -aes-256-cbc -pbkdf2 -pass file:k.txt -in catalogue.json -out catalogue.enc
+            echo "== key (RSA-OAEP, base64):"; openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep -in k.txt | base64 -w0; echo
+            echo "== catalogue (AES-256-CBC, base64):"; base64 -w0 catalogue.enc; echo
+            rm -f catalogue.json k.txt
+          fi
+
       - name: Retire lms.magauin.kz (redirect visitors to airl.kz/lms)
         if: inputs.mode == 'retire-old-domain'
         env:
