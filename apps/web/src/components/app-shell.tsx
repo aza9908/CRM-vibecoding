@@ -202,7 +202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
             <LocaleSwitcher />
-            <ThemeToggle />
+            <span className="hidden sm:inline-flex"><ThemeToggle /></span>
             {user ? (
               <>
                 {tourSteps.length > 0 ? (

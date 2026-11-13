@@ -1,9 +1,29 @@
 import { cn, withBasePath } from '@/lib/utils';
 
 /**
+ * Geometry of the logo PNG (1344×512), measured on the artwork:
+ *   «research»: ascender top 150, baseline 294, x-height 102
+ *   «labs»:     baseline 454
+ *   colour #5b5bc9
+ * The product lettering is drawn in the same coordinate system, so «LMS»
+ * sits exactly on the «research» baseline and «AI-powered» on the «labs»
+ * baseline, with the same x-height, weight and colour.
+ */
+const LOGO_W = 1344;
+const LOGO_H = 512;
+const BASELINE_1 = 294;
+const BASELINE_2 = 454;
+const ASCENDER_TOP = 150;
+/** 102 px x-height ÷ Lexend's x-height (0.543 em). */
+const FONT_SIZE = 188;
+const TEXT_X = 84;
+/** «AI-powered» is 1062 units wide at this size. */
+const LETTERING_W = TEXT_X + 1066;
+const COLOR = '#5b5bc9';
+
+/**
  * AI Research Labs wordmark + the product name: «LMS» with «AI-powered»
- * under it, set in the same colour, weight and size as the «research labs»
- * lettering of the logo so the two read as one mark.
+ * under it, set to read as one mark with the logo.
  *
  * The logo is a transparent PNG (no white box) so it blends with any page
  * background. `sm` = headers, `lg` = auth / landing hero.
@@ -19,16 +39,13 @@ export function Brand({
   product?: boolean;
 }) {
   const lg = size === 'lg';
-  // Intrinsic asset ≈ 1344×512 (≈2.625:1). Display larger so "research labs" reads clearly.
   const height = lg ? 56 : 36;
-  const width = Math.round(height * 2.625);
+  const width = Math.round((height * LOGO_W) / LOGO_H);
 
   return (
     <span
-      className={cn('inline-flex items-stretch bg-transparent', className)}
-      aria-label="AI Research Labs · LMS"
-      // 1em = logo height, so the lettering below scales with the logo.
-      style={{ fontSize: height }}
+      className={cn('inline-flex items-center bg-transparent', className)}
+      aria-label="AI Research Labs · LMS · AI-powered"
     >
       {/* Native <img>: keeps alpha channel clean (no Next Image wrapper bg). */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -37,22 +54,40 @@ export function Brand({
         alt="AI Research Labs"
         width={width}
         height={height}
-        className={cn(
-          'shrink-0 bg-transparent object-contain object-left',
-          lg ? 'h-14 w-auto' : 'h-9 w-auto',
-        )}
+        className="shrink-0 bg-transparent"
+        style={{ height, width }}
         decoding="async"
       />
       {product ? (
-        <span
+        <svg
           aria-hidden
-          // Metrics measured on the logo: «research» sits at 29–58 % of its
-          // height, «labs» at 62–89 %; colour #5b5bc9.
-          className="-ml-[0.1em] flex flex-col justify-end whitespace-nowrap border-l border-[#5b5bc9]/30 pb-[0.045em] pl-[0.22em] font-[family-name:var(--font-brand)] font-light text-[#5b5bc9]"
+          viewBox={`0 0 ${LETTERING_W} ${LOGO_H}`}
+          height={height}
+          width={Math.round((height * LETTERING_W) / LOGO_H)}
+          className="shrink-0 overflow-visible"
+          style={{
+            fontFamily: 'var(--font-brand), ui-sans-serif, system-ui, sans-serif',
+            fontWeight: 340,
+            fontSize: FONT_SIZE,
+          }}
+          fill={COLOR}
         >
-          <span className="block text-[0.37em] leading-[0.88]">LMS</span>
-          <span className="block text-[0.37em] leading-[0.88]">AI-powered</span>
-        </span>
+          <line
+            x1={10}
+            y1={ASCENDER_TOP}
+            x2={10}
+            y2={BASELINE_2}
+            stroke={COLOR}
+            strokeOpacity={0.35}
+            strokeWidth={8}
+          />
+          <text x={TEXT_X} y={BASELINE_1}>
+            LMS
+          </text>
+          <text x={TEXT_X} y={BASELINE_2}>
+            AI-powered
+          </text>
+        </svg>
       ) : null}
     </span>
   );

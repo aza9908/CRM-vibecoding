@@ -142,7 +142,7 @@ export function AppHeader() {
 
           <div className="flex items-center gap-2">
             <LocaleSwitcher />
-            <ThemeToggle />
+            <span className="hidden sm:inline-flex"><ThemeToggle /></span>
 
             {user ? (
               <>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
+import { Inter, JetBrains_Mono, Lexend } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
@@ -15,10 +15,13 @@ const inter = Inter({
   display: 'swap',
 });
 
-/** Light geometric face matching the «research labs» lettering of the logo. */
-const outfit = Outfit({
+/**
+ * Face of the «LMS · AI-powered» lettering next to the logo. Chosen by
+ * measuring the logo's «research labs»: Lexend matches its letter widths
+ * within 1 %, and weight 340 matches its stroke thickness.
+ */
+const brandFont = Lexend({
   subsets: ['latin'],
-  weight: ['300'],
   variable: '--font-brand',
   display: 'swap',
 });
@@ -73,7 +76,7 @@ export default async function LocaleLayout({
         className={cn(
           inter.variable,
           jetbrainsMono.variable,
-          outfit.variable,
+          brandFont.variable,
           'min-h-screen bg-background font-sans antialiased',
         )}
       >

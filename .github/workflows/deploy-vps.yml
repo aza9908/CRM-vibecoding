@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -545,6 +545,60 @@ jobs:
           for p in 44444 44445; do
             timeout 6 bash -c "echo > /dev/tcp/$VPS_HOST/$p" && echo "media tcp/$p: open" || echo "media tcp/$p: CLOSED"
           done
+
+      - name: File the account's lessons under their companies, in teaching order
+        # One-off tidy-up asked for by the owner: nothing is deleted. Lessons are
+        # matched by their exact current title inside the owner's company only.
+        if: inputs.mode == 'organize-lessons'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          cat > plan.json <<'PLAN'
+          [
+            ["урок 0",            "Урок 0 Кайзен",          "Кайзен",        10],
+            ["Урок 0 Кайзен",     "Урок 0 Кайзен",          "Кайзен",        10],
+            ["Урок 1-2 Кайзен",   "Урок 1-2 Кайзен",        "Кайзен",        20],
+            ["Урок 3 Кайзен",     "Урок 3 Кайзен",          "Кайзен",        30],
+            ["Урок 4 Кайзен",     "Урок 4 Кайзен",          "Кайзен",        40],
+            ["Q&A 1",             "Q&A 1 Кайзен",           "Кайзен",        50],
+            ["Q&A 1 Кайзен",      "Q&A 1 Кайзен",           "Кайзен",        50],
+            ["Q&A 2",             "Q&A 2 Кайзен",           "Кайзен",        60],
+            ["Q&A 2 Кайзен",      "Q&A 2 Кайзен",           "Кайзен",        60],
+            ["Демо-день",         "Демо-день Кайзен",       "Кайзен",        70],
+            ["Демо-день Кайзен",  "Демо-день Кайзен",       "Кайзен",        70],
+            ["Investudy 1 урок",  "Урок 1 Investudy",       "Investudy",     10],
+            ["Урок 1 Investudy",  "Урок 1 Investudy",       "Investudy",     10],
+            ["Investudy 2 урок",  "Урок 2 Investudy",       "Investudy",     20],
+            ["Урок 2 Investudy",  "Урок 2 Investudy",       "Investudy",     20],
+            ["Kazakhtelecom",     "Урок 1 Kazakhtelecom",   "Kazakhtelecom", 10],
+            ["Урок 1 Kazakhtelecom", "Урок 1 Kazakhtelecom", "Kazakhtelecom", 10]
+          ]
+          PLAN
+          { printf '%s\n' "$EMAIL_SHA256"; sed 's/^          //' plan.json | tr -d '\n'; echo; } | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -e '
+            const [eh, planRaw] = require(\"fs\").readFileSync(0, \"utf8\").trim().split(\"\\n\");
+            const plan = JSON.parse(planRaw);
+            const { Pool } = require(\"pg\");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            (async () => {
+              const u = (await pool.query(\"select organization_id from users where encode(sha256(lower(email)::bytea), \\x27hex\\x27) = \$1\", [eh])).rows[0];
+              if (!u || !u.organization_id) { console.error(\"account not found or has no company\"); process.exit(2); }
+              let changed = 0;
+              for (const [from, to, category, order] of plan) {
+                const r = await pool.query(\"update lessons set title = \$1, category = \$2, \\\"order\\\" = \$3 where organization_id = \$4 and title = \$5 and not archived\", [to, category, order, u.organization_id, from]);
+                changed += r.rowCount;
+              }
+              console.log(\"lessons filed: \" + changed);
+              const rows = (await pool.query(\"select coalesce(category, \\x27(без категории)\\x27) as c, count(*)::int n from lessons where organization_id = \$1 and not archived group by 1 order by 1\", [u.organization_id])).rows;
+              for (const r of rows) console.log(\"  \" + r.c + \": \" + r.n);
+              await pool.end();
+            })().catch((e) => { console.error(\"error: \" + e.message); process.exit(1); });
+          '"
 
       - uses: actions/checkout@v4
         if: inputs.mode == 'call-smoke'
