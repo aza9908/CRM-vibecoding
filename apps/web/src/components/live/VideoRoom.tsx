@@ -4,6 +4,8 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import {
   ArrowUpToLine,
+  Circle,
+  ExternalLink,
   Hand,
   Maximize,
   Mic,
@@ -14,13 +16,23 @@ import {
   MonitorX,
   PhoneOff,
   Pin,
+  Square,
   Users,
   Video,
   VideoOff,
   VolumeX,
+  X,
 } from 'lucide-react';
 import type { RtcMediaState } from '@lms/shared';
 import { readCallResume, useVideoRoom, type RemotePeer } from '@/lib/rtc/useVideoRoom';
+import {
+  googleClientId,
+  recordingSupported,
+  requestDriveToken,
+  startCallRecording,
+  type CallRecorder,
+  type RecordingResult,
+} from '@/lib/rtc/recorder';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
@@ -471,6 +483,24 @@ interface StageModel {
   mirror: boolean;
 }
 
+/** mm:ss since `since` — its own component so only it re-renders each second. */
+function Elapsed({ since }: { since: number }) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const s = Math.max(0, Math.floor((now - since) / 1000));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const h = Math.floor(s / 3600);
+  return (
+    <span className="tabular-nums">
+      {h > 0 ? `${h}:` : ''}
+      {pad(Math.floor((s % 3600) / 60))}:{pad(s % 60)}
+    </span>
+  );
+}
+
 /** Round control button of the call bar. */
 function CtrlButton({
   on,
@@ -537,6 +567,7 @@ export function VideoRoom({
   isHost,
   callState,
   autoJoin,
+  recordingTitle,
   className,
 }: {
   sessionId: string | undefined;
@@ -544,7 +575,14 @@ export function VideoRoom({
   /** Teacher page: joins with camera + mic on. */
   isHost?: boolean;
   /** Live call state of the session (from the session socket). */
-  callState?: { active: boolean; count: number; startedAt: string | null } | null;
+  callState?: {
+    active: boolean;
+    count: number;
+    startedAt: string | null;
+    recording?: boolean;
+  } | null;
+  /** Lesson name used for the recording's file name. */
+  recordingTitle?: string;
   /** Students: enter a running call automatically (listen-only). */
   autoJoin?: boolean;
   className?: string;
@@ -740,35 +778,38 @@ export function VideoRoom({
     const pinned = byId(pinnedId);
     const speaker = byId(room.dominantId);
     const host = room.peers.find((p) => p.role === 'host');
-    const pick =
-      (pinned && pinned) ||
-      (onCam(speaker) ? speaker : undefined) ||
-      (onCam(host) ? host : undefined) ||
-      speaker ||
-      host ||
-      room.peers.find((p) => onCam(p));
-    if (pick) {
-      const video = onCam(pick);
+    const selfOnCam = room.media.video && !!room.localCamera;
+    const selfStage = (video: boolean): StageModel => ({
+      kind: video ? 'camera' : 'avatar',
+      peerId: selfKey,
+      name: t('you'),
+      label: t('you'),
+      stream: video ? room.localCamera : null,
+      mirror: true,
+    });
+    const peerStage = (p: RemotePeer): StageModel => {
+      const video = onCam(p);
       return {
         kind: video ? 'camera' : 'avatar',
-        peerId: pick.peerId,
-        name: pick.name,
-        label: pick.role === 'host' ? `${pick.name} · ${t('host')}` : pick.name,
-        stream: video ? pick.camera : null,
+        peerId: p.peerId,
+        name: p.name,
+        label: p.role === 'host' ? `${p.name} · ${t('host')}` : p.name,
+        stream: video ? p.camera : null,
         mirror: false,
       };
-    }
-    if (pinnedId === selfKey || room.peers.length === 0 || room.media.video) {
-      const video = room.media.video && !!room.localCamera;
-      return {
-        kind: video ? 'camera' : 'avatar',
-        peerId: selfKey,
-        name: t('you'),
-        label: t('you'),
-        stream: video ? room.localCamera : null,
-        mirror: true,
-      };
-    }
+    };
+    if (pinnedId === selfKey) return selfStage(selfOnCam);
+    if (pinned) return peerStage(pinned);
+    // A live picture always beats an avatar: speaker → host → anyone → me.
+    const live =
+      (onCam(speaker) ? speaker : undefined) ||
+      (onCam(host) ? host : undefined) ||
+      room.peers.find((p) => onCam(p));
+    if (live) return peerStage(live);
+    if (selfOnCam) return selfStage(true);
+    const who = speaker || host;
+    if (who) return peerStage(who);
+    if (room.peers.length === 0) return selfStage(false);
     return null;
   }, [room.peers, room.media, room.localScreen, room.localCamera, room.dominantId, pinnedId, selfKey, t]);
 
@@ -828,6 +869,95 @@ export function VideoRoom({
     }
   }, [joined, expanded]);
 
+  // ── recording (host) ────────────────────────────────────────────────────
+  // Recorded in the host's browser and streamed to their Google Drive
+  // (folder «Уроки LMS»); see lib/rtc/recorder.ts.
+  const recorderRef = React.useRef<CallRecorder | null>(null);
+  const [rec, setRec] = React.useState<'idle' | 'starting' | 'on' | 'saving'>('idle');
+  const [recSince, setRecSince] = React.useState(0);
+  const [recResult, setRecResult] = React.useState<RecordingResult | null>(null);
+  const { setRecording: announceRecording } = room;
+
+  const stopRecording = React.useCallback(async () => {
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    recorderRef.current = null;
+    setRec('saving');
+    announceRecording(false);
+    try {
+      setRecResult(await recorder.stop());
+    } finally {
+      setRec('idle');
+    }
+  }, [announceRecording]);
+
+  const startRecording = React.useCallback(async () => {
+    if (recorderRef.current || rec !== 'idle') return;
+    setRecResult(null);
+    setRec('starting');
+    let driveToken: string | null = null;
+    const clientId = googleClientId();
+    if (clientId) {
+      // Opens Google's window; must run inside this click.
+      driveToken = await requestDriveToken(clientId).catch(() => null);
+      if (!driveToken) showToast(t('recDriveDenied'), 7000);
+    }
+    try {
+      const recorder = await startCallRecording({
+        title: recordingTitle || t('recDefaultTitle'),
+        driveToken,
+      });
+      recorder.onError = () => void stopRecording();
+      recorderRef.current = recorder;
+      setRecSince(Date.now());
+      setRec('on');
+      announceRecording(true);
+      if (driveToken && recorder.target !== 'drive') showToast(t('recDriveDenied'), 7000);
+    } catch {
+      setRec('idle');
+      showToast(t('recFailed'), 6000);
+    }
+  }, [rec, recordingTitle, announceRecording, showToast, stopRecording, t]);
+
+  // Keep the recorder's picture and sound in step with the call.
+  React.useEffect(() => {
+    if (rec !== 'on') return;
+    recorderRef.current?.setScene({
+      main: stage?.stream ?? null,
+      mainMirror: stage?.mirror,
+      mainContain: stage?.kind === 'screen',
+      label: stage?.label ?? '',
+      pip: pip?.stream ?? null,
+      pipMirror: pip?.mirror,
+    });
+  }, [rec, stage, pip]);
+  React.useEffect(() => {
+    if (rec !== 'on') return;
+    const streams: MediaStream[] = [];
+    for (const p of room.peers) {
+      if (p.camera) streams.push(p.camera);
+      if (p.screen) streams.push(p.screen);
+    }
+    if (room.localCamera) streams.push(room.localCamera);
+    recorderRef.current?.setAudio(streams);
+  }, [rec, room.peers, room.localCamera]);
+
+  // Leaving the call (or the call ending) closes the file properly.
+  React.useEffect(() => {
+    if (!joined && recorderRef.current) void stopRecording();
+  }, [joined, stopRecording]);
+  // The file is finished only on «stop» — warn before closing the tab.
+  React.useEffect(() => {
+    if (rec !== 'on' && rec !== 'saving') return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [rec]);
+  const someoneRecords = rec === 'on' || !!callState?.recording;
+
   const hands = room.peers.filter((p) => p.media.hand).length;
   const people = room.peers.length + 1;
 
@@ -853,6 +983,46 @@ export function VideoRoom({
       className="fixed bottom-24 left-1/2 z-[80] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-md bg-foreground px-4 py-2 text-center text-sm text-background shadow-lg"
     >
       {toast}
+    </div>
+  ) : null;
+
+  // Where the finished recording went — stays until dismissed.
+  const recResultEl = recResult ? (
+    <div
+      role="status"
+      className="fixed bottom-5 left-1/2 z-[85] flex w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2 items-start gap-3 rounded-xl border bg-card p-4 text-sm text-card-foreground shadow-2xl"
+    >
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+        <Circle className="h-3.5 w-3.5 fill-current" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">
+          {recResult.where === 'drive' ? t('recSavedDrive') : t('recSavedDownload')}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">{recResult.fileName}</p>
+        {recResult.where === 'drive' && recResult.link ? (
+          <a
+            href={recResult.link}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            {t('recOpenDrive')} <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        ) : recResult.where === 'download' ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {googleClientId() ? t('recDriveFallback') : t('recDriveNotSetUp')}
+          </p>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        onClick={() => setRecResult(null)}
+        aria-label={t('cancel')}
+        className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   ) : null;
 
@@ -920,6 +1090,7 @@ export function VideoRoom({
           </button>
         ) : null}
         {toastEl}
+        {recResultEl}
         {preJoinOpen ? (
           <PreJoinDialog
             isHost={!!isHost}
@@ -1135,7 +1306,43 @@ export function VideoRoom({
       >
         {stageMedia(false)}
         {stageLabel}
+        {someoneRecords ? (
+          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            <span className="h-1.5 w-1.5 rounded-full bg-white" /> REC
+          </span>
+        ) : null}
       </button>
+      {/* Everyone stays in sight while the page is scrolled. */}
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+        {tiles.map((tile) => {
+          const speaks = speakingSet.has(tile.id);
+          return (
+            <button
+              key={tile.id}
+              type="button"
+              onClick={() => setPinnedId((cur) => (cur === tile.id ? null : tile.id))}
+              title={tile.name}
+              aria-label={tile.name}
+              className={cn(
+                'relative h-12 w-[4.5rem] shrink-0 overflow-hidden rounded-md bg-white/5 ring-2',
+                speaks ? 'ring-success' : tile.media.hand ? 'ring-warning' : pinnedId === tile.id ? 'ring-primary' : 'ring-transparent',
+              )}
+            >
+              {tile.media.video && tile.camera ? (
+                <StreamVideo stream={tile.camera} mirror={tile.isSelf} />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white/90">
+                  {initials(tile.name)}
+                </span>
+              )}
+              <span className="absolute inset-x-0 bottom-0 flex items-center gap-0.5 bg-black/60 px-1 text-[9px] leading-4 text-white">
+                {tile.media.hand ? <Hand className="h-2.5 w-2.5 shrink-0 text-warning" /> : !tile.media.audio ? <MicOff className="h-2.5 w-2.5 shrink-0 text-red-400" /> : null}
+                <span className="truncate">{tile.name}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex gap-1.5">
           {micBtn(true)}
@@ -1185,6 +1392,13 @@ export function VideoRoom({
           {hands > 0 ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-warning px-2 py-0.5 text-xs font-semibold text-warning-foreground">
               <Hand className="h-3.5 w-3.5" /> {t('hands', { count: hands })}
+            </span>
+          ) : null}
+          {someoneRecords ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+              {t('recOn')}
+              {rec === 'on' ? <Elapsed since={recSince} /> : null}
             </span>
           ) : null}
           <span className="ml-auto hidden text-xs text-white/50 md:inline">{t('scrollHint')}</span>
@@ -1286,6 +1500,34 @@ export function VideoRoom({
             </CtrlButton>
           ) : null}
           {fullBtn()}
+          {amHost && recordingSupported() ? (
+            <button
+              type="button"
+              onClick={() => void (rec === 'on' ? stopRecording() : startRecording())}
+              disabled={rec === 'starting' || rec === 'saving'}
+              className={cn(
+                'inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 disabled:opacity-60 sm:h-12',
+                rec === 'on'
+                  ? 'bg-white text-red-600 hover:bg-white/90'
+                  : 'bg-white/10 text-white hover:bg-white/20',
+              )}
+            >
+              {rec === 'starting' || rec === 'saving' ? (
+                <Spinner className="h-4 w-4" />
+              ) : rec === 'on' ? (
+                <Square className="h-4 w-4 fill-current" />
+              ) : (
+                <Circle className="h-4 w-4 fill-red-500 text-red-500" />
+              )}
+              {rec === 'saving'
+                ? t('recSaving')
+                : rec === 'on'
+                  ? t('recStop')
+                  : rec === 'starting'
+                    ? t('recStarting')
+                    : t('recStart')}
+            </button>
+          ) : null}
           <span className="mx-1 hidden h-6 w-px bg-white/15 sm:block" aria-hidden />
           {leaveBtn()}
         </div>
@@ -1304,6 +1546,7 @@ export function VideoRoom({
       ) : null}
 
       {toastEl}
+      {recResultEl}
     </>
   );
 }

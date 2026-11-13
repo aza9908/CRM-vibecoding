@@ -222,7 +222,10 @@ export function useSessionSocket(
       // The headcount changes with every join; re-rendering the whole lesson
       // page for it (×50 people) is wasteful — only start/stop matters here.
       setCallState((prev) =>
-        prev && prev.active === payload.active && prev.startedAt === payload.startedAt
+        prev &&
+        prev.active === payload.active &&
+        prev.startedAt === payload.startedAt &&
+        !!prev.recording === !!payload.recording
           ? prev
           : payload,
       );

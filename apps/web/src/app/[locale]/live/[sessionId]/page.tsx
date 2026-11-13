@@ -21,6 +21,7 @@ import { progressPercent } from '@/lib/progress';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
+import { ChatDock } from '@/components/live/ChatDock';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { Brand } from '@/components/brand';
@@ -507,6 +508,7 @@ export default function StudentLivePage() {
         callState={callState}
         autoJoin
       />
+      <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
 
       {/* minmax(0,1fr): without it the mobile track grows to the right panel's
           min-content width and the whole page scrolls sideways on phones. */}

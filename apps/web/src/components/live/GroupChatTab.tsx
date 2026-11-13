@@ -21,10 +21,13 @@ export function GroupChatTab({
 }) {
   const t = useTranslations('rightPanel');
   const [text, setText] = React.useState('');
-  const bottomRef = React.useRef<HTMLDivElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
 
+  // Scroll the message list only — never the page (scrollIntoView would yank
+  // the whole lesson to the chat on every new message).
   React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
   function submit(e?: React.FormEvent) {
@@ -38,7 +41,10 @@ export function GroupChatTab({
   return (
     <div className="flex h-full min-h-[280px] flex-col">
       <p className="mb-2 text-xs text-muted-foreground">{t('chatHint')}</p>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-md border bg-muted/20 p-2">
+      <div
+        ref={listRef}
+        className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-md border bg-muted/20 p-2"
+      >
         {messages.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {t('chatEmpty')}
@@ -70,7 +76,6 @@ export function GroupChatTab({
             );
           })
         )}
-        <div ref={bottomRef} />
       </div>
       <form onSubmit={submit} className="mt-2 flex gap-2">
         <input

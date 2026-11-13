@@ -464,7 +464,10 @@
     "chatEmpty": "Hozircha xabarlar yoʻq. Birinchi boʻlib yozing.",
     "chatPlaceholder": "Chatga xabar…",
     "chatSend": "Yuborish",
-    "chatTeacher": "oʻqituvchi"
+    "chatTeacher": "oʻqituvchi",
+    "chatOpen": "Chatni ochish",
+    "chatClose": "Chatni yopish",
+    "groupChat": "Guruh chati"
   },
   "reports": {
     "title": "Hisobotlar",
@@ -733,6 +736,19 @@
     "leaveOnly": "Faqat o‘zim chiqaman",
     "leaveOnlyHint": "Videoaloqa sizsiz davom etadi",
     "reconnecting": "Aloqa uzildi — tiklanmoqda…",
+    "recStart": "Yozuvni boshlash",
+    "recStop": "Yozuvni tugatish",
+    "recStarting": "Ishga tushmoqda…",
+    "recSaving": "Yozuv saqlanmoqda…",
+    "recOn": "Yozib olinmoqda",
+    "recDefaultTitle": "Dars",
+    "recFailed": "Bu brauzerda yozuvni boshlab bo‘lmadi. Kompyuterda Chrome’dan foydalaning.",
+    "recDriveDenied": "Google Drive’ga ruxsat yo‘q — yozuv shu kompyuterga saqlanadi.",
+    "recSavedDrive": "Yozuv Google Drive’ga saqlandi, «Уроки LMS» papkasi",
+    "recSavedDownload": "Yozuv kompyuterga saqlandi («Yuklamalar» papkasi)",
+    "recOpenDrive": "Google Drive’da ochish",
+    "recDriveFallback": "Google Drive’ga yuklab bo‘lmadi, shuning uchun fayl kompyuterga yuklab olindi.",
+    "recDriveNotSetUp": "Google Drive’ga saqlash hali ulanmagan — fayl kompyuterga yuklab olindi.",
     "errors": {
       "timeout": "Videoaloqa serveri javob bermadi. Internetni tekshiring va «Qayta urinish»ni bosing.",
       "media_denied": "Kamera yoki mikrofonga ruxsat yoʻq — brauzer sozlamalarida ruxsat bering.",

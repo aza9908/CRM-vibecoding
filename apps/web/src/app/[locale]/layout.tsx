@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, JetBrains_Mono, Outfit } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { setRequestLocale } from 'next-intl/server';
@@ -12,6 +12,14 @@ import '../globals.css';
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
   variable: '--font-sans',
+  display: 'swap',
+});
+
+/** Light geometric face matching the «research labs» lettering of the logo. */
+const outfit = Outfit({
+  subsets: ['latin'],
+  weight: ['300'],
+  variable: '--font-brand',
   display: 'swap',
 });
 
@@ -65,6 +73,7 @@ export default async function LocaleLayout({
         className={cn(
           inter.variable,
           jetbrainsMono.variable,
+          outfit.variable,
           'min-h-screen bg-background font-sans antialiased',
         )}
       >

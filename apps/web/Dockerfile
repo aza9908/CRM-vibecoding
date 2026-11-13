@@ -19,6 +19,9 @@ ARG NEXT_PUBLIC_BASE_PATH=
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
+# OAuth client id (public) for saving call recordings to the host's Google Drive.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
 RUN npm run build --workspace=@lms/shared \
  && npm run build --workspace=@lms/web
 

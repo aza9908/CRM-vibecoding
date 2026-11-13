@@ -43,6 +43,8 @@ export const WS_EVENTS = {
   rtcModerate: 'rtc:moderate',
   /** host → server: end the call for everyone */
   rtcCallEnd: 'rtc:call-end',
+  /** host → server: I started / stopped recording the call */
+  rtcRecording: 'rtc:recording',
   /** client → server: create a send / receive transport (ack) */
   rtcTransportCreate: 'rtc:transport-create',
   /** client → server: DTLS connect a transport (ack) */
@@ -344,6 +346,14 @@ export interface RtcRoomStatePayload {
   active: boolean;
   count: number;
   startedAt: string | null;
+  /** A host is recording the call — everyone is shown a «REC» mark. */
+  recording?: boolean;
+}
+
+/** `rtc:recording` (host → server). */
+export interface RtcRecordingPayload {
+  sessionId: string;
+  on: boolean;
 }
 
 /** `rtc:peer-left` (server → room). */
@@ -443,6 +453,7 @@ export interface ClientToServerEvents {
   [WS_EVENTS.rtcLeave]: (payload: RtcLeavePayload) => void;
   [WS_EVENTS.rtcState]: (payload: RtcStatePayload) => void;
   [WS_EVENTS.rtcCallEnd]: (payload: RtcCallEndPayload) => void;
+  [WS_EVENTS.rtcRecording]: (payload: RtcRecordingPayload) => void;
   [WS_EVENTS.rtcTransportCreate]: (
     payload: RtcTransportCreatePayload,
     ack?: (res: RtcTransportCreateAck) => void,

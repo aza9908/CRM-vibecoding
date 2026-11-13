@@ -65,6 +65,8 @@ export interface UseVideoRoomResult {
   leave: () => void;
   /** Host: end the call for everyone. */
   endCall: () => void;
+  /** Host: tell everyone the call is (not) being recorded. */
+  setRecording: (on: boolean) => void;
   toggleAudio: () => Promise<void>;
   toggleVideo: () => Promise<void>;
   toggleScreen: () => Promise<void>;
@@ -875,6 +877,11 @@ export function useVideoRoom(
     if (sid) socketRef.current?.emit(WS_EVENTS.rtcCallEnd, { sessionId: sid });
   }, []);
 
+  const setRecording = useCallback((on: boolean) => {
+    const sid = sessionIdRef.current;
+    if (sid) socketRef.current?.emit(WS_EVENTS.rtcRecording, { sessionId: sid, on });
+  }, []);
+
   const toggleAudio = useCallback(async () => {
     const cur = mediaRef.current;
     if (cur.audio) {
@@ -992,6 +999,7 @@ export function useVideoRoom(
     join,
     leave,
     endCall,
+    setRecording,
     toggleAudio,
     toggleVideo,
     toggleScreen,

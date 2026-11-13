@@ -27,6 +27,7 @@ import {
   type ResponseSavePayload,
   type RtcAck,
   type RtcCallEndPayload,
+  type RtcRecordingPayload,
   type RtcConsumeAck,
   type RtcConsumePayload,
   type RtcConsumerLayersPayload,
@@ -291,6 +292,19 @@ export class SessionGateway
     const me = this.video.peerOfSocket(socket.id);
     if (!me || me.sessionId !== body?.sessionId || me.info.role !== 'host') return;
     this.endCall(me.sessionId);
+  }
+
+  /** Host started / stopped recording — everyone sees the «REC» mark. */
+  @SubscribeMessage(WS_EVENTS.rtcRecording)
+  onRtcRecording(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcRecordingPayload,
+  ): void {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || me.sessionId !== body?.sessionId) return;
+    if (this.video.setRecording(me, body.on === true)) {
+      this.broadcastRoomState(me.sessionId);
+    }
   }
 
   private endCall(sessionId: string): void {

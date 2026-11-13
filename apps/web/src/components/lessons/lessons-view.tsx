@@ -123,7 +123,10 @@ export function LessonsView() {
       const list = byKey.get(c);
       // Empty preset columns stay visible once the org files lessons by
       // category, so "Pingwin" has a place before its first lesson exists.
-      if (list || (usesCategories && !q)) {
+      // (An org's own category with nothing visible — e.g. only archived
+      // lessons — is not shown as an empty column.)
+      const preset = (LESSON_CATEGORY_PRESETS as readonly string[]).includes(c);
+      if (list || (usesCategories && !q && preset)) {
         result.push({ key: c, label: c, lessons: list ?? [] });
       }
     }
@@ -277,9 +280,10 @@ export function LessonsView() {
           }
         />
       ) : board ? (
-        // One column per category: stacked collapsible sections on phones,
-        // a horizontally scrolling board from `lg` up.
-        <div className="flex flex-col gap-4 lg:-mx-2 lg:flex-row lg:items-start lg:overflow-x-auto lg:px-2 lg:pb-4">
+        // One column per category: stacked collapsible sections on phones; from
+        // `lg` up a board whose columns wrap to the next row, so nothing is
+        // ever cut off at the right edge.
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] lg:items-start">
           {shownGroups.map((g) => {
             const isCollapsed = collapsed[g.key] ?? false;
             const addTo = g.key === NONE ? null : g.key;
@@ -287,7 +291,7 @@ export function LessonsView() {
               <section
                 key={g.key}
                 aria-label={g.label}
-                className="flex min-w-0 flex-col rounded-xl border bg-muted/40 lg:w-[22rem] lg:shrink-0"
+                className="flex min-w-0 flex-col rounded-xl border bg-muted/40"
               >
                 <div className="flex items-center gap-2 px-3 py-2.5">
                   <button

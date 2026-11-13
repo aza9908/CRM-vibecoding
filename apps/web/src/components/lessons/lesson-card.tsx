@@ -171,8 +171,8 @@ export function LessonCard({
               </Badge>
             ) : null}
             {activeSession ? (
-              <Badge className="w-fit gap-1.5 border-transparent bg-destructive/10 text-destructive">
-                <span className="size-2 animate-pulse rounded-full bg-destructive" />
+              <Badge className="w-fit gap-1.5 border-transparent bg-success/15 text-success">
+                <span className="size-2 animate-pulse rounded-full bg-success" />
                 {t('liveNow')} · {activeSession.code}
               </Badge>
             ) : null}

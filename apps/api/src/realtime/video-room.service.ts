@@ -88,6 +88,8 @@ interface SfuRoom {
   peers: Map<string, SfuPeer>;
   /** ISO time the running call started; null = no call. */
   startedAt: string | null;
+  /** Peer id of the host who is recording the call, if any. */
+  recorderId: string | null;
 }
 
 export interface SpeakerLevel {
@@ -223,6 +225,7 @@ export class VideoRoomService implements OnModuleInit, OnModuleDestroy {
       audioLevels,
       peers: new Map(),
       startedAt: this.resumeAt.get(sessionId) ?? null,
+      recorderId: null,
     };
     this.resumeAt.delete(sessionId);
     // Tag each transport with its WebRtcServer through the router's worker.
@@ -242,10 +245,29 @@ export class VideoRoomService implements OnModuleInit, OnModuleDestroy {
 
   // ── roster ───────────────────────────────────────────────────────────────
 
-  state(sessionId: string): { active: boolean; count: number; startedAt: string | null } {
+  state(sessionId: string): {
+    active: boolean;
+    count: number;
+    startedAt: string | null;
+    recording: boolean;
+  } {
     const room = this.rooms.get(sessionId);
     const startedAt = room?.startedAt ?? this.resumeAt.get(sessionId) ?? null;
-    return { active: startedAt != null, count: room?.peers.size ?? 0, startedAt };
+    return {
+      active: startedAt != null,
+      count: room?.peers.size ?? 0,
+      startedAt,
+      recording: room?.recorderId != null,
+    };
+  }
+
+  /** A host marks the call as being recorded (or not any more). */
+  setRecording(peer: SfuPeer, on: boolean): boolean {
+    const room = this.rooms.get(peer.sessionId);
+    if (!room || peer.info.role !== 'host') return false;
+    if (on) room.recorderId = peer.info.peerId;
+    else if (room.recorderId === peer.info.peerId) room.recorderId = null;
+    return true;
   }
 
   peers(sessionId: string): RtcPeer[] {
@@ -341,7 +363,11 @@ export class VideoRoomService implements OnModuleInit, OnModuleDestroy {
     this.closePeer(peer);
     const room = this.rooms.get(peer.sessionId);
     // Only drop the roster entry if it still belongs to this socket.
-    if (room?.peers.get(peer.info.peerId) === peer) room.peers.delete(peer.info.peerId);
+    if (room?.peers.get(peer.info.peerId) === peer) {
+      room.peers.delete(peer.info.peerId);
+      // The recording lives in that person's browser — it ended with them.
+      if (room.recorderId === peer.info.peerId) room.recorderId = null;
+    }
     this.gc(peer.sessionId);
     return peer;
   }

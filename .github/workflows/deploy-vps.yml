@@ -38,6 +38,9 @@ on:
       pubkey_b64:
         description: reset-password — base64 PEM public key; the new password is printed only encrypted with it
         default: ''
+      google_client_id:
+        description: deploy — Google OAuth client id (public) for saving call recordings to Google Drive; empty keeps the current one
+        default: ''
       force:
         description: seed-orzu — replace the lesson even if it has student answers
         type: boolean
@@ -408,9 +411,11 @@ jobs:
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
           BASE_PATH: ${{ inputs.base_path }}
           EXTRA_ORIGIN: ${{ inputs.extra_origin }}
+          GOOGLE_CLIENT_ID: ${{ inputs.google_client_id }}
         run: |
+          [[ -z "$GOOGLE_CLIENT_ID" || "$GOOGLE_CLIENT_ID" =~ ^[0-9a-z.-]+\.apps\.googleusercontent\.com$ ]] || { echo "::error::google_client_id does not look like an OAuth client id"; exit 1; }
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
-            "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' EXPECTED_COMPOSE='acda3ae48a1bc4fddd085708d73a128e82c9c4b4' bash -s" <<'REMOTE'
+            "APP_DIR='$VPS_APP_DIR' BASE_PATH='$BASE_PATH' EXTRA_ORIGIN='$EXTRA_ORIGIN' GOOGLE_CLIENT_ID='$GOOGLE_CLIENT_ID' EXPECTED_COMPOSE='acda3ae48a1bc4fddd085708d73a128e82c9c4b4' bash -s" <<'REMOTE'
           set -euo pipefail
           if [ -z "$APP_DIR" ]; then
             # The LMS git clone: has docker-compose.prod.yml with the web app and a .git
@@ -461,6 +466,13 @@ jobs:
             esac
           else
             printf 'WEB_ORIGIN=%s\n' "$EXTRA_ORIGIN" >> "$ENV_FILE"
+          fi
+          if [ -n "$GOOGLE_CLIENT_ID" ]; then
+            if grep -q '^NEXT_PUBLIC_GOOGLE_CLIENT_ID=' "$ENV_FILE"; then
+              sed -i "s#^NEXT_PUBLIC_GOOGLE_CLIENT_ID=.*#NEXT_PUBLIC_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID#" "$ENV_FILE"
+            else
+              printf 'NEXT_PUBLIC_GOOGLE_CLIENT_ID=%s\n' "$GOOGLE_CLIENT_ID" >> "$ENV_FILE"
+            fi
           fi
           grep -E '^(NEXT_PUBLIC_[A-Z_]*|WEB_ORIGIN)=' "$ENV_FILE"
 

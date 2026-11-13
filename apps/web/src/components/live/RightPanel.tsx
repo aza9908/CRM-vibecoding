@@ -23,9 +23,9 @@ import { QaPanel } from './QaPanel';
 type TabId = 'navigation' | 'qa' | 'chat' | 'materials' | 'notes' | 'tutor';
 
 const TABS: { id: TabId; labelKey: string; Icon: typeof ListChecks }[] = [
-  { id: 'navigation', labelKey: 'tabNavigation', Icon: ListChecks },
-  { id: 'qa', labelKey: 'tabQa', Icon: MessageCircleQuestion },
   { id: 'chat', labelKey: 'tabChat', Icon: MessagesSquare },
+  { id: 'qa', labelKey: 'tabQa', Icon: MessageCircleQuestion },
+  { id: 'navigation', labelKey: 'tabNavigation', Icon: ListChecks },
   { id: 'materials', labelKey: 'tabMaterials', Icon: Paperclip },
   { id: 'notes', labelKey: 'tabNotes', Icon: NotebookPen },
   { id: 'tutor', labelKey: 'tabTutor', Icon: Bot },
@@ -74,7 +74,7 @@ export function RightPanel({
   className,
 }: RightPanelProps) {
   const t = useTranslations('rightPanel');
-  const [active, setActive] = React.useState<TabId>('navigation');
+  const [active, setActive] = React.useState<TabId>('chat');
   const openQuestions = questions.filter((q) => q.status !== 'answered').length;
 
   return (

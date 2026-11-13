@@ -464,7 +464,10 @@
     "chatEmpty": "No messages yet. Send the first one.",
     "chatPlaceholder": "Message…",
     "chatSend": "Send",
-    "chatTeacher": "teacher"
+    "chatTeacher": "teacher",
+    "chatOpen": "Open chat",
+    "chatClose": "Close chat",
+    "groupChat": "Group chat"
   },
   "reports": {
     "title": "Reports",
@@ -733,6 +736,19 @@
     "leaveOnly": "Leave by myself",
     "leaveOnlyHint": "The call continues without you",
     "reconnecting": "Connection lost — reconnecting…",
+    "recStart": "Start recording",
+    "recStop": "Stop recording",
+    "recStarting": "Starting…",
+    "recSaving": "Saving the recording…",
+    "recOn": "Recording",
+    "recDefaultTitle": "Lesson",
+    "recFailed": "Could not start recording in this browser. Use Chrome on a computer.",
+    "recDriveDenied": "No access to Google Drive — the recording will be saved to this computer.",
+    "recSavedDrive": "Recording saved to Google Drive, folder «Уроки LMS»",
+    "recSavedDownload": "Recording saved to this computer (Downloads folder)",
+    "recOpenDrive": "Open in Google Drive",
+    "recDriveFallback": "Uploading to Google Drive failed, so the file was downloaded to this computer.",
+    "recDriveNotSetUp": "Saving to Google Drive is not connected yet — the file was downloaded to this computer.",
     "errors": {
       "timeout": "The video server did not respond. Check your internet and press Retry.",
       "media_denied": "No access to the camera or microphone. Allow it in your browser settings.",

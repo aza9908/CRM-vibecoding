@@ -27,6 +27,8 @@ import { SessionStateBanner } from '@/components/live/SessionStateBanner';
 import { SessionEndedReport } from '@/components/live/SessionEndedReport';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { GroupChatTab } from '@/components/live/GroupChatTab';
+import { ChatDock } from '@/components/live/ChatDock';
+import { useLesson } from '@/lib/api/hooks/use-lessons';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { QaPanel } from '@/components/live/QaPanel';
 import { Brand } from '@/components/brand';
@@ -63,6 +65,7 @@ export default function TeacherLivePage() {
   const accessToken = useAuthStore((s) => s.accessToken);
 
   const sessionQuery = useSession(sessionId, { pollMs: 6_000 });
+  const lessonQuery = useLesson(sessionQuery.data?.lessonId);
   const participantsQuery = useSessionParticipants(sessionId);
   const responsesQuery = useSessionResponses(sessionId);
   const endSession = useEndSession();
@@ -237,7 +240,13 @@ export default function TeacherLivePage() {
       </header>
 
       <div className="container flex flex-1 flex-col gap-6 py-6">
-        <VideoRoom sessionId={sessionId} token={accessToken} isHost callState={callState} />
+        <VideoRoom
+          sessionId={sessionId}
+          token={accessToken}
+          isHost
+          callState={callState}
+          recordingTitle={lessonQuery.data?.title}
+        />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
           {/* Workbook preview — click a block to focus it for students. */}
           <section className="min-w-0 space-y-3">
@@ -259,6 +268,17 @@ export default function TeacherLivePage() {
 
           {/* Right column: sticky + independently scrollable through all panels. */}
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            {/* Chat first: it is what people look for during a class. */}
+            <Card className="border-primary/30 p-4 shadow-sm">
+              <h2 className="mb-2 text-sm font-semibold">{t('groupChat')}</h2>
+              <div className="h-[22rem]">
+                <GroupChatTab
+                  messages={chatMessages}
+                  onSend={sendChat}
+                  selfId={chatSelfId}
+                />
+              </div>
+            </Card>
             <Card className="border-primary/30 p-4 shadow-sm">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
                 {t('qaTitle')}
@@ -297,19 +317,12 @@ export default function TeacherLivePage() {
               />
             </Card>
             <Card className="p-4">
-              <h2 className="mb-2 text-sm font-semibold">{t('groupChat')}</h2>
-              <GroupChatTab
-                messages={chatMessages}
-                onSend={sendChat}
-                selfId={chatSelfId}
-              />
-            </Card>
-            <Card className="p-4">
               <SessionMetricsPanel sessionId={sessionId} />
             </Card>
           </aside>
         </div>
       </div>
+      <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
       <ConfirmDialog
         open={endOpen}
         title={t('endTitle')}

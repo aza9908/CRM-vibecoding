@@ -192,8 +192,8 @@ export function CurriculumTimeline() {
               </div>
               <div className="flex items-center gap-2">
                 {isLiveNow ? (
-                  <Badge className="gap-1.5 border-transparent bg-destructive/10 text-destructive">
-                    <span className="size-2 animate-pulse rounded-full bg-destructive" />
+                  <Badge className="gap-1.5 border-transparent bg-success/15 text-success">
+                    <span className="size-2 animate-pulse rounded-full bg-success" />
                     {t('liveNow')}
                   </Badge>
                 ) : null}
