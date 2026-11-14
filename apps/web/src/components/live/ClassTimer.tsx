@@ -182,7 +182,7 @@ export function ClassTimerBanner({
   );
 }
 
-const PRESETS = [5, 10, 15, 30];
+const PRESETS = [5, 7, 10, 15, 30];
 
 /** Teacher's control: pick a length, start, add time, stop. */
 export function ClassTimerCard({
@@ -227,7 +227,7 @@ export function ClassTimerCard({
         </div>
       ) : (
         <>
-          <div className="mt-3 grid grid-cols-4 gap-1.5" role="radiogroup" aria-label={t('title')}>
+          <div className="mt-3 grid grid-cols-5 gap-1.5" role="radiogroup" aria-label={t('title')}>
             {PRESETS.map((m) => (
               <button
                 key={m}
