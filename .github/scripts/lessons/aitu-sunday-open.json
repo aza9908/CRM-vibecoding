@@ -14,26 +14,50 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/01-title.png",
-      "content": "Вайбкодинг · практический воркшоп · AITU Sunday Open",
+      "imageUrl": "/workbook/aitu/s-01.jpg",
+      "content": "Вайб-кодинг с Claude · практический воркшоп AITU Sunday Open × AIRL. Три блока: знакомство и теория, практика с Claude, завершение и демо",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/02-how.png",
-      "content": "Как устроена наша программа: команда приходит с болью → мы обучаем → вы собираете продукт. Остаются продукт, знания и навыки",
+      "imageUrl": "/workbook/aitu/s-02.jpg",
+      "content": "Как пройдёт день: 11:00 знакомимся · 12:00 готовим инструменты · 13:00 обед · 13:30 строим продукт · 15:30 кофе · 15:45 показываем · 17:00 готово",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/03-teacher.png",
-      "content": "Кто ведёт воркшоп: Жанибек Серкулов — преподаватель, предприниматель, практик",
+      "imageUrl": "/workbook/aitu/s-03.jpg",
+      "content": "Кто ведёт воркшоп: Жанибек Серкулов, CEO и основатель AI Research Labs · Азамат Арманұлы, CTO и тех лид AI Research Labs",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/04-practice.png",
-      "content": "Практик, а не теоретик: Bropost в Германии и США, партнёры в Китае, панельный завод в Астане, склад Bropost",
+      "imageUrl": "/workbook/aitu/s-04.jpg",
+      "content": "Жанибек Серкулов · проекты: Bropost, Knauf, грузы в США, Нью-Йорк, партнёры в Китае, панельный завод в Астане, склад Bropost",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-05.jpg",
+      "content": "Жанибек Серкулов · преподаёт и выступает: МГУ, РФМШ и AITU, Q.ai, University of Unicorns, AI for YPO, конференции",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-06.jpg",
+      "content": "Азамат Арманұлы · от KAIST до чемпионата мира FIRST: топ-4 мира по робототехнике, KAIST, Foldexa.bio",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-07.jpg",
+      "content": "AI Research Labs: центр прикладного ИИ. Компании, вузы, школы, студия. Партнёры: МГУ, Astana IT University, Kaizen Center, Yassa, Q.AI",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-08.jpg",
+      "content": "Кто мы и что мы сделали: МГУ, Astana IT University, Sunday Open, Kaizen Center, PINGWIN, Yassa Education",
       "blockRole": "slide"
     },
     {
@@ -48,31 +72,8 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/05-superpower.png",
-      "content": "Доменная экспертиза + ИИ = суперсила",
-      "blockRole": "slide"
-    },
-    {
-      "type": "image",
-      "imageUrl": "/workbook/aitu/06-matrix.png",
-      "content": "Почему выигрывает эксперт с ИИ",
-      "blockRole": "slide"
-    },
-    {
-      "type": "input_text",
-      "blockRole": "exercise",
-      "content": "**Упражнение 1.2 · Ваша экспертиза.** В чём вы разбираетесь лучше других? Напишите сферу и свою роль (например: «логистика, менеджер по доставке»)."
-    },
-    {
-      "type": "image",
-      "imageUrl": "/workbook/aitu/07-maturity.png",
-      "content": "ИИ-зрелые компании: пять ступеней — не используют, пробуют, применяют, встраивают, ИИ-зрелая",
-      "blockRole": "slide"
-    },
-    {
-      "type": "image",
-      "imageUrl": "/workbook/aitu/08-mature-vs.png",
-      "content": "Чем отличается ИИ-зрелая компания: кто работает с ИИ, как появляются продукты, где живут знания, что с ошибками",
+      "imageUrl": "/workbook/aitu/s-09.jpg",
+      "content": "Пять ступеней ИИ-зрелости: 0 не используют · 1 пробуют · 2 применяют (Kaspi.kz) · 3 встраивают (Duolingo, PINGWIN) · 4 ИИ-зрелые (Higgsfield)",
       "blockRole": "slide"
     },
     {
@@ -90,13 +91,332 @@
       }
     },
     {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-10.jpg",
+      "content": "Доменная экспертиза + ИИ = суперсила: вы знаете своё дело, ИИ умеет строить, на пересечении появляется продукт",
+      "blockRole": "slide"
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Упражнение 1.2 · Ваша экспертиза.** В чём вы разбираетесь лучше других? Напишите сферу и свою роль (например: «логистика, менеджер по доставке»)."
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-11.jpg",
+      "content": "DWH: все данные компании в одном месте — источники, коннекторы MCP, озеро данных, вы и команда",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/video/dwh.jpg",
+      "content": "▶ Анимация · Как данные из 1С, CRM и рекламы стекаются в одно озеро данных",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/dwh.mp4"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-12.jpg",
+      "content": "Кейс AIRL · PINGWIN: своя система вместо подписок — расходы на софт в 90 раз меньше, 14 своих систем за 100 дней",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-13.jpg",
+      "content": "Кейс AIRL · Kaizen: TPM и TWI в одном приложении — метка в три нажатия, потери на дашборде, матрица навыков",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-14.jpg",
+      "content": "Кейс AIRL · Orzu Medical: хаб и CRM для 7 филиалов сети клиник",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-15.jpg",
+      "content": "Кейс AIRL · Physical AI · Мамулины Вкусняшки: камеры считают работу цеха",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**✍️ Свободное письмо · 7 минут · чтобы узнать вас**\n\nПеред практикой нам важно понять, зачем вы здесь. Ниже три вопроса — ответьте на каждый честно и своими словами.\n\n**Правила**\n\n1. Пишите 7 минут без остановки — преподаватель запускает таймер.\n\n2. Не редактируйте и не подбирайте слова: правильных ответов нет.\n\n3. Застряли — напишите «не знаю, что писать» и продолжайте.\n\n🔴 **Обязательно.** Отметки, ссылки и скриншоты сохраняются и видны преподавателю в реальном времени — ваш прогресс отслеживается."
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Вопрос 1 · Что вы хотите от обучения.** Представьте: сегодня 17:00, воркшоп прошёл идеально. Что у вас теперь есть или что вы умеете, чего не было утром? Почему именно это для вас важно?",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Вопрос 2 · Зачем ИИ вашей команде.** Где ваша команда прямо сейчас теряет больше всего времени, денег или нервов? Что станет возможным, если эту работу возьмёт на себя ИИ — и что будет, если ещё год ничего не менять?",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Вопрос 3 · Зачем ИИ лично вам.** Кем вы хотите стать через год благодаря ИИ — в профессии и в жизни? Что вас сейчас останавливает или пугает?",
+      "options": {
+        "required": true
+      }
+    },
+    {
       "type": "text",
       "blockRole": "section",
       "content": "Практика с Claude"
     },
     {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-16.jpg",
+      "content": "Блок 2 · Практика с Claude · 6 скиллов AIRL: от идеи до продукта, который открывается по ссылке",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-17.jpg",
+      "content": "Приложение как ресторан: зал = фронтенд, официант = API, кухня = бэкенд, кладовая = база данных",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/video/restaurant.jpg",
+      "content": "▶ Анимация · Приложение как ресторан: путь заказа от гостя до кухни и обратно",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/restaurant.mp4"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-19.jpg",
+      "content": "Второй мозг вайбкодера: интерактивная карта — 72 заметки и 182 связи между ними",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/video/brain.jpg",
+      "content": "▶ Анимация · Второй мозг вайбкодера: карта знаний воркшопа",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/brain.mp4"
+      }
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Открыть приложение «Второй мозг»",
+        "href": "https://obsidian-terms.netlify.app/"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-20.jpg",
+      "content": "5 слов на сегодня: вайб-кодинг, промпт, контекстное окно, скилл, деплой",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-21.jpg",
+      "content": "6 скиллов: от идеи до работающего продукта — /airl-start, /airl-design, /airl-architecture, /airl-security, /airl-deploy, /airl-code-review",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-22.jpg",
+      "content": "Как выглядит работа со скиллом: Claude задаёт вопросы по одному, «не знаю» тоже ответ, результат таблицей",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-23.jpg",
+      "content": "Сегодня всё происходит в Firebase: база данных (Firestore), авторизация, деплой (Hosting) → MVP по ссылке проект.web.app",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-24.jpg",
+      "content": "Сегодня MVP на Firebase · в большой программе AIRL — боевой продукт на своём сервере",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-25.jpg",
+      "content": "Скиллы AIRL: 6 сегодня доводят идею до MVP, ещё 20 в большой программе доводят MVP до боевого продукта",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-26.jpg",
+      "content": "Ставим 6 скиллов AIRL: VS Code и Claude Code, терминал, одна команда, перезагрузка, проверка /airl-start",
+      "blockRole": "slide"
+    },
+    {
       "type": "text",
-      "content": "**Блок 2 · Практика с Claude**\n\nЗдесь будет практическая часть: участники вместе с Claude собирают свой первый проект.\n\nСодержание блока добавим на следующем шаге."
+      "blockRole": "task",
+      "content": "**Ставим 6 скиллов AIRL**\n\n1. Установите в VS Code расширение Claude Code и войдите в аккаунт Claude Pro.\n\n2. Откройте терминал: Terminal → New Terminal.\n\n3. Вставьте команду ниже и нажмите Enter.\n\nФАЙЛ · Команда для терминала\ncd ~/Downloads && git clone https://github.com/aza9908/airl-vibecoding.git && cd airl-vibecoding && bash install.sh\n\n4. Перезагрузите окно: Ctrl/Cmd + Shift + P → Developer: Reload Window.\n\n5. Наберите /airl-start в панели Claude. Появилась подсказка на русском — всё готово. Не получилось? Поднимите руку, поставим вместе."
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Скиллы и инструкция на GitHub",
+        "href": "https://github.com/aza9908/airl-vibecoding"
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**🛠 Практические задания**\n\nДальше вы собираете свой продукт за три шага: дизайн → архитектура → публикация. К каждому шагу есть чеклист: отмечайте пункты по мере выполнения, вставляйте ссылки и прикрепляйте скриншоты.\n\n🔴 **Обязательно.** Отметки, ссылки и скриншоты сохраняются и видны преподавателю в реальном времени — ваш прогресс отслеживается."
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Проверка готовности · отметьте всё, прежде чем начать**",
+      "options": {
+        "items": [
+          "Есть подписка Claude Pro",
+          "Установлены скиллы AIRL",
+          "Свободное письмо выполнено, и свою боль я готов(а) решать"
+        ],
+        "required": true
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Шаг 1 · DESIGN.md**\n\nСначала найдите референсы: откройте Dribbble и Behance, выберите по одному дизайну, который подходит вашему продукту. Затем запустите скилл и соберите DESIGN.md.\n\nПРОМПТ · Запустите в панели Claude\n/airl-design\n\n🔴 **Обязательно.** Отметки, ссылки и скриншоты сохраняются и видны преподавателю в реальном времени — ваш прогресс отслеживается."
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Открыть Dribbble",
+        "href": "https://dribbble.com/"
+      }
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Открыть Behance",
+        "href": "https://www.behance.net/"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 1 · Чеклист DESIGN.md**",
+      "options": {
+        "items": [
+          "Dribbble: выбрал(а) дизайн — ссылка и скриншот добавлены ниже",
+          "Behance: выбрал(а) дизайн — ссылка и скриншот добавлены ниже",
+          "DESIGN.md собран и согласован",
+          "Скриншот готового DESIGN.md прикреплён ниже"
+        ],
+        "required": true
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**1.1 · Dribbble — ссылка на ваш дизайн.** Вставьте ссылку на выбранный дизайн.",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "input_file",
+      "blockRole": "task",
+      "content": "**1.1 · Dribbble — скриншот дизайна.** Прикрепите скриншот выбранного дизайна.",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**1.2 · Behance — ссылка на ваш дизайн.** Вставьте ссылку на выбранный дизайн.",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "input_file",
+      "blockRole": "task",
+      "content": "**1.2 · Behance — скриншот дизайна.** Прикрепите скриншот выбранного дизайна.",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "input_file",
+      "blockRole": "task",
+      "content": "**1.4 · Результат — скриншот DESIGN.md.** Прикрепите скриншот готового файла DESIGN.md.",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Шаг 2 · ARCHITECTURE.md**\n\nClaude подключает Firebase, создаёт базу данных и собирает первую рабочую версию.\n\nПРОМПТ · Запустите в панели Claude\n/airl-architecture\n\n🔴 **Обязательно.** Отметки, ссылки и скриншоты сохраняются и видны преподавателю в реальном времени — ваш прогресс отслеживается."
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 2 · Чеклист ARCHITECTURE.md**",
+      "options": {
+        "items": [
+          "Включён CLI",
+          "Прошла авторизация в Firebase",
+          "Создана база данных в Firestore",
+          "Скриншот ARCHITECTURE.md прикреплён ниже"
+        ],
+        "required": true
+      }
+    },
+    {
+      "type": "input_file",
+      "blockRole": "task",
+      "content": "**2.4 · Результат — скриншот ARCHITECTURE.md.** Прикрепите скриншот готового файла ARCHITECTURE.md.",
+      "options": {
+        "required": true
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Шаг 3 · Публикация и деплой**\n\nВыкладываем продукт в интернет: после деплоя он открывается по ссылке вида проект.web.app.\n\nПРОМПТ · Запустите в панели Claude\n/airl-deploy\n\n🔴 **Обязательно.** Отметки, ссылки и скриншоты сохраняются и видны преподавателю в реальном времени — ваш прогресс отслеживается."
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 3 · Чеклист публикации**",
+      "options": {
+        "items": [
+          "Сделана публикация через Firebase (адрес web.app)",
+          "Ссылка или скриншот конечного продукта — MVP — добавлены ниже"
+        ],
+        "required": true
+      }
+    },
+    {
+      "type": "input_file",
+      "blockRole": "task",
+      "content": "**3.2 · Ваш MVP.** Вставьте ссылку на ваш продукт (проект.web.app) или прикрепите скриншот.",
+      "options": {
+        "required": true
+      }
     },
     {
       "type": "text",
@@ -105,7 +425,7 @@
     },
     {
       "type": "text",
-      "content": "**Блок 3 · Завершение и демо**\n\nЗдесь будет финал воркшопа: демонстрация проектов и подведение итогов.\n\nСодержание блока добавим на следующем шаге."
+      "content": "**Блок 3 · Завершение и демо**\n\nСодержание этого блока появится позже."
     }
   ]
 }

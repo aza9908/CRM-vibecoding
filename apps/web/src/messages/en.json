@@ -323,6 +323,7 @@
   },
   "live": {
     "blockDone": "Answer accepted",
+    "blockRequired": "Required · tracked",
     "floorTitle": "You have the floor — join the video call and turn on your mic",
     "floorGo": "Go to video call",
     "qaTitle": "Questions (Q&A)",

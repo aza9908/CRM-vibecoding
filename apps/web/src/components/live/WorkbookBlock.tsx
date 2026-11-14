@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { Check, CheckCircle2, ExternalLink, Eye, FileText, Link2, Paperclip, Upload } from 'lucide-react';
 import type { Block } from '@/lib/api/types';
-import { cn } from '@/lib/utils';
+import { cn, withBasePath } from '@/lib/utils';
 import { isInputBlock } from '@/lib/blocks';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -213,6 +213,12 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
             {t('blockDone')}
           </div>
         ) : null}
+        {answerable && !readOnly && !done && isRequiredBlock(block.options) ? (
+          <div className="mb-3 mr-2 inline-flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
+            <span aria-hidden>●</span>
+            {t('blockRequired')}
+          </div>
+        ) : null}
         {focused && (
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground">
             <Eye className="h-3.5 w-3.5" />
@@ -287,7 +293,17 @@ function BlockBody({
     case 'text':
       return block.content ? <TextBlockBody block={block} /> : null;
 
-    case 'image':
+    case 'image': {
+      const video = blockVideoSrc(block.options);
+      if (video) {
+        return (
+          <LessonVideo
+            src={video}
+            poster={block.imageUrl ?? undefined}
+            caption={block.content ?? ''}
+          />
+        );
+      }
       return block.imageUrl ? (
         <ZoomableImage
           src={block.imageUrl}
@@ -298,6 +314,7 @@ function BlockBody({
       ) : (
         <p className="text-sm text-muted-foreground">{block.content}</p>
       );
+    }
 
     case 'action_button': {
       // The editor stores the button label/href in options (not content).
@@ -929,5 +946,59 @@ function ChecklistBlockBody({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** `options.required` marks an answer block the student must complete. */
+function isRequiredBlock(options: unknown): boolean {
+  return (
+    !!options &&
+    typeof options === 'object' &&
+    (options as Record<string, unknown>).required === true
+  );
+}
+
+/** An `image` block with `options.video` plays that file; `imageUrl` is its poster. */
+function blockVideoSrc(options: unknown): string | null {
+  if (!options || typeof options !== 'object') return null;
+  const v = (options as Record<string, unknown>).video;
+  return typeof v === 'string' && (v.startsWith('/') || /^https?:\/\//i.test(v))
+    ? v
+    : null;
+}
+
+/**
+ * A lesson animation: plays inline with the browser's own controls (play,
+ * seek, fullscreen). Muted + playsInline so phones start it on tap without
+ * leaving the page; loops because the animations are short explainer clips.
+ */
+function LessonVideo({
+  src,
+  poster,
+  caption,
+}: {
+  src: string;
+  poster?: string;
+  caption: string;
+}) {
+  return (
+    <figure className="space-y-2">
+      <div className="overflow-hidden rounded-md border bg-black">
+        <video
+          src={withBasePath(src)}
+          poster={withBasePath(poster)}
+          controls
+          loop
+          muted
+          playsInline
+          preload="metadata"
+          className="block h-auto w-full"
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+      {caption ? (
+        <figcaption className="text-sm text-muted-foreground">{caption}</figcaption>
+      ) : null}
+    </figure>
   );
 }

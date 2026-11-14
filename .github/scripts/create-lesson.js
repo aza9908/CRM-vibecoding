@@ -23,9 +23,24 @@ const api = async (p, init = {}) => {
   const list = await api('/lessons');
   const lessons = Array.isArray(list) ? list : list.items;
   let lesson = lessons.find((l) => l.title === spec.title && !l.archived);
+  // A block that is unchanged keeps its id, so answers already given to it
+  // survive an update; only blocks that were removed or rewritten are replaced.
+  const key = (b) => [b.type, b.blockRole || '', b.content || '', b.imageUrl || ''].join('\u0001');
   if (lesson) {
     const detail = await api(`/lessons/${lesson.id}`);
     const have = (detail.blocks || []).length;
+    const pool = new Map();
+    for (const b of detail.blocks || []) {
+      const k = key(b);
+      if (!pool.has(k)) pool.set(k, []);
+      pool.get(k).push(b.id);
+    }
+    let kept = 0;
+    for (const b of spec.blocks) {
+      const id = (pool.get(key(b)) || []).shift();
+      if (id) { b.id = id; kept += 1; }
+    }
+    console.log(`existing blocks: ${have} · kept as they are: ${kept}`);
     if (have > 0 && FORCE !== 'true') {
       console.log(`lesson already exists with ${have} blocks — left as it is`);
       return;

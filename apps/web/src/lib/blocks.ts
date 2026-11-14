@@ -62,7 +62,9 @@ export function buildImageNavMap(
   const ids: string[] = [];
 
   for (const b of blocks) {
-    if (b.type === 'image' && b.imageUrl) {
+    const isVideo =
+      typeof (b.options as { video?: unknown } | null)?.video === 'string';
+    if (b.type === 'image' && b.imageUrl && !isVideo) {
       images.push({ src: b.imageUrl, alt: b.content ?? '' });
       ids.push(b.id);
     }
