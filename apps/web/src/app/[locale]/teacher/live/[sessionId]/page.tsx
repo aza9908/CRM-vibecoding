@@ -28,8 +28,9 @@ import { SessionEndedReport } from '@/components/live/SessionEndedReport';
 import { LessonViewerContext, WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { GroupChatTab } from '@/components/live/GroupChatTab';
 import { ChatDock } from '@/components/live/ChatDock';
+import { ClassTimerBanner, ClassTimerCard } from '@/components/live/ClassTimer';
 import { SectionPager, SectionTabs } from '@/components/live/SectionNotebook';
-import { sectionTitle, splitSections } from '@lms/shared';
+import { sectionTitle, splitSections, type TimerStatePayload } from '@lms/shared';
 import { api } from '@/lib/api/client';
 import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
@@ -93,6 +94,7 @@ export default function TeacherLivePage() {
     callState,
     pulse,
     sectionsUnlocked,
+    timer: wsTimer,
   } = useSessionSocket(sessionId, { token: accessToken });
 
   const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId);
@@ -183,6 +185,30 @@ export default function TeacherLivePage() {
       }
     },
     [sessionId, refetchSession],
+  );
+  // ── class timer ─────────────────────────────────────────────────────────
+  const [timerOverride, setTimerOverride] = React.useState<TimerStatePayload | null>(null);
+  const [timerPending, setTimerPending] = React.useState(false);
+  // The freshest of: my own action, the socket push, the polled session.
+  const timer = React.useMemo(() => {
+    const all = [timerOverride, wsTimer, sessionQuery.data?.timer].filter(
+      (x): x is TimerStatePayload => !!x,
+    );
+    return all.sort((a, b) => b.serverNow.localeCompare(a.serverNow))[0] ?? null;
+  }, [timerOverride, wsTimer, sessionQuery.data?.timer]);
+  const setTimer = React.useCallback(
+    async (seconds: number, add?: boolean) => {
+      if (!sessionId) return;
+      setTimerPending(true);
+      try {
+        setTimerOverride(
+          await api.post<TimerStatePayload>(`/sessions/${sessionId}/timer`, { seconds, add }),
+        );
+      } finally {
+        setTimerPending(false);
+      }
+    },
+    [sessionId],
   );
   const currentSection = sections[Math.min(activeSection, sections.length - 1)]!;
   const pageBlocks = hasSections ? currentSection.blocks : blocks;
@@ -346,6 +372,10 @@ export default function TeacherLivePage() {
 
           {/* Right column: sticky + independently scrollable through all panels. */}
           <aside className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            {/* Class timer: e.g. 30 minutes of practice, with a bell at the end. */}
+            <Card className="border-primary/30 p-4 shadow-sm">
+              <ClassTimerCard timer={timer} onSet={(s, add) => void setTimer(s, add)} pending={timerPending} />
+            </Card>
             {/* «Пульс класса»: ask "is everything clear?" in one click. */}
             <Card className="border-primary/30 p-4 shadow-sm">
               <PulseTeacherCard channel={pulse} sessionId={sessionId} />
@@ -407,6 +437,7 @@ export default function TeacherLivePage() {
         </div>
       </div>
       <PulseRain channel={pulse} />
+      <ClassTimerBanner timer={timer} position="bottom" />
       <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
       <ConfirmDialog
         open={endOpen}

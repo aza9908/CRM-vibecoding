@@ -22,6 +22,7 @@ import { LessonViewerContext, WorkbookBlock } from '@/components/live/WorkbookBl
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
 import { ChatDock } from '@/components/live/ChatDock';
+import { ClassTimerBanner } from '@/components/live/ClassTimer';
 import { SectionLocked, SectionPager, SectionTabs } from '@/components/live/SectionNotebook';
 import { sectionTitle, splitSections } from '@lms/shared';
 import { PulsePrompt } from '@/components/live/PulsePrompt';
@@ -110,6 +111,7 @@ export default function StudentLivePage() {
     callState,
     pulse,
     sectionsUnlocked,
+    timer: wsTimer,
   } = useSessionSocket(sessionId, { token: participantToken, debounceMs: 150 });
 
   const saveRest = useSaveSessionResponse(sessionId);
@@ -584,6 +586,7 @@ export default function StudentLivePage() {
       <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
       <PulsePrompt channel={pulse} />
       <PulseRain channel={pulse} />
+      <ClassTimerBanner timer={wsTimer ?? sessionQuery.data?.timer} />
 
       {/* minmax(0,1fr): without it the mobile track grows to the right panel's
           min-content width and the whole page scrolls sideways on phones. */}

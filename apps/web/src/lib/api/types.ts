@@ -56,6 +56,8 @@ export interface SessionState {
   unlockedSections?: number;
   /** Sections in the lesson (1 = the lesson is not divided). */
   sectionCount?: number;
+  /** The class countdown, if one is running. */
+  timer?: import('@lms/shared').TimerStatePayload;
   /** The caller, as the session knows them (name given at join / account name). */
   me?: { name: string | null };
 }

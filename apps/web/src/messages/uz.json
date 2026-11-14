@@ -910,5 +910,17 @@
     "opened": "{n}-blok ochildi: {title}",
     "untitled": "{n}-blok",
     "hostPreview": "O‘quvchilar bu blokni hali ko‘rmaydi — u yopiq."
+  },
+  "timer": {
+    "title": "Taymer",
+    "hint": "Teskari sanoq barcha ishtirokchilarga ko‘rinadi; oxirida signal chalinadi.",
+    "left": "Qoldi",
+    "done": "Vaqt tugadi!",
+    "hide": "Yashirish",
+    "min": "{n} daq",
+    "custom": "Daqiqa",
+    "start": "Boshlash",
+    "stop": "To‘xtatish",
+    "add5": "+5 daqiqa"
   }
 }

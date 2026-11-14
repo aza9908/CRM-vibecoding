@@ -24,6 +24,7 @@ import {
   PULSE_QUESTION_MAX,
   PULSE_VALUES,
   pulseUnderstanding,
+  type TimerStatePayload,
   type PulseAck,
   type PulseAnswerPayload,
   type PulseClosePayload,
@@ -613,6 +614,8 @@ export class SessionGateway
       socket.emit(WS_EVENTS.qaList, { sessionId, questions });
     }
     // Joined in the middle of a «Пульс класса» check → show it right away.
+    const timer = this.timerState(sessionId);
+    if (timer.endsAt) socket.emit(WS_EVENTS.timerState, timer);
     const pulse = this.pulseBySession.get(sessionId);
     if (pulse && !pulse.closed) {
       socket.emit(WS_EVENTS.pulseState, this.pulsePublic(pulse));
@@ -877,6 +880,42 @@ export class SessionGateway
     return { ok: true };
   }
 
+  // ── Class timer ────────────────────────────────────────────────────────
+  // A countdown the teacher starts for everyone (e.g. 30 minutes of
+  // practice). In memory, like the chat buffer: single API instance.
+  private readonly timerBySession = new Map<string, { endsAt: number; durationSec: number }>();
+
+  timerState(sessionId: string): TimerStatePayload {
+    const timer = this.timerBySession.get(sessionId);
+    const live = timer && timer.endsAt > Date.now() - 60_000 ? timer : undefined;
+    if (timer && !live) this.timerBySession.delete(sessionId);
+    return {
+      sessionId,
+      endsAt: live ? new Date(live.endsAt).toISOString() : null,
+      durationSec: live?.durationSec ?? 0,
+      serverNow: new Date().toISOString(),
+    };
+  }
+
+  /** Start (`seconds` > 0), extend (`add`) or stop (`seconds` = 0) the timer. */
+  setTimer(sessionId: string, seconds: number, add = false): TimerStatePayload {
+    const current = this.timerBySession.get(sessionId);
+    if (seconds <= 0) {
+      this.timerBySession.delete(sessionId);
+    } else if (add && current && current.endsAt > Date.now()) {
+      current.endsAt += seconds * 1000;
+      current.durationSec += seconds;
+    } else {
+      this.timerBySession.set(sessionId, {
+        endsAt: Date.now() + seconds * 1000,
+        durationSec: seconds,
+      });
+    }
+    const state = this.timerState(sessionId);
+    this.io?.to(room(sessionId)).emit(WS_EVENTS.timerState, state);
+    return state;
+  }
+
   /** The teacher opened / locked lesson sections (REST POST /sessions/:id/sections). */
   broadcastSections(sessionId: string, unlocked: number): void {
     this.io?.to(room(sessionId)).emit(WS_EVENTS.sectionsChanged, { sessionId, unlocked });
@@ -908,6 +947,7 @@ export class SessionGateway
     this.io?.to(room(sessionId)).emit(WS_EVENTS.sessionEnded, { sessionId });
     this.chatBySession.delete(sessionId);
     this.qaBySession.delete(sessionId);
+    this.timerBySession.delete(sessionId);
     const pulse = this.pulseBySession.get(sessionId);
     if (pulse && !pulse.closed) this.closePulse(pulse);
     this.pulseBySession.delete(sessionId);

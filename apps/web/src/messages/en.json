@@ -910,5 +910,17 @@
     "opened": "Block {n} is open: {title}",
     "untitled": "Block {n}",
     "hostPreview": "Students cannot see this block yet — it is locked."
+  },
+  "timer": {
+    "title": "Timer",
+    "hint": "Everyone sees the countdown; a bell rings at the end.",
+    "left": "Time left",
+    "done": "Time is up!",
+    "hide": "Hide",
+    "min": "{n} min",
+    "custom": "Minutes",
+    "start": "Start",
+    "stop": "Stop",
+    "add5": "+5 minutes"
   }
 }

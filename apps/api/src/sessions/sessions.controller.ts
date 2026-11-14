@@ -23,6 +23,7 @@ import {
   joinSessionSchema,
   setFocusSchema,
   setSectionsSchema,
+  setTimerSchema,
   splitSections,
   visibleBlocksForStudent,
   saveSessionResponseSchema,
@@ -36,6 +37,7 @@ import {
   type ParticipantPayload,
   type SetFocusDto,
   type SetSectionsDto,
+  type SetTimerDto,
   type SaveSessionResponseDto,
   type UploadResponseFileDto,
   type SendSessionChatDto,
@@ -203,7 +205,13 @@ export class SessionsController {
       principal.aud === 'participant'
         ? await this.sessions.getParticipantName(principal.sub)
         : await this.sessions.getUserName(principal.sub);
-    return { ...session, blocks: visible, sectionCount, me: { name: viewerName } };
+    return {
+      ...session,
+      blocks: visible,
+      sectionCount,
+      me: { name: viewerName },
+      timer: this.gateway.timerState(id),
+    };
   }
 
   /**
@@ -668,6 +676,22 @@ export class SessionsController {
     await this.sessions.setUnlockedSections(user.orgId, id, unlocked);
     this.gateway.broadcastSections(id, unlocked);
     return { ok: true, unlocked };
+  }
+
+  /**
+   * POST /sessions/:id/timer — the teacher starts, extends or stops the
+   * class countdown; everyone in the session sees it and hears it end.
+   */
+  @Post(':id/timer')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher', 'methodist', 'admin')
+  async setTimer(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @ZodBody(setTimerSchema) body: SetTimerDto,
+  ) {
+    await this.sessions.assertSessionInOrg(id, user.orgId);
+    return this.gateway.setTimer(id, body.seconds, body.add === true);
   }
 
   /**

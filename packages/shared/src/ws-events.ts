@@ -27,6 +27,8 @@ export const WS_EVENTS = {
   sessionEnded: 'session:ended',
   /** server → all in room: the teacher opened / locked lesson sections */
   sectionsChanged: 'sections:changed',
+  /** server → all in room (and each joiner): the class timer started / stopped */
+  timerState: 'timer:state',
   /** client → server: send a group-chat message */
   chatSend: 'chat:send',
   /** server → all in room: new chat message */
@@ -155,6 +157,18 @@ export interface ParticipantJoinedPayload {
 }
 
 /** `session:ended` (server → all). */
+/**
+ * `timer:state` (server → session). A countdown everyone sees; `endsAt` null =
+ * no timer. `serverNow` lets a client correct for its own clock being off.
+ */
+export interface TimerStatePayload {
+  sessionId: string;
+  endsAt: string | null;
+  /** Full length of the running timer, for the progress ring. */
+  durationSec: number;
+  serverNow: string;
+}
+
 /** `sections:changed` (server → session). `unlocked` = how many sections are open. */
 export interface SectionsChangedPayload {
   sessionId: string;
@@ -548,6 +562,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.participantJoined]: (payload: ParticipantJoinedPayload) => void;
   [WS_EVENTS.sessionEnded]: (payload: SessionEndedPayload) => void;
   [WS_EVENTS.sectionsChanged]: (payload: SectionsChangedPayload) => void;
+  [WS_EVENTS.timerState]: (payload: TimerStatePayload) => void;
   [WS_EVENTS.chatMessage]: (payload: ChatMessagePayload) => void;
   [WS_EVENTS.chatHistory]: (payload: ChatHistoryPayload) => void;
   [WS_EVENTS.rtcPeerJoined]: (payload: RtcPeer) => void;

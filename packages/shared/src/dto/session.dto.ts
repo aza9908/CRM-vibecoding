@@ -49,6 +49,15 @@ export const setSectionsSchema = z.object({
 });
 export type SetSectionsDto = z.infer<typeof setSectionsSchema>;
 
+/** Body for `POST /sessions/:id/timer` — the class countdown. `seconds: 0`
+ * stops it; `add: true` extends the running timer by `seconds` instead of
+ * starting a new one. */
+export const setTimerSchema = z.object({
+  seconds: z.number().int().min(0).max(4 * 3600),
+  add: z.boolean().optional(),
+});
+export type SetTimerDto = z.infer<typeof setTimerSchema>;
+
 /**
  * Body for `POST /sessions/:id/responses` — participant saves an answer
  * (REST). `completed` is an optional explicit override for the fullscreen

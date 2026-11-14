@@ -21,6 +21,7 @@ import {
   type PulseDetailPayload,
   type PulseReactionPayload,
   type PulseStatePayload,
+  type TimerStatePayload,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from './url';
@@ -73,6 +74,8 @@ export interface UseSessionSocketResult {
   callState: RtcRoomStatePayload | null;
   /** Pushed when the teacher opens / locks lesson sections. */
   sectionsUnlocked: number | null;
+  /** Pushed when the teacher starts / extends / stops the class timer. */
+  timer: TimerStatePayload | null;
   /** «Пульс класса» — a stable object; subscribe with `usePulse(pulse)`. */
   pulse: PulseChannel;
 }
@@ -98,6 +101,8 @@ export function useSessionSocket(
   const [callState, setCallState] = useState<RtcRoomStatePayload | null>(null);
   /** Latest «sections opened» pushed by the teacher (null until one arrives). */
   const [sectionsUnlocked, setSectionsUnlocked] = useState<number | null>(null);
+  /** The class countdown as last pushed by the server (null until one arrives). */
+  const [timer, setTimer] = useState<TimerStatePayload | null>(null);
 
   const pulseRef = useRef<PulseChannel | null>(null);
   if (!pulseRef.current) pulseRef.current = new PulseChannel();
@@ -282,6 +287,11 @@ export function useSessionSocket(
       setFloor({ ...payload, at: Date.now() });
     });
 
+    socket.on(WS_EVENTS.timerState, (payload) => {
+      if (payload.sessionId !== sessionId) return;
+      setTimer(payload);
+    });
+
     socket.on(WS_EVENTS.sectionsChanged, (payload) => {
       if (payload.sessionId !== sessionId) return;
       setSectionsUnlocked(payload.unlocked);
@@ -449,6 +459,7 @@ export function useSessionSocket(
     clearFloor,
     callState,
     sectionsUnlocked,
+    timer,
     pulse,
   };
 }
