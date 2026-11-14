@@ -65,7 +65,7 @@ export function buildImageNavMap(
     const isVideo =
       typeof (b.options as { video?: unknown } | null)?.video === 'string';
     if (b.type === 'image' && b.imageUrl && !isVideo) {
-      images.push({ src: b.imageUrl, alt: b.content ?? '' });
+      images.push({ src: b.imageUrl, alt: b.content ?? '', id: b.id });
       ids.push(b.id);
     }
   }

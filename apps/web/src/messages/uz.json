@@ -842,7 +842,9 @@
     "close": "Yopish",
     "errorAlready": "So‘rov allaqachon ketmoqda.",
     "errorOffline": "Server bilan aloqa yo‘q. Qayta urinib ko‘ring.",
-    "errorGeneric": "So‘rovni boshlab bo‘lmadi."
+    "errorGeneric": "So‘rovni boshlab bo‘lmadi.",
+    "stageYesOf": "{eligible} kishidan {yes} tasi «hammasi tushunarli»ni bosdi",
+    "stageSilent": "jim"
   },
   "analysis": {
     "title": "Darsning SI-tahlili",

@@ -842,7 +842,9 @@
     "close": "Закрыть",
     "errorAlready": "Опрос уже идёт.",
     "errorOffline": "Нет связи с сервером. Попробуйте ещё раз.",
-    "errorGeneric": "Не удалось запустить опрос."
+    "errorGeneric": "Не удалось запустить опрос.",
+    "stageYesOf": "{yes} из {eligible} нажали «всё понятно»",
+    "stageSilent": "молчат"
   },
   "analysis": {
     "title": "ИИ-разбор урока",

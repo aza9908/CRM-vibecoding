@@ -842,7 +842,9 @@
     "close": "Close",
     "errorAlready": "A check is already running.",
     "errorOffline": "No connection to the server. Try again.",
-    "errorGeneric": "Could not start the check."
+    "errorGeneric": "Could not start the check.",
+    "stageYesOf": "{yes} of {eligible} pressed “all clear”",
+    "stageSilent": "silent"
   },
   "analysis": {
     "title": "AI lesson review",

@@ -34,6 +34,8 @@ import { sectionTitle, splitSections, type TimerStatePayload } from '@lms/shared
 import { api } from '@/lib/api/client';
 import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
+import { PulseStage } from '@/components/live/PulseStage';
+import { SlideshowContext } from '@/components/live/slideshow-context';
 import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
 import { useLesson } from '@/lib/api/hooks/use-lessons';
 import { VideoRoom } from '@/components/live/VideoRoom';
@@ -216,7 +218,15 @@ export default function TeacherLivePage() {
     () => blocks.filter((b) => isInputBlock(b.type)),
     [blocks],
   );
-  const imageNavMap = React.useMemo(() => buildImageNavMap(blocks), [blocks]);
+  // Fullscreen pages through the open block only, so the teacher's paging
+  // never moves the class focus into a block students cannot see yet.
+  const imageNavMap = React.useMemo(() => buildImageNavMap(pageBlocks), [pageBlocks]);
+  // Paging slides in fullscreen moves the class focus with it; the class pulse
+  // stays on screen over the slide.
+  const slideshow = React.useMemo(
+    () => ({ onSlide: sendFocus, overlay: (<><PulseStage channel={pulse} /><PulseRain channel={pulse} /></>) }),
+    [sendFocus, pulse],
+  );
 
   const effectiveFocus =
     focusedBlockId ?? sessionQuery.data?.focusedBlockId ?? null;
@@ -348,6 +358,7 @@ export default function TeacherLivePage() {
               </p>
             ) : null}
             <LessonViewerContext.Provider value={TEACHER_PREVIEW}>
+            <SlideshowContext.Provider value={slideshow}>
             {pageBlocks.map((block) => (
               <WorkbookBlock
                 key={block.id}
@@ -358,6 +369,7 @@ export default function TeacherLivePage() {
                 imageNav={imageNavMap.get(block.id)}
               />
             ))}
+            </SlideshowContext.Provider>
             </LessonViewerContext.Provider>
             {hasSections ? (
               <SectionPager

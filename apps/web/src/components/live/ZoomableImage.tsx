@@ -6,11 +6,14 @@ import { useTranslations } from 'next-intl';
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, withBasePath } from '@/lib/utils';
+import { SlideshowContext } from './slideshow-context';
 
 /** One image in the lightbox's page-through sequence. */
 export interface ZoomableImageSibling {
   src: string;
   alt?: string;
+  /** Lesson block this image belongs to (lets the teacher's paging move the focus). */
+  id?: string;
 }
 
 /**
@@ -43,7 +46,7 @@ export function ZoomableImage({
 
   const gallery = siblings && siblings.length > 1 ? siblings : null;
   const [pos, setPos] = React.useState(index ?? 0);
-  const current = gallery ? (gallery[pos] ?? { src, alt }) : { src, alt };
+  const current: ZoomableImageSibling = gallery ? (gallery[pos] ?? { src, alt }) : { src, alt };
 
   const goPrev = React.useCallback(() => {
     if (!gallery) return;
@@ -53,6 +56,14 @@ export function ZoomableImage({
     if (!gallery) return;
     setPos((p) => (p + 1) % gallery.length);
   }, [gallery]);
+
+  const slideshow = React.useContext(SlideshowContext);
+  const onSlide = slideshow.onSlide;
+  // Teacher paging in fullscreen moves the class focus to the slide shown.
+  const shownId = open ? current.id : undefined;
+  React.useEffect(() => {
+    if (shownId && onSlide) onSlide(shownId);
+  }, [shownId, onSlide]);
 
   const close = React.useCallback(() => {
     const exit = document.exitFullscreen?.();
@@ -172,6 +183,11 @@ export function ZoomableImage({
               </Button>
               </div>
             </div>
+            {slideshow.overlay ? (
+              <div className="contents" onClick={(e) => e.stopPropagation()}>
+                {slideshow.overlay}
+              </div>
+            ) : null}
             <div className="relative flex h-full w-full items-center justify-center overflow-hidden p-0">
               {gallery ? (
                 <Button
@@ -223,7 +239,7 @@ export function ZoomableImage({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => { setPos(index ?? 0); setOpen(true); }}
         className="group relative block w-full cursor-pointer text-left"
         aria-label={t('zoomOpen')}
       >

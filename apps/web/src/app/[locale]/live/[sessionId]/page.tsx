@@ -27,6 +27,7 @@ import { SectionLocked, SectionPager, SectionTabs } from '@/components/live/Sect
 import { sectionTitle, splitSections } from '@lms/shared';
 import { PulsePrompt } from '@/components/live/PulsePrompt';
 import { PulseRain } from '@/components/live/PulseRain';
+import { SlideshowContext } from '@/components/live/slideshow-context';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { Brand } from '@/components/brand';
@@ -198,7 +199,12 @@ export default function StudentLivePage() {
     [sections],
   );
   const lessonId = sessionQuery.data?.lessonId;
-  const imageNavMap = React.useMemo(() => buildImageNavMap(blocks), [blocks]);
+  const imageNavMap = React.useMemo(() => buildImageNavMap(pageBlocks), [pageBlocks]);
+  // In fullscreen the student still sees «всё понятно?» and the reactions.
+  const slideshow = React.useMemo(
+    () => ({ overlay: (<><PulsePrompt channel={pulse} /><PulseRain channel={pulse} /></>) }),
+    [pulse],
+  );
 
   // Local answer state per block, mirrored to the server via saveResponse.
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
@@ -594,6 +600,7 @@ export default function StudentLivePage() {
         {/* Workbook — single centered reading column */}
         <section className="mx-auto w-full max-w-3xl space-y-4">
           <LessonViewerContext.Provider value={viewer}>
+          <SlideshowContext.Provider value={slideshow}>
           {blocks.length === 0 && (
             <p className="text-sm text-muted-foreground">{tc('empty')}</p>
           )}
@@ -647,6 +654,7 @@ export default function StudentLivePage() {
               {sectionToast}
             </div>
           ) : null}
+          </SlideshowContext.Provider>
           </LessonViewerContext.Provider>
         </section>
 
