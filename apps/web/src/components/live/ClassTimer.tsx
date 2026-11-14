@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { BellRing, Plus, Square, Timer, X } from 'lucide-react';
+import { AlarmClockOff, BellRing, Plus, Square, Timer, X } from 'lucide-react';
 import type { TimerStatePayload } from '@lms/shared';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,14 @@ function fmt(totalSec: number): string {
 }
 
 /** Bell made with Web Audio — no sound file to load, works offline. */
+let lastRung: string | null = null;
+/** Ring once per timer even if the banner is mounted twice (page + fullscreen viewer). */
+function ringOnce(key: string): void {
+  if (lastRung === key) return;
+  lastRung = key;
+  ringBell(3);
+}
+
 function ringBell(times = 3): void {
   try {
     const Ctx =
@@ -95,10 +103,13 @@ const DONE_SHOW_SEC = 30;
 export function ClassTimerBanner({
   timer,
   position = 'top',
+  sound = false,
 }: {
   timer: TimerStatePayload | null | undefined;
   /** `bottom` on the teacher page, whose header holds the session code. */
   position?: 'top' | 'bottom';
+  /** Only the teacher's screen rings; students get a red «time is up» window. */
+  sound?: boolean;
 }) {
   const t = useTranslations('timer');
   const clock = useClock(timer);
@@ -113,12 +124,45 @@ export function ClassTimerBanner({
     // Ring once per timer, and only if we saw it end (not on a late page load).
     if (left <= 0 && left > -5 && rang.current !== endsAt) {
       rang.current = endsAt;
-      ringBell(3);
+      if (sound) ringOnce(endsAt);
     }
-  }, [endsAt, left]);
+  }, [endsAt, left, sound]);
 
   if (!clock || !endsAt || left == null) return null;
   if (left < -DONE_SHOW_SEC || dismissed === endsAt) return null;
+
+  if (done && !sound) {
+    // Students: a clear red window in the middle of the screen, no sound.
+    return (
+      <div
+        role="alertdialog"
+        aria-live="assertive"
+        data-class-timer="done"
+        data-timer-expired
+        className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/40 p-4"
+        onClick={() => setDismissed(endsAt)}
+      >
+        <div
+          className="w-full max-w-sm animate-pulse-in rounded-2xl bg-red-600 p-6 text-center text-white shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/20">
+            <AlarmClockOff className="h-7 w-7" aria-hidden />
+          </span>
+          <p className="text-2xl font-extrabold">{t('expired')}</p>
+          <p className="mt-1 font-mono text-4xl font-bold tabular-nums">00:00</p>
+          <p className="mt-2 text-sm text-white/85">{t('expiredHint')}</p>
+          <button
+            type="button"
+            onClick={() => setDismissed(endsAt)}
+            className="mt-5 w-full rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-white/90"
+          >
+            {t('ok')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const fraction = clock.durationSec > 0 ? Math.min(1, Math.max(0, left / clock.durationSec)) : 0;
   const urgent = !done && left <= 60;

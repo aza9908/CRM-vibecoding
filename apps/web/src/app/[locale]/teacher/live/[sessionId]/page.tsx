@@ -36,6 +36,7 @@ import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
 import { PulseStage } from '@/components/live/PulseStage';
 import { SlideshowContext } from '@/components/live/slideshow-context';
+import { useScrollAlong } from '@/lib/hooks/use-scroll-along';
 import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
 import { useLesson } from '@/lib/api/hooks/use-lessons';
 import { VideoRoom } from '@/components/live/VideoRoom';
@@ -220,12 +221,24 @@ export default function TeacherLivePage() {
   );
   // Fullscreen pages through the open block only, so the teacher's paging
   // never moves the class focus into a block students cannot see yet.
+  // The right column scrolls along with the lesson feed (and on its own).
+  const asideRef = React.useRef<HTMLElement>(null);
+  useScrollAlong(asideRef);
   const imageNavMap = React.useMemo(() => buildImageNavMap(pageBlocks), [pageBlocks]);
   // Paging slides in fullscreen moves the class focus with it; the class pulse
   // stays on screen over the slide.
   const slideshow = React.useMemo(
-    () => ({ onSlide: sendFocus, overlay: (<><PulseStage channel={pulse} /><PulseRain channel={pulse} /></>) }),
-    [sendFocus, pulse],
+    () => ({
+      onSlide: sendFocus,
+      overlay: (
+        <>
+          <PulseStage channel={pulse} />
+          <PulseRain channel={pulse} />
+          <ClassTimerBanner timer={timer} position="top" sound />
+        </>
+      ),
+    }),
+    [sendFocus, pulse, timer],
   );
 
   const effectiveFocus =
@@ -383,7 +396,7 @@ export default function TeacherLivePage() {
           </section>
 
           {/* Right column: sticky + independently scrollable through all panels. */}
-          <aside className="min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+          <aside ref={asideRef} data-side-column className="side-scroll min-w-0 space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:overflow-y-auto lg:pr-1">
             {/* Class timer: e.g. 30 minutes of practice, with a bell at the end. */}
             <Card className="border-primary/30 p-4 shadow-sm">
               <ClassTimerCard timer={timer} onSet={(s, add) => void setTimer(s, add)} pending={timerPending} />
@@ -449,7 +462,7 @@ export default function TeacherLivePage() {
         </div>
       </div>
       <PulseRain channel={pulse} />
-      <ClassTimerBanner timer={timer} position="bottom" />
+      <ClassTimerBanner timer={timer} position="bottom" sound />
       <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
       <ConfirmDialog
         open={endOpen}

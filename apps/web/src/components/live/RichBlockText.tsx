@@ -15,9 +15,12 @@ export function RichBlockText({
   text,
   className,
   asLabel,
+  noHeading,
 }: {
   text: string;
   className?: string;
+  /** Do not turn the first line into a heading (text split into paragraphs by the caller). */
+  noHeading?: boolean;
   /** When true, render as a single label (input prompts) without splitting layout. */
   asLabel?: boolean;
 }) {
@@ -72,7 +75,7 @@ export function RichBlockText({
               if (line.trim() === '') {
                 return <div key={li} className="h-2" aria-hidden />;
               }
-              const isHeading = i === 0 || looksLikeHeading(line);
+              const isHeading = (!noHeading && i === 0) || looksLikeHeading(line);
               return (
                 <p
                   key={li}

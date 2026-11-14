@@ -916,7 +916,7 @@
   },
   "timer": {
     "title": "Timer",
-    "hint": "Everyone sees the countdown; a bell rings at the end.",
+    "hint": "Everyone sees the countdown. At the end only you hear the bell; students see a red “Time is up” window.",
     "left": "Time left",
     "done": "Time is up!",
     "hide": "Hide",
@@ -924,6 +924,9 @@
     "custom": "Minutes",
     "start": "Start",
     "stop": "Stop",
-    "add5": "+5 minutes"
+    "add5": "+5 minutes",
+    "expired": "Time is up",
+    "expiredHint": "The timed task is over. Listen to the teacher.",
+    "ok": "OK"
   }
 }

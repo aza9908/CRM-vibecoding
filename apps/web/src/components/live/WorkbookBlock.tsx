@@ -5,14 +5,20 @@ import { useTranslations } from 'next-intl';
 import {
   Check,
   CheckCircle2,
+  Brain,
   CircleAlert,
   Database,
   Download,
   ExternalLink,
   Eye,
   FileText,
+  Gift,
+  Handshake,
   Link2,
+  Maximize2,
+  Minimize2,
   ListChecks,
+  Package,
   MessageSquareText,
   Palette,
   Paperclip,
@@ -20,6 +26,7 @@ import {
   Rocket,
   ShieldAlert,
   Upload,
+  Workflow,
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
@@ -133,12 +140,49 @@ function TextBlockBody({ block }: { block: Block }) {
         {lead ? <p className="mt-2 text-base leading-snug text-white/90 sm:text-xl">{lead}</p> : null}
       </div>
       {rest ? (
-        <div className="px-5 py-5 sm:px-8 sm:py-6">
-          <RichBlockText text={rest} />
+        <div className="space-y-4 px-5 py-5 sm:px-8 sm:py-6">
+          {rest.split(/\n{2,}/).map((para, i) => {
+            const Icon = welcomeIcon(para);
+            const heading = /^\*\*[^*]+\*\*$/.test(para.trim());
+            const body = heading ? (
+              <p className="text-base font-bold tracking-tight">{para.trim().slice(2, -2)}</p>
+            ) : (
+              <RichBlockText text={para} noHeading />
+            );
+            if (!Icon) return <React.Fragment key={i}>{body}</React.Fragment>;
+            return (
+              <div key={i} data-welcome-row className="flex items-start gap-3">
+                <span
+                  aria-hidden
+                  className={cn(
+                    'flex shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground',
+                    heading ? 'h-10 w-10' : 'h-9 w-9 bg-primary/10 text-primary',
+                  )}
+                >
+                  <Icon className={heading ? 'h-5 w-5' : 'h-[18px] w-[18px]'} strokeWidth={2} />
+                </span>
+                <div className={cn('min-w-0 flex-1', heading ? 'pt-2' : 'pt-1.5')}>{body}</div>
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>
   );
+}
+
+/** Icons for the bold lines of the welcome card, matched by their opening words. */
+const WELCOME_ICONS: [RegExp, LucideIcon][] = [
+  [/^\*\*(Как устроен|Программа|Как проходит)/i, Workflow],
+  [/^\*\*(Что останется|Результат|Что вы получите)/i, Gift],
+  [/^\*\*Продукт/i, Package],
+  [/^\*\*Знани/i, Brain],
+  [/^\*\*Навык/i, Wrench],
+];
+function welcomeIcon(para: string): LucideIcon | null {
+  const p = para.trim();
+  for (const [re, Icon] of WELCOME_ICONS) if (re.test(p)) return Icon;
+  return null;
 }
 
 export interface WorkbookBlockProps {
@@ -1050,7 +1094,10 @@ function LessonVideo({
   caption: string;
   frame?: VideoFrame | null;
 }) {
+  const t = useTranslations('live');
   const ref = React.useRef<HTMLVideoElement>(null);
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const [full, setFull] = React.useState(false);
 
   React.useEffect(() => {
     const el = ref.current;
@@ -1062,7 +1109,7 @@ function LessonVideo({
             // Autoplay can be refused (data saver, low power mode): the poster
             // stays and a tap on the clip starts it.
             void el.play().catch(() => undefined);
-          } else {
+          } else if (document.fullscreenElement !== boxRef.current) {
             el.pause();
           }
         }
@@ -1073,11 +1120,37 @@ function LessonVideo({
     return () => io.disconnect();
   }, [src]);
 
+  React.useEffect(() => {
+    const onChange = () => setFull(document.fullscreenElement === boxRef.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
   const toggle = (e: React.MouseEvent<HTMLVideoElement>) => {
     e.stopPropagation();
     const el = e.currentTarget;
     if (el.paused) void el.play().catch(() => undefined);
     else el.pause();
+  };
+
+  const toggleFull = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const box = boxRef.current;
+    const video = ref.current;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    if (box?.requestFullscreen) {
+      void box
+        .requestFullscreen()
+        .then(() => video && void video.play().catch(() => undefined))
+        .catch(() => undefined);
+      return;
+    }
+    // iPhone Safari has no element fullscreen: use the video's own player.
+    const ios = video as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
+    ios?.webkitEnterFullscreen?.();
   };
 
   const video = (
@@ -1096,7 +1169,9 @@ function LessonVideo({
       className={
         frame
           ? 'absolute rounded-[1.2%] object-cover'
-          : 'block h-auto w-full'
+          : full
+            ? 'block h-full w-full object-contain'
+            : 'block h-auto w-full'
       }
       style={
         frame
@@ -1111,16 +1186,50 @@ function LessonVideo({
     />
   );
 
+  const fullButton = (
+    <button
+      type="button"
+      data-video-fullscreen
+      onClick={toggleFull}
+      className="absolute bottom-2 right-2 z-10 inline-flex items-center gap-1.5 rounded-md border bg-background/95 px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-background"
+      aria-label={full ? t('zoomCollapse') : t('zoomOpen')}
+    >
+      {full ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+      {full ? t('zoomCollapse') : t('zoomOpen')}
+    </button>
+  );
+
   if (frame && poster) {
+    // In fullscreen the slide keeps its proportions, so the clip stays in place.
     return (
-      <div className="relative overflow-hidden rounded-md border bg-card">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={withBasePath(poster)} alt={caption} className="block h-auto w-full" />
-        {video}
+      <div
+        ref={boxRef}
+        className={cn(
+          'relative overflow-hidden rounded-md border bg-card',
+          full && 'flex items-center justify-center rounded-none border-0 bg-white',
+        )}
+      >
+        <div className={cn('relative w-full', full && 'w-[min(100vw,177.78vh)]')}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={withBasePath(poster)} alt={caption} className="block h-auto w-full" />
+          {video}
+        </div>
+        {fullButton}
       </div>
     );
   }
-  return <div className="overflow-hidden rounded-md border bg-black">{video}</div>;
+  return (
+    <div
+      ref={boxRef}
+      className={cn(
+        'relative overflow-hidden rounded-md border bg-black',
+        full && 'flex items-center justify-center rounded-none border-0',
+      )}
+    >
+      {video}
+      {fullButton}
+    </div>
+  );
 }
 
 /** Line icons for task and question blocks (`options.icon`). */
@@ -1134,6 +1243,7 @@ const BLOCK_ICONS: Record<string, LucideIcon> = {
   rocket: Rocket,
   download: Download,
   alert: ShieldAlert,
+  handshake: Handshake,
 };
 
 function blockIcon(options: unknown): LucideIcon | null {

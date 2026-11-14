@@ -231,6 +231,24 @@
     },
     {
       "type": "image",
+      "imageUrl": "/workbook/aitu/video/office.jpg",
+      "content": "Анимация: офис AIRL Start. Как идея проходит через агентов и становится работающим продуктом",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/office.mp4"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/video/mvp-path.jpg",
+      "content": "Анимация: шесть шагов от идеи до MVP. AIRL Start, дизайн, архитектура, безопасность, проверка кода, публикация",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/mvp-path.mp4"
+      }
+    },
+    {
+      "type": "image",
       "imageUrl": "/workbook/aitu/s-22.jpg",
       "content": "Как выглядит работа со скиллом",
       "blockRole": "slide"
@@ -397,6 +415,17 @@
     {
       "type": "text",
       "content": "**Блок 3 · Завершение и демо**\n\nСодержание этого блока появится позже."
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Что дальше**",
+      "options": {
+        "items": [
+          "Хочу продолжить обучение с вами, сопровождение и вступить в AIR Hub"
+        ],
+        "icon": "handshake"
+      }
     }
   ]
 }

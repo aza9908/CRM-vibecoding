@@ -916,7 +916,7 @@
   },
   "timer": {
     "title": "Taymer",
-    "hint": "Teskari sanoq barcha ishtirokchilarga ko‘rinadi; oxirida signal chalinadi.",
+    "hint": "Teskari sanoqni hamma koʻradi. Oxirida signal faqat sizda chalinadi, oʻquvchilar qizil «Vaqt tugadi» oynasini koʻradi.",
     "left": "Qoldi",
     "done": "Vaqt tugadi!",
     "hide": "Yashirish",
@@ -924,6 +924,9 @@
     "custom": "Daqiqa",
     "start": "Boshlash",
     "stop": "To‘xtatish",
-    "add5": "+5 daqiqa"
+    "add5": "+5 daqiqa",
+    "expired": "Vaqt tugadi",
+    "expiredHint": "Vazifa vaqti tugadi. Oʻqituvchini tinglang.",
+    "ok": "Tushunarli"
   }
 }

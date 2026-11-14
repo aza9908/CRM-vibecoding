@@ -28,6 +28,7 @@ import { sectionTitle, splitSections } from '@lms/shared';
 import { PulsePrompt } from '@/components/live/PulsePrompt';
 import { PulseRain } from '@/components/live/PulseRain';
 import { SlideshowContext } from '@/components/live/slideshow-context';
+import { useScrollAlong } from '@/lib/hooks/use-scroll-along';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
 import { Brand } from '@/components/brand';
@@ -199,11 +200,22 @@ export default function StudentLivePage() {
     [sections],
   );
   const lessonId = sessionQuery.data?.lessonId;
+  // The right column scrolls along with the lesson feed (and on its own).
+  const asideRef = React.useRef<HTMLElement>(null);
+  useScrollAlong(asideRef);
   const imageNavMap = React.useMemo(() => buildImageNavMap(pageBlocks), [pageBlocks]);
   // In fullscreen the student still sees «всё понятно?» and the reactions.
   const slideshow = React.useMemo(
-    () => ({ overlay: (<><PulsePrompt channel={pulse} /><PulseRain channel={pulse} /></>) }),
-    [pulse],
+    () => ({
+      overlay: (
+        <>
+          <PulsePrompt channel={pulse} />
+          <PulseRain channel={pulse} />
+          <ClassTimerBanner timer={wsTimer ?? sessionQuery.data?.timer} />
+        </>
+      ),
+    }),
+    [pulse, wsTimer, sessionQuery.data?.timer],
   );
 
   // Local answer state per block, mirrored to the server via saveResponse.
@@ -659,7 +671,7 @@ export default function StudentLivePage() {
         </section>
 
         {/* Right panel — Navigation · Chat · Materials · Notes · AI · Metrics */}
-        <aside className="min-w-0 space-y-4 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-y-auto">
+        <aside ref={asideRef} data-side-column className="side-scroll min-w-0 space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1">
           <div className="rounded-lg border bg-card p-4">
             <SessionMetricsPanel sessionId={sessionId!} participant />
           </div>
