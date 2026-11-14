@@ -21,6 +21,16 @@ const nextConfig: NextConfig = {
         },
       }
     : {}),
+  // Lesson slides and clips never change under the same name: let browsers
+  // and the proxy in front keep them, so a full class does not re-fetch them.
+  async headers() {
+    return [
+      {
+        source: '/workbook/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }],
+      },
+    ];
+  },
   transpilePackages: ['@lms/shared'],
   // Lean, self-contained server bundle for Docker (VPS deploy).
   output: 'standalone',

@@ -42,6 +42,51 @@ export function NavigationTab({
   const te = useTranslations('editor');
   const tc = useTranslations('common');
 
+  // The list follows the page: the block in the middle of the screen is
+  // marked here and its row is kept in view, so a long lesson never leaves the
+  // menu showing blocks the student scrolled past long ago.
+  const listRef = React.useRef<HTMLOListElement>(null);
+  const [inView, setInView] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) setInView(e.target.id.replace(/^block-/, ''));
+        }
+      },
+      { rootMargin: '-45% 0px -45% 0px' },
+    );
+    for (const b of blocks) {
+      const el = document.getElementById(`block-${b.id}`);
+      if (el) io.observe(el);
+    }
+    return () => io.disconnect();
+  }, [blocks]);
+  React.useEffect(() => {
+    if (!inView) return;
+    const row = listRef.current?.querySelector<HTMLElement>(`[data-nav="${inView}"]`);
+    if (!row) return;
+    // Scroll only the panel the list lives in, never the page itself.
+    let box: HTMLElement | null = row.parentElement;
+    while (
+      box &&
+      !(
+        box.scrollHeight > box.clientHeight + 1 &&
+        /(auto|scroll)/.test(getComputedStyle(box).overflowY)
+      )
+    ) {
+      box = box.parentElement;
+    }
+    if (!box || box === document.body || box === document.documentElement) return;
+    const r = row.getBoundingClientRect();
+    const c = box.getBoundingClientRect();
+    box.scrollTo({
+      top: box.scrollTop + (r.top - c.top) - c.height / 2 + r.height / 2,
+      behavior: 'smooth',
+    });
+  }, [inView]);
+
   const states = React.useMemo(
     () => computeBlockStates(blocks, answered, activeBlockId, focusedBlockId),
     [blocks, answered, activeBlockId, focusedBlockId],
@@ -76,11 +121,11 @@ export function NavigationTab({
         </div>
       </div>
 
-      <ol className="flex flex-col gap-1">
+      <ol ref={listRef} className="flex flex-col gap-1">
         {blocks.map((block, i) => {
           const state = states.get(block.id) ?? 'pending';
           return (
-            <li key={block.id}>
+            <li key={block.id} data-nav={block.id}>
               <button
                 type="button"
                 onClick={() => onSelect(block.id)}
@@ -88,13 +133,12 @@ export function NavigationTab({
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm transition-colors',
                   stateClasses(state),
+                  inView === block.id && 'ring-2 ring-primary/40',
                 )}
               >
                 <StatusDot state={state} index={i + 1} />
                 <span className="min-w-0 flex-1 truncate">
-                  {block.content?.trim()
-                    ? block.content
-                    : te(blockLabelKey(block.type))}
+                  {navLabel(block) || te(blockLabelKey(block.type))}
                 </span>
               </button>
             </li>
@@ -143,4 +187,12 @@ function StatusDot({ state, index }: { state: BlockState; index: number }) {
       {index}
     </span>
   );
+}
+
+/** One clean line for the menu: the button's own label, or the block's first line without markdown. */
+function navLabel(block: Block): string {
+  const opts = block.options as { label?: unknown } | null;
+  if (block.type === 'action_button' && typeof opts?.label === 'string') return opts.label;
+  const first = (block.content ?? '').split('\n').find((l) => l.trim()) ?? '';
+  return first.replace(/\*\*/g, '').replace(/\{\{name\}\}/g, '').trim();
 }

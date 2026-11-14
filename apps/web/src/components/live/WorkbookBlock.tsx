@@ -2,7 +2,27 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Check, CheckCircle2, ExternalLink, Eye, FileText, Link2, Paperclip, Upload } from 'lucide-react';
+import {
+  Check,
+  CheckCircle2,
+  CircleAlert,
+  Database,
+  Download,
+  ExternalLink,
+  Eye,
+  FileText,
+  Link2,
+  ListChecks,
+  MessageSquareText,
+  Palette,
+  Paperclip,
+  PenLine,
+  Rocket,
+  ShieldAlert,
+  Upload,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react';
 import type { Block } from '@/lib/api/types';
 import { cn, withBasePath } from '@/lib/utils';
 import { isInputBlock } from '@/lib/blocks';
@@ -215,7 +235,7 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
         ) : null}
         {answerable && !readOnly && !done && isRequiredBlock(block.options) ? (
           <div className="mb-3 mr-2 inline-flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-semibold text-destructive">
-            <span aria-hidden>●</span>
+            <CircleAlert className="h-3.5 w-3.5" />
             {t('blockRequired')}
           </div>
         ) : null}
@@ -226,6 +246,7 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
           </div>
         )}
 
+        <BlockWithIcon icon={blockIcon(block.options)}>
         <BlockBody
           block={block}
           options={parseSelectOptions(block.options)}
@@ -238,10 +259,33 @@ export const WorkbookBlock = React.forwardRef<HTMLDivElement, WorkbookBlockProps
           onResolveFileUrl={onResolveFileUrl}
           imageNav={imageNav}
         />
+        </BlockWithIcon>
       </div>
     );
   },
 );
+
+/** Puts the block's icon tile beside its content, like the deck's level rows. */
+function BlockWithIcon({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon | null;
+  children: React.ReactNode;
+}) {
+  if (!Icon) return <>{children}</>;
+  return (
+    <div className="flex items-start gap-3 sm:gap-4">
+      <span
+        aria-hidden
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground sm:h-11 sm:w-11"
+      >
+        <Icon className="h-5 w-5" strokeWidth={2} />
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
 
 interface BlockBodyProps {
   block: Block;
@@ -301,6 +345,7 @@ function BlockBody({
             src={video}
             poster={block.imageUrl ?? undefined}
             caption={block.content ?? ''}
+            frame={blockVideoFrame(block.options)}
           />
         );
       }
@@ -967,38 +1012,132 @@ function blockVideoSrc(options: unknown): string | null {
     : null;
 }
 
+/** Where the clip sits on its slide, in percent of the slide (`options.frame`). */
+interface VideoFrame {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+function blockVideoFrame(options: unknown): VideoFrame | null {
+  if (!options || typeof options !== 'object') return null;
+  const f = (options as Record<string, unknown>).frame as Record<string, unknown> | undefined;
+  if (!f || typeof f !== 'object') return null;
+  const n = (k: string) => (typeof f[k] === 'number' ? (f[k] as number) : NaN);
+  const frame = { left: n('left'), top: n('top'), width: n('width'), height: n('height') };
+  return Object.values(frame).every((v) => Number.isFinite(v) && v >= 0 && v <= 100)
+    ? frame
+    : null;
+}
+
 /**
- * A lesson animation: plays inline with the browser's own controls (play,
- * seek, fullscreen). Muted + playsInline so phones start it on tap without
- * leaving the page; loops because the animations are short explainer clips.
+ * A lesson animation that behaves like a GIF: it starts by itself when it
+ * scrolls into view, loops, and stops when it leaves the screen. The file is
+ * not downloaded until the clip is near the viewport (`preload="none"`), so a
+ * class opening the lesson at once does not pull every clip from the server.
+ *
+ * With `frame`, the clip plays inside its slide (`poster` is the slide image);
+ * without it, the clip is shown on its own and `poster` is its first frame.
  */
 function LessonVideo({
   src,
   poster,
   caption,
+  frame,
 }: {
   src: string;
   poster?: string;
   caption: string;
+  frame?: VideoFrame | null;
 }) {
-  return (
-    <figure className="space-y-2">
-      <div className="overflow-hidden rounded-md border bg-black">
-        <video
-          src={withBasePath(src)}
-          poster={withBasePath(poster)}
-          controls
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className="block h-auto w-full"
-          onClick={(e) => e.stopPropagation()}
-        />
-      </div>
-      {caption ? (
-        <figcaption className="text-sm text-muted-foreground">{caption}</figcaption>
-      ) : null}
-    </figure>
+  const ref = React.useRef<HTMLVideoElement>(null);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            // Autoplay can be refused (data saver, low power mode): the poster
+            // stays and a tap on the clip starts it.
+            void el.play().catch(() => undefined);
+          } else {
+            el.pause();
+          }
+        }
+      },
+      { rootMargin: '200px 0px', threshold: 0.01 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [src]);
+
+  const toggle = (e: React.MouseEvent<HTMLVideoElement>) => {
+    e.stopPropagation();
+    const el = e.currentTarget;
+    if (el.paused) void el.play().catch(() => undefined);
+    else el.pause();
+  };
+
+  const video = (
+    <video
+      ref={ref}
+      data-lesson-video
+      src={withBasePath(src)}
+      poster={frame ? undefined : withBasePath(poster)}
+      aria-label={caption}
+      loop
+      muted
+      playsInline
+      preload="none"
+      disablePictureInPicture
+      onClick={toggle}
+      className={
+        frame
+          ? 'absolute rounded-[1.2%] object-cover'
+          : 'block h-auto w-full'
+      }
+      style={
+        frame
+          ? {
+              left: `${frame.left}%`,
+              top: `${frame.top}%`,
+              width: `${frame.width}%`,
+              height: `${frame.height}%`,
+            }
+          : undefined
+      }
+    />
   );
+
+  if (frame && poster) {
+    return (
+      <div className="relative overflow-hidden rounded-md border bg-card">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={withBasePath(poster)} alt={caption} className="block h-auto w-full" />
+        {video}
+      </div>
+    );
+  }
+  return <div className="overflow-hidden rounded-md border bg-black">{video}</div>;
+}
+
+/** Line icons for task and question blocks (`options.icon`). */
+const BLOCK_ICONS: Record<string, LucideIcon> = {
+  pen: PenLine,
+  question: MessageSquareText,
+  checklist: ListChecks,
+  tools: Wrench,
+  palette: Palette,
+  database: Database,
+  rocket: Rocket,
+  download: Download,
+  alert: ShieldAlert,
+};
+
+function blockIcon(options: unknown): LucideIcon | null {
+  if (!options || typeof options !== 'object') return null;
+  const name = (options as Record<string, unknown>).icon;
+  return typeof name === 'string' ? (BLOCK_ICONS[name] ?? null) : null;
 }
