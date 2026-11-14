@@ -28,6 +28,9 @@ import { SessionEndedReport } from '@/components/live/SessionEndedReport';
 import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { GroupChatTab } from '@/components/live/GroupChatTab';
 import { ChatDock } from '@/components/live/ChatDock';
+import { SectionPager, SectionTabs } from '@/components/live/SectionNotebook';
+import { sectionTitle, splitSections } from '@lms/shared';
+import { api } from '@/lib/api/client';
 import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
 import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
@@ -86,6 +89,7 @@ export default function TeacherLivePage() {
     setQuestionStatus,
     callState,
     pulse,
+    sectionsUnlocked,
   } = useSessionSocket(sessionId, { token: accessToken });
 
   const { messages: chatMessages, sendChat } = useLiveChatActions(sessionId);
@@ -138,6 +142,47 @@ export default function TeacherLivePage() {
   }, [responsesQuery.data, liveResponses]);
 
   const blocks: Block[] = sessionQuery.data?.blocks ?? [];
+
+  // ── sections («блоки тетради»): the teacher opens them one by one ───────
+  const ts = useTranslations('sections');
+  const sections = React.useMemo(() => splitSections(blocks), [blocks]);
+  const hasSections = sections.length > 1;
+  const notebook = React.useMemo(
+    () =>
+      sections.map((sec) => ({
+        index: sec.index,
+        title: sectionTitle(sec.header) || ts('untitled', { n: sec.index + 1 }),
+      })),
+    [sections, ts],
+  );
+  const [unlockOverride, setUnlockOverride] = React.useState<number | null>(null);
+  const unlockedSections = Math.max(
+    1,
+    unlockOverride ?? sectionsUnlocked ?? sessionQuery.data?.unlockedSections ?? 1,
+  );
+  const [activeSection, setActiveSection] = React.useState(0);
+  const [sectionsPending, setSectionsPending] = React.useState(false);
+  const refetchSession = sessionQuery.refetch;
+  const setUnlocked = React.useCallback(
+    async (count: number) => {
+      if (!sessionId) return;
+      setSectionsPending(true);
+      try {
+        const res = await api.post<{ unlocked: number }>(`/sessions/${sessionId}/sections`, {
+          unlocked: count,
+        });
+        setUnlockOverride(res.unlocked);
+        // Opening a block takes the teacher to it, like the students.
+        if (res.unlocked >= count && count > 1) setActiveSection(res.unlocked - 1);
+        void refetchSession();
+      } finally {
+        setSectionsPending(false);
+      }
+    },
+    [sessionId, refetchSession],
+  );
+  const currentSection = sections[Math.min(activeSection, sections.length - 1)]!;
+  const pageBlocks = hasSections ? currentSection.blocks : blocks;
   const inputBlocks = React.useMemo(
     () => blocks.filter((b) => isInputBlock(b.type)),
     [blocks],
@@ -259,7 +304,21 @@ export default function TeacherLivePage() {
             {blocks.length === 0 && (
               <p className="text-sm text-muted-foreground">{tc('empty')}</p>
             )}
-            {blocks.map((block) => (
+            {hasSections ? (
+              <SectionTabs
+                sections={notebook}
+                active={currentSection.index}
+                unlocked={unlockedSections}
+                onSelect={setActiveSection}
+                host={{ onSetUnlocked: (n) => void setUnlocked(n), pending: sectionsPending }}
+              />
+            ) : null}
+            {hasSections && currentSection.index >= unlockedSections ? (
+              <p className="rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                {ts('hostPreview')}
+              </p>
+            ) : null}
+            {pageBlocks.map((block) => (
               <WorkbookBlock
                 key={block.id}
                 block={block}
@@ -269,6 +328,15 @@ export default function TeacherLivePage() {
                 imageNav={imageNavMap.get(block.id)}
               />
             ))}
+            {hasSections ? (
+              <SectionPager
+                sections={notebook}
+                active={currentSection.index}
+                unlocked={unlockedSections}
+                onSelect={setActiveSection}
+                host
+              />
+            ) : null}
           </section>
 
           {/* Right column: sticky + independently scrollable through all panels. */}

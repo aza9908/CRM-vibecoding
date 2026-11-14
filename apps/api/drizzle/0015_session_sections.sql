@@ -1,0 +1,1 @@
+ALTER TABLE "live_sessions" ADD COLUMN IF NOT EXISTS "unlocked_sections" integer DEFAULT 1 NOT NULL;

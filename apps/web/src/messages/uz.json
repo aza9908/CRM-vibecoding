@@ -894,5 +894,20 @@
     "copy": "Tahlilni nusxalash",
     "copied": "Nusxalandi",
     "duration": "Yozuv davomiyligi"
+  },
+  "sections": {
+    "title": "Dars bloklari",
+    "blockN": "{n}-blok",
+    "closed": "yopiq",
+    "lockedTab": "Blok yopiq — uni o‘qituvchi ochadi",
+    "lockedBody": "Blok yopiq. Guruh tayyor bo‘lganda o‘qituvchi uni ochadi — sahifa o‘zi yangilanadi.",
+    "openNext": "{n}-blokni ochish",
+    "lockBack": "{n}-blokni yopish",
+    "lockBackHint": "Oxirgi ochilgan blokni o‘quvchilar uchun yana yopish",
+    "allOpen": "Barcha bloklar ochiq",
+    "nextLocked": "Keyingi blok yopiq",
+    "opened": "{n}-blok ochildi: {title}",
+    "untitled": "{n}-blok",
+    "hostPreview": "O‘quvchilar bu blokni hali ko‘rmaydi — u yopiq."
   }
 }

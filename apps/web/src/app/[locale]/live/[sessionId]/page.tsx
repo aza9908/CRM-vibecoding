@@ -22,6 +22,8 @@ import { WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
 import { ChatDock } from '@/components/live/ChatDock';
+import { SectionLocked, SectionPager, SectionTabs } from '@/components/live/SectionNotebook';
+import { sectionTitle, splitSections } from '@lms/shared';
 import { PulsePrompt } from '@/components/live/PulsePrompt';
 import { PulseRain } from '@/components/live/PulseRain';
 import { VideoRoom } from '@/components/live/VideoRoom';
@@ -107,6 +109,7 @@ export default function StudentLivePage() {
     clearFloor,
     callState,
     pulse,
+    sectionsUnlocked,
   } = useSessionSocket(sessionId, { token: participantToken, debounceMs: 150 });
 
   const saveRest = useSaveSessionResponse(sessionId);
@@ -138,6 +141,58 @@ export default function StudentLivePage() {
   }, [participantToken]);
 
   const blocks: Block[] = sessionQuery.data?.blocks ?? [];
+
+  // ── sections («блоки тетради») ──────────────────────────────────────────
+  // The lesson is turned page by page; the teacher opens the next section.
+  const ts = useTranslations('sections');
+  const sections = React.useMemo(() => splitSections(blocks), [blocks]);
+  const hasSections = sections.length > 1;
+  const notebook = React.useMemo(
+    () =>
+      sections.map((sec) => ({
+        index: sec.index,
+        title: sectionTitle(sec.header) || ts('untitled', { n: sec.index + 1 }),
+      })),
+    [sections, ts],
+  );
+  const unlockedSections = Math.max(
+    1,
+    sectionsUnlocked ?? sessionQuery.data?.unlockedSections ?? 1,
+  );
+  const [activeSection, setActiveSection] = React.useState(0);
+  const [sectionToast, setSectionToast] = React.useState<string | null>(null);
+  // The teacher opened a section → fetch its content and turn the page.
+  const refetchSession = sessionQuery.refetch;
+  const lastUnlocked = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    if (!hasSections) return;
+    const prev = lastUnlocked.current;
+    lastUnlocked.current = unlockedSections;
+    if (prev == null || unlockedSections === prev) return;
+    void refetchSession();
+    if (unlockedSections > prev) {
+      const opened = notebook[unlockedSections - 1];
+      setActiveSection(unlockedSections - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (opened) {
+        setSectionToast(ts('opened', { n: opened.index + 1, title: opened.title }));
+        const id = window.setTimeout(() => setSectionToast(null), 5000);
+        return () => window.clearTimeout(id);
+      }
+    } else {
+      setActiveSection((cur) => Math.min(cur, unlockedSections - 1));
+    }
+  }, [unlockedSections, hasSections, notebook, refetchSession, ts]);
+  const currentSection = sections[Math.min(activeSection, sections.length - 1)]!;
+  const sectionLocked = hasSections && currentSection.index >= unlockedSections;
+  const pageBlocks = hasSections ? currentSection.blocks : blocks;
+  const sectionOfBlock = React.useCallback(
+    (blockId: string) =>
+      sections.findIndex(
+        (sec) => sec.header?.id === blockId || sec.blocks.some((b) => b.id === blockId),
+      ),
+    [sections],
+  );
   const lessonId = sessionQuery.data?.lessonId;
   const imageNavMap = React.useMemo(() => buildImageNavMap(blocks), [blocks]);
 
@@ -319,10 +374,23 @@ export default function StudentLivePage() {
     [saveResponse, queueRestSave],
   );
 
-  const scrollToBlock = React.useCallback((blockId: string) => {
-    const el = blockRefs.current.get(blockId);
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, []);
+  const scrollToBlock = React.useCallback(
+    (blockId: string) => {
+      const go = () =>
+        blockRefs.current.get(blockId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // The block may be on another page of the notebook — turn to it first
+      // (only pages the teacher has opened).
+      const target = sectionOfBlock(blockId);
+      if (hasSections && target >= 0 && target !== activeSection) {
+        if (target >= unlockedSections) return;
+        setActiveSection(target);
+        window.setTimeout(go, 80);
+        return;
+      }
+      go();
+    },
+    [sectionOfBlock, hasSections, activeSection, unlockedSections],
+  );
 
   const scrollToFocused = React.useCallback(() => {
     if (focusedBlockId) scrollToBlock(focusedBlockId);
@@ -523,7 +591,21 @@ export default function StudentLivePage() {
           {blocks.length === 0 && (
             <p className="text-sm text-muted-foreground">{tc('empty')}</p>
           )}
-          {blocks.map((block) => (
+          {hasSections ? (
+            <SectionTabs
+              sections={notebook}
+              active={currentSection.index}
+              unlocked={unlockedSections}
+              onSelect={setActiveSection}
+            />
+          ) : null}
+          {sectionLocked ? (
+            <SectionLocked
+              n={currentSection.index + 1}
+              title={notebook[currentSection.index]?.title ?? ''}
+            />
+          ) : null}
+          {(sectionLocked ? [] : pageBlocks).map((block) => (
             <WorkbookBlock
               key={block.id}
               ref={(el) => {
@@ -540,6 +622,25 @@ export default function StudentLivePage() {
               imageNav={imageNavMap.get(block.id)}
             />
           ))}
+          {hasSections ? (
+            <SectionPager
+              sections={notebook}
+              active={currentSection.index}
+              unlocked={unlockedSections}
+              onSelect={(index) => {
+                setActiveSection(index);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          ) : null}
+          {sectionToast ? (
+            <div
+              role="status"
+              className="fixed left-1/2 top-4 z-[70] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-full bg-success px-5 py-2.5 text-sm font-semibold text-success-foreground shadow-xl"
+            >
+              {sectionToast}
+            </div>
+          ) : null}
         </section>
 
         {/* Right panel — Navigation · Chat · Materials · Notes · AI · Metrics */}

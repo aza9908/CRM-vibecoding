@@ -41,6 +41,14 @@ export const setFocusSchema = z.object({
 });
 export type SetFocusDto = z.infer<typeof setFocusSchema>;
 
+/** Body for `POST /sessions/:id/sections` — how many lesson sections are open
+ * to the class (1 = only the first). The teacher raises it to let students
+ * turn the page; lowering it locks sections again. */
+export const setSectionsSchema = z.object({
+  unlocked: z.number().int().min(1).max(100),
+});
+export type SetSectionsDto = z.infer<typeof setSectionsSchema>;
+
 /**
  * Body for `POST /sessions/:id/responses` — participant saves an answer
  * (REST). `completed` is an optional explicit override for the fullscreen

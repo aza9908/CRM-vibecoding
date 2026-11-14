@@ -894,5 +894,20 @@
     "copy": "Copy the review",
     "copied": "Copied",
     "duration": "Recording length"
+  },
+  "sections": {
+    "title": "Lesson blocks",
+    "blockN": "Block {n}",
+    "closed": "locked",
+    "lockedTab": "Locked — the teacher will open it",
+    "lockedBody": "This block is locked. The teacher will open it when the group is ready — the page updates by itself.",
+    "openNext": "Open block {n}",
+    "lockBack": "Lock block {n}",
+    "lockBackHint": "Lock the last opened block for students again",
+    "allOpen": "All blocks are open",
+    "nextLocked": "Next block is locked",
+    "opened": "Block {n} is open: {title}",
+    "untitled": "Block {n}",
+    "hostPreview": "Students cannot see this block yet — it is locked."
   }
 }

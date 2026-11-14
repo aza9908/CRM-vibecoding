@@ -877,6 +877,11 @@ export class SessionGateway
     return { ok: true };
   }
 
+  /** The teacher opened / locked lesson sections (REST POST /sessions/:id/sections). */
+  broadcastSections(sessionId: string, unlocked: number): void {
+    this.io?.to(room(sessionId)).emit(WS_EVENTS.sectionsChanged, { sessionId, unlocked });
+  }
+
   /** Also used by REST POST /sessions/:id/focus as a WS-independent path. */
   async broadcastFocus(sessionId: string, blockId: string): Promise<void> {
     this.io?.to(room(sessionId)).emit(WS_EVENTS.focusChanged, { blockId });

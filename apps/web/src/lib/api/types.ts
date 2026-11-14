@@ -52,6 +52,10 @@ export interface SessionState {
   startTime?: string | null;
   endTime?: string | null;
   blocks?: Block[];
+  /** How many lesson sections the teacher has opened to the class. */
+  unlockedSections?: number;
+  /** Sections in the lesson (1 = the lesson is not divided). */
+  sectionCount?: number;
 }
 
 /** GET /sessions/live — a currently-running session, for "resume live". */

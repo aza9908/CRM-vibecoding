@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -37,6 +37,9 @@ on:
         default: ''
       pubkey_b64:
         description: reset-password — base64 PEM public key; the new password is printed only encrypted with it
+        default: ''
+      lesson_spec:
+        description: create-lesson — spec file name in .github/scripts/lessons (without .json)
         default: ''
       google_client_id:
         description: deploy — Google OAuth client id (public) for saving call recordings to Google Drive; empty keeps the current one
@@ -516,7 +519,7 @@ jobs:
           # Database migrations that this release needs, applied through the
           # still-running API container before the new one starts. Each file
           # runs once (recorded in _deploy_migrations), in one transaction.
-          for f in apps/api/drizzle/0012_lesson_category.sql apps/api/drizzle/0013_pulse_checks.sql apps/api/drizzle/0014_lesson_analyses.sql; do
+          for f in apps/api/drizzle/0012_lesson_category.sql apps/api/drizzle/0013_pulse_checks.sql apps/api/drizzle/0014_lesson_analyses.sql apps/api/drizzle/0015_session_sections.sql; do
             [ -f "$f" ] || { echo "missing migration $f"; exit 1; }
             echo "== migration $f"
             { basename "$f"; cat "$f"; } | docker exec -i -w /app/apps/api lms-api-1 node -e '
@@ -642,7 +645,7 @@ jobs:
           '"
 
       - uses: actions/checkout@v4
-        if: inputs.mode == 'call-smoke' || inputs.mode == 'analysis-smoke'
+        if: inputs.mode == 'call-smoke' || inputs.mode == 'analysis-smoke' || inputs.mode == 'create-lesson'
 
       - name: Video call smoke test from the internet (teacher + student, temporary lesson)
         if: inputs.mode == 'call-smoke'
@@ -729,6 +732,41 @@ jobs:
               .catch((e) => console.log(\"groq unreachable: \" + e.message));
           '" || true
           TOKEN="$TOKEN" node .github/scripts/analysis-smoke.js
+
+      - name: Create a lesson from a spec file in the account's company
+        if: inputs.mode == 'create-lesson'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          API: https://lms-api.magauin.kz
+          LESSON_SPEC: ${{ inputs.lesson_spec }}
+          FORCE: ${{ inputs.force }}
+          WEB: https://airl.kz/lms
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          # A 15-minute access token for the account, minted on the server and
+          # masked in the log. Never printed.
+          TOKEN=$(printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -e '
+            const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+            const { Pool } = require(\"pg\");
+            const jwt = require(\"jsonwebtoken\");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            (async () => {
+              const u = (await pool.query(\"select id, role, organization_id, is_platform_admin from users where encode(sha256(lower(email)::bytea), \\x27hex\\x27) = \$1\", [eh])).rows[0];
+              if (!u) { console.error(\"account not found\"); process.exit(2); }
+              const payload = { sub: u.id, role: u.role, orgId: u.organization_id || \"\", aud: \"user\" };
+              if (u.is_platform_admin) payload.isPlatformAdmin = true;
+              process.stdout.write(jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { expiresIn: \"15m\" }));
+              await pool.end();
+            })().catch((e) => { console.error(\"error: \" + e.message); process.exit(1); });
+          '")
+          echo "::add-mask::$TOKEN"
+          [ -n "$TOKEN" ] || { echo "::error::no token"; exit 1; }
+          SPEC="$LESSON_SPEC" FORCE="$FORCE" TOKEN="$TOKEN" node .github/scripts/create-lesson.js
 
       - name: Roll back on failure
         if: failure() && inputs.mode == 'deploy'

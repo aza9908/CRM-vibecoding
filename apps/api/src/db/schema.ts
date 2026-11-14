@@ -274,6 +274,9 @@ export const liveSessions = pgTable(
     code: text('code').notNull(), // 6-значный код входа
     status: sessionStatus('status').notNull().default('scheduled'),
     focusedBlockId: uuid('focused_block_id'), // что «фокусит» учитель
+    // How many lesson sections («блоки тетради») the teacher has opened to
+    // the class; students receive the content of these only.
+    unlockedSections: integer('unlocked_sections').notNull().default(1),
     startTime: timestamp('start_time', { withTimezone: true }),
     endTime: timestamp('end_time', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),

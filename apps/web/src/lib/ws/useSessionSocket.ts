@@ -71,6 +71,8 @@ export interface UseSessionSocketResult {
   clearFloor: () => void;
   /** Is a video call running in this session (teacher in it)? */
   callState: RtcRoomStatePayload | null;
+  /** Pushed when the teacher opens / locks lesson sections. */
+  sectionsUnlocked: number | null;
   /** «Пульс класса» — a stable object; subscribe with `usePulse(pulse)`. */
   pulse: PulseChannel;
 }
@@ -94,6 +96,8 @@ export function useSessionSocket(
   const [questions, setQuestions] = useState<QaQuestion[]>([]);
   const [floor, setFloor] = useState<UseSessionSocketResult['floor']>(null);
   const [callState, setCallState] = useState<RtcRoomStatePayload | null>(null);
+  /** Latest «sections opened» pushed by the teacher (null until one arrives). */
+  const [sectionsUnlocked, setSectionsUnlocked] = useState<number | null>(null);
 
   const pulseRef = useRef<PulseChannel | null>(null);
   if (!pulseRef.current) pulseRef.current = new PulseChannel();
@@ -278,6 +282,11 @@ export function useSessionSocket(
       setFloor({ ...payload, at: Date.now() });
     });
 
+    socket.on(WS_EVENTS.sectionsChanged, (payload) => {
+      if (payload.sessionId !== sessionId) return;
+      setSectionsUnlocked(payload.unlocked);
+    });
+
     socket.on(WS_EVENTS.sessionEnded, (payload: SessionEndedPayload) => {
       setEnded(true);
       onSessionEndedRef.current?.(payload);
@@ -439,6 +448,7 @@ export function useSessionSocket(
     floor,
     clearFloor,
     callState,
+    sectionsUnlocked,
     pulse,
   };
 }

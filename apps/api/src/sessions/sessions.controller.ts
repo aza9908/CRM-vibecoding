@@ -22,6 +22,9 @@ import {
   createSessionSchema,
   joinSessionSchema,
   setFocusSchema,
+  setSectionsSchema,
+  splitSections,
+  visibleBlocksForStudent,
   saveSessionResponseSchema,
   sendSessionChatSchema,
   uploadResponseFileSchema,
@@ -32,6 +35,7 @@ import {
   type LiveSessionMetrics,
   type ParticipantPayload,
   type SetFocusDto,
+  type SetSectionsDto,
   type SaveSessionResponseDto,
   type UploadResponseFileDto,
   type SendSessionChatDto,
@@ -185,9 +189,16 @@ export class SessionsController {
           .where(eq(lessonBlocks.lessonId, session.lessonId))
           .orderBy(lessonBlocks.orderIndex)
       : [];
+    // Sections: staff see the whole lesson; everyone else gets the content of
+    // the sections the teacher has opened and only the titles of the rest.
+    const staff =
+      principal.aud !== 'participant' &&
+      (principal.role === 'teacher' || principal.role === 'methodist' || principal.role === 'admin');
+    const sectionCount = splitSections(blocks).length;
+    const visible = staff ? blocks : visibleBlocksForStudent(blocks, session.unlockedSections);
     // Flat shape: the web SessionState reads code/status/focusedBlockId/blocks
     // at the top level (mirrors GET /lessons/:id returning { ...lesson, blocks }).
-    return { ...session, blocks };
+    return { ...session, blocks: visible, sectionCount };
   }
 
   /**
@@ -624,6 +635,34 @@ export class SessionsController {
     await this.sessions.endSession(user.orgId, id);
     this.gateway.broadcastSessionEnded(id);
     return { ok: true, sessionId: id };
+  }
+
+  /**
+   * POST /sessions/:id/sections — the teacher opens the next lesson section
+   * to the class (or locks sections back). Broadcast to the session room so
+   * students' pages unlock at once.
+   */
+  @Post(':id/sections')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher', 'methodist', 'admin')
+  async setSections(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @ZodBody(setSectionsSchema) body: SetSectionsDto,
+  ) {
+    await this.sessions.assertSessionInOrg(id, user.orgId);
+    const session = await this.sessions.get(id);
+    const blocks = session.lessonId
+      ? await this.db
+          .select({ blockRole: lessonBlocks.blockRole })
+          .from(lessonBlocks)
+          .where(eq(lessonBlocks.lessonId, session.lessonId))
+          .orderBy(lessonBlocks.orderIndex)
+      : [];
+    const unlocked = Math.min(body.unlocked, splitSections(blocks).length);
+    await this.sessions.setUnlockedSections(user.orgId, id, unlocked);
+    this.gateway.broadcastSections(id, unlocked);
+    return { ok: true, unlocked };
   }
 
   /**

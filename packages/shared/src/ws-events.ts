@@ -25,6 +25,8 @@ export const WS_EVENTS = {
   participantJoined: 'participant:joined',
   /** server → all in room: the session was ended */
   sessionEnded: 'session:ended',
+  /** server → all in room: the teacher opened / locked lesson sections */
+  sectionsChanged: 'sections:changed',
   /** client → server: send a group-chat message */
   chatSend: 'chat:send',
   /** server → all in room: new chat message */
@@ -153,6 +155,12 @@ export interface ParticipantJoinedPayload {
 }
 
 /** `session:ended` (server → all). */
+/** `sections:changed` (server → session). `unlocked` = how many sections are open. */
+export interface SectionsChangedPayload {
+  sessionId: string;
+  unlocked: number;
+}
+
 export interface SessionEndedPayload {
   sessionId: string;
 }
@@ -539,6 +547,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.responseUpdated]: (payload: ResponseUpdatedPayload) => void;
   [WS_EVENTS.participantJoined]: (payload: ParticipantJoinedPayload) => void;
   [WS_EVENTS.sessionEnded]: (payload: SessionEndedPayload) => void;
+  [WS_EVENTS.sectionsChanged]: (payload: SectionsChangedPayload) => void;
   [WS_EVENTS.chatMessage]: (payload: ChatMessagePayload) => void;
   [WS_EVENTS.chatHistory]: (payload: ChatHistoryPayload) => void;
   [WS_EVENTS.rtcPeerJoined]: (payload: RtcPeer) => void;

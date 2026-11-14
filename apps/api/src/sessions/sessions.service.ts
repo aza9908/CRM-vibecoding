@@ -195,6 +195,15 @@ export class SessionsService {
       .where(eq(liveSessions.id, sessionId));
   }
 
+  /** Open (or lock back) lesson sections for the class. Org-scoped. */
+  async setUnlockedSections(orgId: string, sessionId: string, unlocked: number) {
+    await this.assertSessionInOrg(sessionId, orgId);
+    await this.db
+      .update(liveSessions)
+      .set({ unlockedSections: unlocked })
+      .where(eq(liveSessions.id, sessionId));
+  }
+
   /**
    * End a session: set status='ended' and stamp endTime. Scoped: the session
    * must belong to `orgId`. Once ended, the code is freed (the partial unique
