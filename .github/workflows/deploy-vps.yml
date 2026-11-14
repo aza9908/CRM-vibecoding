@@ -716,6 +716,11 @@ jobs:
           [ -n "$TOKEN" ] || { echo "::error::no token"; exit 1; }
           mkdir -p /tmp/load && (cd /tmp/load && npm init -y >/dev/null && npm install --silent playwright@1 socket.io-client@4 >/dev/null && npx playwright install --with-deps chromium >/dev/null)
           TOKEN="$TOKEN" NODE_PATH=/tmp/load/node_modules N=60 BROWSERS=12 node .github/scripts/load-smoke.js
+          echo "== the same burst measured on the server itself (no internet in between)"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-api-1 node -e '
+            const one = async () => { const a = Date.now(); const r = await fetch(\"http://localhost:3001/sessions/join\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({ code: \"ZZZZZZ\", name: \"x\" }) }); await r.text(); return Date.now() - a; };
+            (async () => { const t = Date.now(); const ms = (await Promise.all(Array.from({ length: 60 }, one))).sort((x, y) => x - y); console.log(\"60 parallel joins on the server: p50 \" + ms[30] + \" ms · p95 \" + ms[57] + \" ms · all done in \" + (Date.now() - t) + \" ms\"); })();
+          '"
           echo "== server after the load"
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" 'echo "load $(cut -d" " -f1-3 /proc/loadavg)"; free -m | head -2; docker stats --no-stream --format "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" lms-api-1 lms-web-1; docker inspect -f "{{.Name}} restarts={{.RestartCount}} started={{.State.StartedAt}}" lms-api-1 lms-web-1'
 

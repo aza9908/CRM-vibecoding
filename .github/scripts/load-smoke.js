@@ -60,6 +60,11 @@ const connect = (token) => new Promise((resolve, reject) => {
     let pulse = null; teacher.on('pulse:state', (p) => { pulse = p; });
     let liveUpdates = 0; teacher.on('response:updated', () => { liveUpdates++; });
 
+    // ── network baseline: one request at a time (round trip to the server)
+    const rtt = [];
+    for (let k = 0; k < 5; k++) { const a = Date.now(); await fetch(API + '/sessions/join', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: 'ZZZZZZ', name: 'x' }) }).then((r) => r.text()); rtt.push(Date.now() - a); }
+    console.log(`· one request at a time from this machine: ${rtt.join(' / ')} ms`);
+
     // ── everyone joins in the same second, from one IP
     const t0 = Date.now(); const joinMs = []; const joinErr = [];
     const people = (await Promise.all(Array.from({ length: N }, async (_, i) => {
