@@ -716,6 +716,11 @@ jobs:
           [ -n "$TOKEN" ] || { echo "::error::no token"; exit 1; }
           mkdir -p /tmp/load && (cd /tmp/load && npm init -y >/dev/null && npm install --silent playwright@1 socket.io-client@4 >/dev/null && npx playwright install --with-deps chromium >/dev/null)
           TOKEN="$TOKEN" NODE_PATH=/tmp/load/node_modules N=60 BROWSERS=12 node .github/scripts/load-smoke.js
+          echo "== where the time goes for 60 parallel requests from the internet (curl, one TLS connection each)"
+          seq 60 | xargs -P 60 -I{} curl -s -o /dev/null -X POST -H 'content-type: application/json' -d '{"code":"ZZZZZZ","name":"x"}' -w '%{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}\n' "$API/sessions/join" > /tmp/t.txt
+          sort -n -k4 /tmp/t.txt | awk '{c+=$1;a+=$2;s+=$3;t+=$4; n++; all[n]=$4} END {printf "avg tcp %.2fs · tls done %.2fs · first byte %.2fs · total %.2fs · slowest %.2fs\n", c/n, a/n, s/n, t/n, all[n]}'
+          echo "== front door settings (firewall + nginx; no secrets)"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" 'ufw status verbose 2>/dev/null | grep -E "Status|Default|443|80|LIMIT" | head -12; echo "-- nginx"; grep -rhoE "^\s*(worker_processes|worker_connections|multi_accept|limit_req[a-z_]*|limit_conn[a-z_]*|keepalive_timeout|keepalive_requests|ssl_session_cache|ssl_session_timeout|http2|listen [^;]*443[^;]*|proxy_buffering|access_log)[^;]*" /etc/nginx/nginx.conf /etc/nginx/sites-enabled/ /etc/nginx/conf.d/ 2>/dev/null | sed -E "s/^\s+//" | sort | uniq -c | sort -rn | head -25; echo "-- kernel"; sysctl -n net.core.somaxconn net.ipv4.tcp_max_syn_backlog 2>/dev/null | tr "\n" " "; echo; (fail2ban-client status 2>/dev/null | head -3) || true; nproc; grep -c processor /proc/cpuinfo'
           echo "== the same burst measured on the server itself (no internet in between)"
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-api-1 node -e '
             const one = async () => { const a = Date.now(); const r = await fetch(\"http://localhost:3001/sessions/join\", { method: \"POST\", headers: { \"content-type\": \"application/json\" }, body: JSON.stringify({ code: \"ZZZZZZ\", name: \"x\" }) }); await r.text(); return Date.now() - a; };
