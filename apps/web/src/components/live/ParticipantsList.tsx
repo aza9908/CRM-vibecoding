@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Users } from 'lucide-react';
+import { Users, UserX } from 'lucide-react';
 import type { LiveParticipant, LiveResponses } from '@/lib/ws/useSessionSocket';
 import type { Block } from '@/lib/api/types';
 import { isInputBlock } from '@/lib/blocks';
@@ -37,7 +37,10 @@ export function ParticipantsList({
   blocks = [],
   responses = {},
   focusedBlockId = null,
+  onRemove,
 }: {
+  /** Teacher only: remove this person from the session (asks to confirm first). */
+  onRemove?: (participant: LiveParticipant) => void;
   participants: LiveParticipant[];
   blocks?: Block[];
   responses?: LiveResponses;
@@ -108,6 +111,18 @@ export function ParticipantsList({
                   <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                     {pct}%
                   </span>
+                  {onRemove ? (
+                    <button
+                      type="button"
+                      data-remove-participant={p.participantId}
+                      onClick={() => onRemove(p)}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
+                      aria-label={t('removeParticipant')}
+                      title={t('removeParticipant')}
+                    >
+                      <UserX className="h-4 w-4" />
+                    </button>
+                  ) : null}
                 </div>
                 <div
                   className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"

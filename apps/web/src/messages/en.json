@@ -319,7 +319,9 @@
     "joinNowButton": "Join now",
     "sessionNotFound": "Session not found or ended",
     "validationCode": "Code is 6 characters",
-    "validationName": "Enter your name"
+    "validationName": "Enter your name",
+    "retrying": "The network is unstable, trying again…",
+    "networkFailed": "Could not connect. Check the internet and press “Join” again."
   },
   "live": {
     "blockDone": "Answer accepted",
@@ -408,7 +410,15 @@
     "endBody": "Students will be disconnected and the video call will end for everyone.",
     "endBodySaved": "All answers are saved — the report opens right after.",
     "endAction": "End session",
-    "welcomeNameHint": "participant name"
+    "welcomeNameHint": "participant name",
+    "removedTitle": "The teacher removed you from the session",
+    "removedBody": "Your answers are saved. If this is a mistake, join again with the session code.",
+    "removedRejoin": "Join with a code",
+    "removeParticipant": "Remove from session",
+    "removeTitle": "Remove {name} from the session?",
+    "removeBody": "They leave the lesson and the video call at once and drop out of the lists. Their answers are kept. They can come back only with the session code.",
+    "removeAction": "Remove",
+    "removeFailed": "Could not remove. Try again."
   },
   "materials": {
     "title": "Materials",

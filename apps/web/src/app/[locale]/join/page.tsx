@@ -4,6 +4,7 @@ import * as React from 'react';
 import { useTranslations } from 'next-intl';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { joinSessionSchema } from '@lms/shared';
+import { ApiError } from '@/lib/api/client';
 import { Link, useRouter } from '@/i18n/routing';
 import { useJoinSession } from '@/lib/api/hooks/use-sessions';
 import { useAuthStore } from '@/lib/store/auth-store';
@@ -35,6 +36,7 @@ export default function JoinPage() {
   const [code, setCode] = React.useState('');
   const [name, setName] = React.useState(user?.fullName?.trim() ?? '');
   const [fieldError, setFieldError] = React.useState<string | null>(null);
+  const [retrying, setRetrying] = React.useState(false);
 
   React.useEffect(() => {
     if (user?.fullName?.trim() && !name) {
@@ -47,10 +49,12 @@ export default function JoinPage() {
     setFieldError(null);
 
     const normalizedCode = code.trim().toUpperCase();
+    const clientKey = deviceKey();
     const parsed = joinSessionSchema.safeParse({
       code: normalizedCode,
       name: name.trim(),
       ...(user?.id ? { userId: user.id } : {}),
+      ...(clientKey ? { clientKey } : {}),
     });
     if (!parsed.success) {
       const first = parsed.error.issues[0];
@@ -62,12 +66,32 @@ export default function JoinPage() {
       return;
     }
 
-    try {
-      const result = await join.mutateAsync(parsed.data);
-      router.push(`/live/${result.sessionId}`);
-    } catch (err) {
-      void err;
-      setFieldError(t('sessionNotFound'));
+    // A crowded room on one Wi-Fi drops requests now and then: retry network
+    // errors and server hiccups with growing pauses. Safe to repeat — the
+    // device key makes the server return the same participant, not a new one.
+    const delays = [600, 1200, 2500, 4000, 6000];
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const result = await join.mutateAsync(parsed.data);
+        setRetrying(false);
+        router.push(`/live/${result.sessionId}`);
+        return;
+      } catch (err) {
+        const status = err instanceof ApiError ? err.status : 0;
+        if (status === 404 || status === 400) {
+          setRetrying(false);
+          setFieldError(t('sessionNotFound'));
+          return;
+        }
+        if (attempt >= delays.length) {
+          setRetrying(false);
+          setFieldError(t('networkFailed'));
+          return;
+        }
+        setRetrying(true);
+        const wait = delays[attempt]! + Math.random() * 400;
+        await new Promise((r) => setTimeout(r, wait));
+      }
     }
   };
 
@@ -119,14 +143,19 @@ export default function JoinPage() {
                 {fieldError}
               </p>
             )}
+            {retrying && !fieldError ? (
+              <p className="text-sm text-muted-foreground" role="status" data-join-retrying>
+                {t('retrying')}
+              </p>
+            ) : null}
 
             <Button
               type="submit"
               size="lg"
               className="w-full"
-              disabled={join.isPending}
+              disabled={join.isPending || retrying}
             >
-              {join.isPending ? (
+              {join.isPending || retrying ? (
                 <>
                   <Spinner className="h-4 w-4" />
                   {tc('loading')}
@@ -167,4 +196,26 @@ export default function JoinPage() {
       {card}
     </main>
   );
+}
+
+/**
+ * A random key this browser keeps for good (see participants.client_key).
+ * Returns null when storage is blocked; joining still works, only without the
+ * duplicate protection.
+ */
+function deviceKey(): string | null {
+  try {
+    const k = 'lms-device-key';
+    let v = window.localStorage.getItem(k);
+    if (!v || !/^[A-Za-z0-9-]{16,64}$/.test(v)) {
+      v =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+      window.localStorage.setItem(k, v);
+    }
+    return v;
+  } catch {
+    return null;
+  }
 }

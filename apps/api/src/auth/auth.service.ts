@@ -24,7 +24,7 @@ import type {
 } from '@lms/shared';
 
 import { DRIZZLE, type Db } from '../db/db.module';
-import { passwordResetTokens, users } from '../db/schema';
+import { participants, passwordResetTokens, users } from '../db/schema';
 import { UsersService, type UserRecord } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { PromoCodesService } from '../promo-codes/promo-codes.service';
@@ -524,6 +524,36 @@ export class AuthService {
   }
 
   /**
+   * Participants the teacher removed stop being able to use their token.
+   * Checked on every participant request and socket connection; positive
+   * answers are cached for a minute (one primary-key lookup otherwise), and
+   * the cache entry is dropped the moment a participant is removed.
+   */
+  private readonly activeParticipants = new Map<string, number>();
+  private static readonly ACTIVE_TTL_MS = 60_000;
+
+  async assertParticipantActive(participantId: string, sessionId: string): Promise<void> {
+    const key = `${sessionId}:${participantId}`;
+    const until = this.activeParticipants.get(key);
+    if (until && until > Date.now()) return;
+    const row = await this.db.query.participants.findFirst({
+      where: and(eq(participants.id, participantId), eq(participants.sessionId, sessionId)),
+      columns: { id: true, removedAt: true },
+    });
+    if (!row || row.removedAt) {
+      this.activeParticipants.delete(key);
+      throw new UnauthorizedException('participant_removed');
+    }
+    if (this.activeParticipants.size > 5000) this.activeParticipants.clear();
+    this.activeParticipants.set(key, Date.now() + AuthService.ACTIVE_TTL_MS);
+  }
+
+  /** Called when a participant is removed so the next request is refused at once. */
+  forgetParticipant(participantId: string, sessionId: string): void {
+    this.activeParticipants.delete(`${sessionId}:${participantId}`);
+  }
+
+  /**
    * Verify a socket token that may be EITHER a user or a participant token, and
    * return the appropriately-shaped payload. Used by the WS gateway, which
    * accepts both audiences on the `/live` namespace.
@@ -550,6 +580,7 @@ export class AuthService {
       ) {
         throw new UnauthorizedException('invalid_participant_token');
       }
+      await this.assertParticipantActive(claims.sub, claims.sessionId);
       return {
         sub: claims.sub,
         sessionId: claims.sessionId,

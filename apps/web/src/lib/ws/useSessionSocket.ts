@@ -22,6 +22,7 @@ import {
   type PulseReactionPayload,
   type PulseStatePayload,
   type TimerStatePayload,
+  type ParticipantRemovedPayload,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from './url';
@@ -58,6 +59,8 @@ export interface UseSessionSocketResult {
   /** Flush a response immediately (Submit button). */
   saveResponseNow: (blockId: string, answerText: string) => void;
   participants: LiveParticipant[];
+  /** Participants the teacher removed during this visit (this tab saw the event). */
+  removedIds: string[];
   responses: LiveResponses;
   chatMessages: ChatMessagePayload[];
   sendChat: (text: string) => void;
@@ -96,6 +99,7 @@ export function useSessionSocket(
   const [responses, setResponses] = useState<LiveResponses>({});
   const [chatMessages, setChatMessages] = useState<ChatMessagePayload[]>([]);
   const [ended, setEnded] = useState(false);
+  const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [questions, setQuestions] = useState<QaQuestion[]>([]);
   const [floor, setFloor] = useState<UseSessionSocketResult['floor']>(null);
   const [callState, setCallState] = useState<RtcRoomStatePayload | null>(null);
@@ -211,6 +215,13 @@ export function useSessionSocket(
         });
       },
     );
+
+    socket.on(WS_EVENTS.participantRemoved, (payload: ParticipantRemovedPayload) => {
+      setParticipants((prev) => prev.filter((p) => p.participantId !== payload.participantId));
+      setRemovedIds((prev) =>
+        prev.includes(payload.participantId) ? prev : [...prev, payload.participantId],
+      );
+    });
 
     socket.on(WS_EVENTS.responseUpdated, (payload: ResponseUpdatedPayload) => {
       setResponses((prev) => ({
@@ -451,6 +462,7 @@ export function useSessionSocket(
     chatMessages,
     sendChat,
     ended,
+    removedIds,
     questions,
     askQuestion,
     voteQuestion,

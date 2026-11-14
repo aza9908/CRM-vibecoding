@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomInt } from 'node:crypto';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import type { PulseAnswerEntry, PulseCheckRecord, PulsePerson } from '@lms/shared';
 import { DRIZZLE, type Db } from '../db/db.module';
 import {
@@ -254,6 +254,7 @@ export class SessionsService {
       where: and(
         eq(participants.sessionId, sessionId),
         eq(participants.userId, userId),
+        isNull(participants.removedAt),
       ),
       columns: { id: true },
     });

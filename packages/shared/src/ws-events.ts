@@ -23,6 +23,7 @@ export const WS_EVENTS = {
   responseUpdated: 'response:updated',
   /** server → teacher: a participant joined */
   participantJoined: 'participant:joined',
+  participantRemoved: 'participant:removed',
   /** server → all in room: the session was ended */
   sessionEnded: 'session:ended',
   /** server → all in room: the teacher opened / locked lesson sections */
@@ -154,6 +155,12 @@ export interface ResponseUpdatedPayload {
 export interface ParticipantJoinedPayload {
   participantId: string;
   name: string;
+}
+
+/** `participant:removed` (server → session): the teacher removed this person. */
+export interface ParticipantRemovedPayload {
+  sessionId: string;
+  participantId: string;
 }
 
 /** `session:ended` (server → all). */
@@ -560,6 +567,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.focusChanged]: (payload: FocusChangedPayload) => void;
   [WS_EVENTS.responseUpdated]: (payload: ResponseUpdatedPayload) => void;
   [WS_EVENTS.participantJoined]: (payload: ParticipantJoinedPayload) => void;
+  [WS_EVENTS.participantRemoved]: (payload: ParticipantRemovedPayload) => void;
   [WS_EVENTS.sessionEnded]: (payload: SessionEndedPayload) => void;
   [WS_EVENTS.sectionsChanged]: (payload: SectionsChangedPayload) => void;
   [WS_EVENTS.timerState]: (payload: TimerStatePayload) => void;

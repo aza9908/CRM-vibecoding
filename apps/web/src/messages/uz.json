@@ -319,7 +319,9 @@
     "joinNowButton": "Hozir qoʻshilish",
     "sessionNotFound": "Seans topilmadi yoki yakunlangan",
     "validationCode": "Kod 6 ta belgidan iborat",
-    "validationName": "Ismingizni kiriting"
+    "validationName": "Ismingizni kiriting",
+    "retrying": "Tarmoq barqaror emas, qayta ulanmoqdamiz…",
+    "networkFailed": "Ulanib boʻlmadi. Internetni tekshirib, «Kirish»ni qayta bosing."
   },
   "live": {
     "blockDone": "Javob qabul qilindi",
@@ -408,7 +410,15 @@
     "endBody": "O‘quvchilar uziladi, videoqo‘ng‘iroq hamma uchun tugaydi.",
     "endBodySaved": "Barcha javoblar saqlanadi — hisobot darhol ochiladi.",
     "endAction": "Sessiyani yakunlash",
-    "welcomeNameHint": "ishtirokchi ismi"
+    "welcomeNameHint": "ishtirokchi ismi",
+    "removedTitle": "Oʻqituvchi sizni sessiyadan chiqardi",
+    "removedBody": "Javoblaringiz saqlandi. Agar bu xato boʻlsa, sessiya kodi orqali qayta kiring.",
+    "removedRejoin": "Kod orqali kirish",
+    "removeParticipant": "Sessiyadan chiqarish",
+    "removeTitle": "{name} sessiyadan chiqarilsinmi?",
+    "removeBody": "Oʻquvchi darsdan va videoaloqadan darhol chiqadi va roʻyxatlardan yoʻqoladi. Javoblari saqlanadi. Qayta faqat sessiya kodi bilan kira oladi.",
+    "removeAction": "Chiqarish",
+    "removeFailed": "Chiqarib boʻlmadi. Qayta urinib koʻring."
   },
   "materials": {
     "title": "Materiallar",

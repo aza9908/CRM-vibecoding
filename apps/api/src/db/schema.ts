@@ -368,9 +368,17 @@ export const participants = pgTable(
     name: text('name').notNull(),
     attendance: boolean('attendance').default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    // Set when the teacher removes the person from the session: their token
+    // stops working and they drop out of rosters. Answers are kept.
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    // Random key the browser keeps for this device: entering the same code
+    // again from the same device (or retrying after a dropped response)
+    // returns the same participant instead of adding a duplicate.
+    clientKey: text('client_key'),
   },
   (t) => ({
     sessionIdx: index('participants_session_idx').on(t.sessionId),
+    clientKeyIdx: index('participants_session_client_key_idx').on(t.sessionId, t.clientKey),
   }),
 );
 

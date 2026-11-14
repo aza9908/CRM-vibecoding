@@ -21,13 +21,19 @@ const nextConfig: NextConfig = {
         },
       }
     : {}),
-  // Lesson slides and clips never change under the same name: let browsers
-  // and the proxy in front keep them, so a full class does not re-fetch them.
   async headers() {
     return [
       {
+        // Other lesson files keep their names when they change: always ask
+        // the server (a cheap 304 when nothing changed), never show a stale copy.
         source: '/workbook/:path*',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=86400' }],
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }],
+      },
+      {
+        // Lesson media named by content hash: a new version gets a new name,
+        // so browsers may keep each file for good. Listed last so it wins.
+        source: '/workbook/aitu/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
     ];
   },

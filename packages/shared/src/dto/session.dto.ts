@@ -32,6 +32,11 @@ export const joinSessionSchema = z.object({
     ),
   name: z.string().trim().min(1).max(80),
   userId: z.string().uuid().optional(),
+  // Random key the browser keeps per device (see participants.client_key).
+  clientKey: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{16,64}$/)
+    .optional(),
 });
 export type JoinSessionDto = z.infer<typeof joinSessionSchema>;
 

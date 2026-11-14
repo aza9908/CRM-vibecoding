@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Controller,
+  Delete,
   forwardRef,
   Get,
   Inject,
@@ -17,7 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Request } from 'express';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import {
   createSessionSchema,
   joinSessionSchema,
@@ -115,12 +116,34 @@ export class SessionsController {
     const session = await this.sessions.findLiveByCode(dto.code);
     if (!session) throw new NotFoundException('session_not_found');
 
+    // Same device, same name, same session → the same participant: a retry
+    // after a dropped response or someone re-entering the code does not add
+    // a duplicate to the roster, and they keep their answers.
+    const existing = dto.clientKey
+      ? await this.db.query.participants.findFirst({
+          where: and(
+            eq(participants.sessionId, session.id),
+            eq(participants.clientKey, dto.clientKey),
+            eq(participants.name, dto.name),
+            isNull(participants.removedAt),
+          ),
+        })
+      : undefined;
+    if (existing) {
+      return {
+        sessionId: session.id,
+        participantId: existing.id,
+        participantToken: this.auth.issueParticipantToken(existing.id, session.id),
+      } as JoinSessionResult;
+    }
+
     const [participant] = await this.db
       .insert(participants)
       .values({
         sessionId: session.id,
         name: dto.name,
         userId: dto.userId ?? null,
+        clientKey: dto.clientKey ?? null,
       })
       .returning();
 
@@ -308,7 +331,7 @@ export class SessionsController {
     const parts = await this.db
       .select()
       .from(participants)
-      .where(eq(participants.sessionId, id));
+      .where(and(eq(participants.sessionId, id), isNull(participants.removedAt)));
 
     const partIds = parts.map((p) => p.id);
     const respRows =
@@ -391,7 +414,39 @@ export class SessionsController {
     return this.db
       .select()
       .from(participants)
-      .where(eq(participants.sessionId, id));
+      .where(and(eq(participants.sessionId, id), isNull(participants.removedAt)));
+  }
+
+  /**
+   * DELETE /sessions/:id/participants/:participantId — the teacher removes a
+   * person from the session (a duplicate, a test entry, someone who should
+   * not be there). Their token stops working at once, their page closes and
+   * they leave the call; they drop out of rosters. Answers are kept.
+   */
+  @Delete(':id/participants/:participantId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher', 'methodist', 'admin')
+  async removeParticipant(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('participantId', new ParseUUIDPipe()) participantId: string,
+  ): Promise<{ ok: true }> {
+    await this.sessions.assertSessionInOrg(id, user.orgId);
+    const rows = await this.db
+      .update(participants)
+      .set({ removedAt: new Date() })
+      .where(
+        and(
+          eq(participants.id, participantId),
+          eq(participants.sessionId, id),
+          isNull(participants.removedAt),
+        ),
+      )
+      .returning({ id: participants.id });
+    if (rows.length === 0) throw new NotFoundException('participant_not_found');
+    this.auth.forgetParticipant(participantId, id);
+    await this.gateway.removeParticipant(id, participantId);
+    return { ok: true };
   }
 
   /** GET /sessions/:id/responses — teacher-only answer summary, org-scoped. */

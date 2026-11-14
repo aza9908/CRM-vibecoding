@@ -10,7 +10,7 @@ import type {
   JoinSessionDto,
   JoinSessionResult,
 } from '@lms/shared';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/api/query-keys';
 import type {
   SessionState,
@@ -74,7 +74,11 @@ export function useSession(
     enabled: !!id,
     refetchInterval: opts?.pollMs ?? false,
     // Survive cold starts / brief API blips — do NOT drop the live UI.
-    retry: 6,
+    // Retry network blips, never a final answer (removed from the session,
+    // session gone): those must show at once.
+    retry: (n, err) =>
+      !(err instanceof ApiError && (err.status === 404 || err.code === 'participant_removed')) &&
+      n < 6,
     retryDelay: (n) => Math.min(1000 * 2 ** n, 8_000),
     staleTime: 1_000,
     // Keep last good snapshot while a refetch fails (prevents 404 kick).

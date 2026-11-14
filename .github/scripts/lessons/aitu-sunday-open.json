@@ -14,55 +14,55 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-01.jpg",
+      "imageUrl": "/workbook/aitu/s-01.401e1c66ca.w2560.jpg",
       "content": "Вайб-кодинг с Claude · практический воркшоп AITU Sunday Open × AIRL",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-02.jpg",
+      "imageUrl": "/workbook/aitu/s-02.b88098eb38.w2560.jpg",
       "content": "Как пройдёт день: 11:00 знакомимся · 12:00 готовим инструменты · 13:00 обед · 13:30 строим продукт · 15:30 кофе · 15:45 показываем · 17:00 готово",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-03.jpg",
+      "imageUrl": "/workbook/aitu/s-03.523a9866e9.w2560.jpg",
       "content": "Кто ведёт воркшоп: Жанибек Серкулов, CEO и основатель AI Research Labs · Азамат Арманұлы, CTO и тех лид AI Research Labs",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-04.jpg",
+      "imageUrl": "/workbook/aitu/s-04.8e963af07d.w2560.jpg",
       "content": "Жанибек Серкулов · проекты: Bropost, Knauf, грузы в США, Нью-Йорк, партнёры в Китае, панельный завод в Астане, склад Bropost",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-05.jpg",
+      "imageUrl": "/workbook/aitu/s-05.d7bdbe5e20.w2560.jpg",
       "content": "Жанибек Серкулов · преподаёт и выступает: МГУ, РФМШ и AITU, Q.ai, University of Unicorns, AI for YPO, конференции",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-06.jpg",
+      "imageUrl": "/workbook/aitu/s-06.77a73abc3f.w2560.jpg",
       "content": "Азамат Арманұлы · от KAIST до чемпионата мира FIRST",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-07.jpg",
+      "imageUrl": "/workbook/aitu/s-07.135039747f.w2560.jpg",
       "content": "AI Research Labs: центр прикладного ИИ. Компании, вузы, школы, студия",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-08.jpg",
+      "imageUrl": "/workbook/aitu/s-08.977d5be6d0.w2560.jpg",
       "content": "Кто мы и что мы сделали: МГУ, Astana IT University, Sunday Open, Kaizen Center, PINGWIN, Yassa Education",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-09.jpg",
+      "imageUrl": "/workbook/aitu/s-09.80377d4dc8.w2560.jpg",
       "content": "Пять ступеней ИИ-зрелости: 0 не используют · 1 пробуют · 2 применяют · 3 встраивают · 4 ИИ-зрелые",
       "blockRole": "slide"
     },
@@ -82,7 +82,7 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-10.jpg",
+      "imageUrl": "/workbook/aitu/s-10.9c4beedce1.w2560.jpg",
       "content": "Доменная экспертиза + ИИ = суперсила: вы знаете своё дело, ИИ умеет строить, на пересечении появляется продукт",
       "blockRole": "slide"
     },
@@ -93,44 +93,44 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-levels.jpg",
+      "imageUrl": "/workbook/aitu/s-levels.5867d634b2.w2560.jpg",
       "content": "ИИ из пяти уровней: где ваша зона. Агенты и приложения, языковые модели, данные, чипы и дата-центры, энергия",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/video/dwh.jpg",
+      "imageUrl": "/workbook/aitu/video/dwh.8ca5d08201.jpg",
       "content": "Анимация: данные из 1С, CRM и рекламы стекаются в одно озеро данных",
       "blockRole": "slide",
       "options": {
-        "video": "/workbook/aitu/video/dwh.mp4"
+        "video": "/workbook/aitu/video/dwh.8ca5d08201.mp4"
       }
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-12.jpg",
+      "imageUrl": "/workbook/aitu/s-12.fe88e4357f.w2560.jpg",
       "content": "Кейс AIRL · PINGWIN: своя система вместо подписок",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-13.jpg",
+      "imageUrl": "/workbook/aitu/s-13.d041ae2d4f.w2560.jpg",
       "content": "Кейс AIRL · Kaizen: TPM и TWI в одном приложении",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-14.jpg",
+      "imageUrl": "/workbook/aitu/s-14.dbbc550b97.w2560.jpg",
       "content": "Кейс AIRL · Orzu Medical: хаб и CRM для 7 филиалов сети клиник",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-15.jpg",
+      "imageUrl": "/workbook/aitu/s-15.7946f75183.w2560.jpg",
       "content": "Кейс AIRL · Physical AI · Мамулины Вкусняшки: камеры считают работу цеха",
       "blockRole": "slide",
       "options": {
-        "video": "/workbook/aitu/video/mam.mp4",
+        "video": "/workbook/aitu/video/mam.d418f28c8a.mp4",
         "frame": {
           "left": 5.03,
           "top": 26.27,
@@ -181,32 +181,32 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-16.jpg",
+      "imageUrl": "/workbook/aitu/s-16.ae19326e8f.w2560.jpg",
       "content": "Блок 2 · Практика с Claude · 6 скиллов AIRL: от идеи до продукта, который открывается по ссылке",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/video/restaurant.jpg",
+      "imageUrl": "/workbook/aitu/video/restaurant.0ebd1e328b.jpg",
       "content": "Анимация: приложение как ресторан. Зал это фронтенд, официант это API, кухня это бэкенд, кладовая это база данных",
       "blockRole": "slide",
       "options": {
-        "video": "/workbook/aitu/video/restaurant.mp4"
+        "video": "/workbook/aitu/video/restaurant.0ebd1e328b.mp4"
       }
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-19.jpg",
+      "imageUrl": "/workbook/aitu/s-19.e618e5a839.w2560.jpg",
       "content": "Второй мозг вайбкодера: интерактивная карта, 72 заметки и 182 связи между ними",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/video/brain.jpg",
+      "imageUrl": "/workbook/aitu/video/brain.2e6d8db805.jpg",
       "content": "Анимация: второй мозг вайбкодера, карта знаний воркшопа",
       "blockRole": "slide",
       "options": {
-        "video": "/workbook/aitu/video/brain.mp4"
+        "video": "/workbook/aitu/video/brain.2e6d8db805.mp4"
       }
     },
     {
@@ -219,61 +219,61 @@
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-20.jpg",
+      "imageUrl": "/workbook/aitu/s-20.58c4d18b38.w2560.jpg",
       "content": "5 слов на сегодня: вайб-кодинг, промпт, контекстное окно, скилл, деплой",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-21.jpg",
+      "imageUrl": "/workbook/aitu/s-21.ab268f973d.w2560.jpg",
       "content": "6 скиллов: от идеи до работающего продукта",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/video/office.jpg",
+      "imageUrl": "/workbook/aitu/video/office.a94b6a3277.jpg",
       "content": "Анимация: офис AIRL Start. Как идея проходит через агентов и становится работающим продуктом",
       "blockRole": "slide",
       "options": {
-        "video": "/workbook/aitu/video/office.mp4"
+        "video": "/workbook/aitu/video/office.a94b6a3277.mp4"
       }
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/video/mvp-path.jpg",
+      "imageUrl": "/workbook/aitu/video/mvp-path.82100326b9.jpg",
       "content": "Анимация: шесть шагов от идеи до MVP. AIRL Start, дизайн, архитектура, безопасность, проверка кода, публикация",
       "blockRole": "slide",
       "options": {
-        "video": "/workbook/aitu/video/mvp-path.mp4"
+        "video": "/workbook/aitu/video/mvp-path.82100326b9.mp4"
       }
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-22.jpg",
+      "imageUrl": "/workbook/aitu/s-22.d2b31b7156.w2560.jpg",
       "content": "Как выглядит работа со скиллом",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-23.jpg",
+      "imageUrl": "/workbook/aitu/s-23.180b086e8b.w2560.jpg",
       "content": "Сегодня всё происходит в Firebase: база данных, авторизация, деплой, MVP по ссылке",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-24.jpg",
+      "imageUrl": "/workbook/aitu/s-24.22bacb46ff.w2560.jpg",
       "content": "Сегодня MVP на Firebase, в большой программе AIRL боевой продукт на своём сервере",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-25.jpg",
+      "imageUrl": "/workbook/aitu/s-25.b7fdd12dd9.w2560.jpg",
       "content": "Скиллы AIRL: 6 сегодня и ещё 20 в большой программе",
       "blockRole": "slide"
     },
     {
       "type": "image",
-      "imageUrl": "/workbook/aitu/s-26.jpg",
+      "imageUrl": "/workbook/aitu/s-26.7aaa3140b1.w2560.jpg",
       "content": "Ставим 6 скиллов AIRL",
       "blockRole": "slide"
     },
@@ -422,7 +422,7 @@
       "content": "**Что дальше**",
       "options": {
         "items": [
-          "Хочу продолжить обучение с вами, сопровождение и вступить в AIR Hub"
+          "Хочу продолжить обучение с вами, сопровождение и вступить в AIRL Hub"
         ],
         "icon": "handshake"
       }

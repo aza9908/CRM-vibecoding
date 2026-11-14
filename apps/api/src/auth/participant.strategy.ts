@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy, type StrategyOptions } from 'passport-jwt';
 import type { Request } from 'express';
 import type { ParticipantPayload } from '@lms/shared';
+import { AuthService } from './auth.service';
 
 /** Passport strategy name for session-guest (aud=participant) tokens. */
 export const JWT_PARTICIPANT_STRATEGY = 'jwt-participant';
@@ -37,7 +38,10 @@ export class ParticipantStrategy extends PassportStrategy(
   Strategy,
   JWT_PARTICIPANT_STRATEGY,
 ) {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    private readonly auth: AuthService,
+  ) {
     const secret = config.get<string>('JWT_ACCESS_SECRET');
     if (!secret) {
       throw new Error('JWT_ACCESS_SECRET is not set');
@@ -50,7 +54,7 @@ export class ParticipantStrategy extends PassportStrategy(
     super(options);
   }
 
-  validate(payload: RawParticipantClaims): ParticipantPayload {
+  async validate(payload: RawParticipantClaims): Promise<ParticipantPayload> {
     if (
       payload.aud !== 'participant' ||
       typeof payload.sub !== 'string' ||
@@ -58,6 +62,7 @@ export class ParticipantStrategy extends PassportStrategy(
     ) {
       throw new UnauthorizedException('invalid_participant_token');
     }
+    await this.auth.assertParticipantActive(payload.sub, payload.sessionId);
     return {
       sub: payload.sub,
       sessionId: payload.sessionId,

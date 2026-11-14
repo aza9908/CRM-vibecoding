@@ -638,6 +638,26 @@ export class SessionGateway
     return { ok: true, focusedBlockId };
   }
 
+  /**
+   * The teacher removed a participant: tell everyone in the session (their
+   * page closes, rosters drop them) and cut that person's live connections,
+   * including the video call. Works across API instances (Redis adapter).
+   */
+  async removeParticipant(sessionId: string, participantId: string): Promise<void> {
+    if (!this.io) return;
+    const payload = { sessionId, participantId };
+    this.io.to(room(sessionId)).emit(WS_EVENTS.participantRemoved, payload);
+    this.io.to(teachersRoom(sessionId)).emit(WS_EVENTS.participantRemoved, payload);
+    const sockets = await this.io.in(room(sessionId)).fetchSockets();
+    for (const s of sockets) {
+      const id = (s.data as LiveSocketData).identity;
+      if (id?.aud === 'participant' && id.sub === participantId) {
+        // Give the "you were removed" event a moment to arrive first.
+        setTimeout(() => s.disconnect(true), 300);
+      }
+    }
+  }
+
   @UseGuards(WsRolesGuard)
   @Roles('teacher', 'methodist', 'admin')
   @SubscribeMessage(WS_EVENTS.focusSet)

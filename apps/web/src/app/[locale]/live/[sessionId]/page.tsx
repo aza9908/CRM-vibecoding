@@ -37,7 +37,8 @@ import { SessionStateBanner } from '@/components/live/SessionStateBanner';
 import { SessionCelebration } from '@/components/live/SessionCelebration';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, ArrowUp, Maximize2, Mic } from 'lucide-react';
+import { ArrowDown, ArrowUp, Maximize2, Mic, UserX } from 'lucide-react';
+import { useRouter } from '@/i18n/routing';
 import { ApiError } from '@/lib/api/client';
 
 /** Debounce window for persisting the lesson-summary progress percent. */
@@ -60,6 +61,7 @@ export default function StudentLivePage() {
   const t = useTranslations('live');
   const tc = useTranslations('common');
 
+  const router = useRouter();
   const participantToken = useAuthStore((s) => s.participantToken);
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -105,6 +107,7 @@ export default function StudentLivePage() {
     focusedBlockId: wsFocus,
     saveResponse,
     ended,
+    removedIds,
     questions,
     askQuestion,
     voteQuestion,
@@ -511,6 +514,38 @@ export default function StudentLivePage() {
     sessionQuery.isError &&
     sessionQuery.error instanceof ApiError &&
     sessionQuery.error.status === 404;
+
+  // The teacher removed this person (live event), or their token was refused
+  // after a reload because they had been removed.
+  const removedNow = !!chatSelfId && removedIds.includes(chatSelfId);
+  const refused =
+    sessionQuery.isError &&
+    sessionQuery.error instanceof ApiError &&
+    sessionQuery.error.status === 401 &&
+    sessionQuery.error.code === 'participant_removed';
+  if (removedNow || refused) {
+    return (
+      <main className="container flex min-h-screen items-center justify-center p-4">
+        <div data-removed-from-session className="w-full max-w-md rounded-2xl border bg-card p-8 text-center shadow-lg">
+          <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <UserX className="h-7 w-7" aria-hidden />
+          </span>
+          <h1 className="text-xl font-bold">{t('removedTitle')}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t('removedBody')}</p>
+          <Button
+            type="button"
+            className="mt-6 w-full"
+            onClick={() => {
+              useAuthStore.getState().clearParticipant();
+              router.push('/join');
+            }}
+          >
+            {t('removedRejoin')}
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   if (hard404) {
     return <SessionStateBanner kind="notFound" />;

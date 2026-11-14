@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import type {
   BlockType,
   RatingMetric,
@@ -141,7 +141,7 @@ export class ReportsService {
     const parts = await this.db
       .select({ id: participants.id, sessionId: participants.sessionId })
       .from(participants)
-      .where(inArray(participants.sessionId, sessionIds));
+      .where(and(inArray(participants.sessionId, sessionIds), isNull(participants.removedAt)));
 
     const participantToSession = new Map<string, string>();
     const participantCountBySession = new Map<string, number>();
@@ -402,7 +402,7 @@ export class ReportsService {
     const parts = await this.db
       .select()
       .from(participants)
-      .where(eq(participants.sessionId, sessionId));
+      .where(and(eq(participants.sessionId, sessionId), isNull(participants.removedAt)));
 
     const partIds = parts.map((p) => p.id);
     const resp = partIds.length

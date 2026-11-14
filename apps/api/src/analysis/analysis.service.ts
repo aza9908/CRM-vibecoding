@@ -11,7 +11,7 @@ import {
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   ANALYSIS_AUDIO_MAX_BYTES,
   lessonAnalysisReportSchema,
@@ -623,7 +623,7 @@ export class AnalysisService implements OnModuleInit {
       const people = await this.db
         .select({ id: participants.id })
         .from(participants)
-        .where(eq(participants.sessionId, sessionId));
+        .where(and(eq(participants.sessionId, sessionId), isNull(participants.removedAt)));
       lines.push(`Participants who joined the session: ${people.length}`);
 
       if (session?.lessonId) {

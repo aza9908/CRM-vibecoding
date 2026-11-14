@@ -32,6 +32,8 @@ import { ClassTimerBanner, ClassTimerCard } from '@/components/live/ClassTimer';
 import { SectionPager, SectionTabs } from '@/components/live/SectionNotebook';
 import { sectionTitle, splitSections, type TimerStatePayload } from '@lms/shared';
 import { api } from '@/lib/api/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/api/query-keys';
 import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
 import { PulseStage } from '@/components/live/PulseStage';
@@ -88,6 +90,7 @@ export default function TeacherLivePage() {
     focusedBlockId,
     sendFocus,
     participants: liveParticipants,
+    removedIds,
     responses: liveResponses,
     ended,
     questions,
@@ -117,6 +120,35 @@ export default function TeacherLivePage() {
 
   // Merge REST baseline + live deltas so a late-connecting teacher still sees
   // everyone who joined / answered before the socket was up.
+  // Remove a participant from the session (duplicate / test entry / wrong person).
+  const queryClient = useQueryClient();
+  const [removing, setRemoving] = React.useState<LiveParticipant | null>(null);
+  const [removePending, setRemovePending] = React.useState(false);
+  const [removeError, setRemoveError] = React.useState<string | null>(null);
+  const [removedHere, setRemovedHere] = React.useState<string[]>([]);
+  const confirmRemove = React.useCallback(async () => {
+    if (!removing || !sessionId) return;
+    setRemovePending(true);
+    setRemoveError(null);
+    try {
+      await api.del(`/sessions/${sessionId}/participants/${removing.participantId}`);
+      setRemovedHere((prev) => [...prev, removing.participantId]);
+      setRemoving(null);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessionParticipants(sessionId) });
+      void queryClient.invalidateQueries({ queryKey: ['session-live-metrics', sessionId] });
+    } catch (err) {
+      // Already removed elsewhere: treat as done.
+      if (err instanceof ApiError && err.status === 404) {
+        setRemovedHere((prev) => [...prev, removing.participantId]);
+        setRemoving(null);
+      } else {
+        setRemoveError(t('removeFailed'));
+      }
+    } finally {
+      setRemovePending(false);
+    }
+  }, [removing, sessionId, queryClient, t]);
+
   const participants = React.useMemo<LiveParticipant[]>(() => {
     const map = new Map<string, LiveParticipant>();
     for (const p of participantsQuery.data ?? []) {
@@ -125,8 +157,9 @@ export default function TeacherLivePage() {
     for (const p of liveParticipants) {
       map.set(p.participantId, p);
     }
+    for (const id of [...removedHere, ...removedIds]) map.delete(id);
     return [...map.values()];
-  }, [participantsQuery.data, liveParticipants]);
+  }, [participantsQuery.data, liveParticipants, removedHere, removedIds]);
 
   const responses = React.useMemo<LiveResponses>(() => {
     const merged: LiveResponses = {};
@@ -453,6 +486,10 @@ export default function TeacherLivePage() {
                 blocks={blocks}
                 responses={responses}
                 focusedBlockId={effectiveFocus}
+                onRemove={(p) => {
+                  setRemoveError(null);
+                  setRemoving(p);
+                }}
               />
             </Card>
             <Card className="p-4">
@@ -464,6 +501,20 @@ export default function TeacherLivePage() {
       <PulseRain channel={pulse} />
       <ClassTimerBanner timer={timer} position="bottom" sound />
       <ChatDock messages={chatMessages} onSend={sendChat} selfId={chatSelfId} />
+      <ConfirmDialog
+        open={!!removing}
+        title={t('removeTitle', { name: removing?.name ?? '' })}
+        description={
+          <>
+            <p>{t('removeBody')}</p>
+            {removeError ? <p className="text-destructive">{removeError}</p> : null}
+          </>
+        }
+        confirmLabel={t('removeAction')}
+        pending={removePending}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setRemoving(null)}
+      />
       <ConfirmDialog
         open={endOpen}
         title={t('endTitle')}

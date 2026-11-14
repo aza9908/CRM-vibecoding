@@ -246,6 +246,8 @@ export function ZoomableImage({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={withBasePath(src)}
+          srcSet={responsiveSrcSet(src)}
+          sizes="(min-width: 1024px) 768px, 100vw"
           alt={alt ?? ''}
           className={cn(
             'h-auto w-full max-w-full rounded-md border object-contain',
@@ -262,4 +264,15 @@ export function ZoomableImage({
       {lightbox}
     </>
   );
+}
+
+/**
+ * Slides exported as `name.<hash>.w2560.jpg` also come as `.w1280.jpg`: the
+ * page picks the lighter one on ordinary screens and the sharp one on retina
+ * screens and in fullscreen (which always shows the 2560 px original).
+ */
+function responsiveSrcSet(src: string): string | undefined {
+  if (!/\.w2560\.jpg$/.test(src)) return undefined;
+  const small = src.replace(/\.w2560\.jpg$/, '.w1280.jpg');
+  return `${withBasePath(small)} 1280w, ${withBasePath(src)} 2560w`;
 }
