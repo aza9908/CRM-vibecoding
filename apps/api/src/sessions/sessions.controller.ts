@@ -198,7 +198,12 @@ export class SessionsController {
     const visible = staff ? blocks : visibleBlocksForStudent(blocks, session.unlockedSections);
     // Flat shape: the web SessionState reads code/status/focusedBlockId/blocks
     // at the top level (mirrors GET /lessons/:id returning { ...lesson, blocks }).
-    return { ...session, blocks: visible, sectionCount };
+    // Who is looking — lets the lesson greet a student by name.
+    const viewerName =
+      principal.aud === 'participant'
+        ? await this.sessions.getParticipantName(principal.sub)
+        : await this.sessions.getUserName(principal.sub);
+    return { ...session, blocks: visible, sectionCount, me: { name: viewerName } };
   }
 
   /**

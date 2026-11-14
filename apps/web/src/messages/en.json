@@ -406,7 +406,8 @@
     "endTitle": "End the session?",
     "endBody": "Students will be disconnected and the video call will end for everyone.",
     "endBodySaved": "All answers are saved — the report opens right after.",
-    "endAction": "End session"
+    "endAction": "End session",
+    "welcomeNameHint": "participant name"
   },
   "materials": {
     "title": "Materials",

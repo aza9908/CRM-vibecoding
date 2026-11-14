@@ -18,7 +18,7 @@ import { queryKeys } from '@/lib/api/query-keys';
 import type { Block } from '@/lib/api/types';
 import { buildImageNavMap, isInputBlock } from '@/lib/blocks';
 import { progressPercent } from '@/lib/progress';
-import { WorkbookBlock } from '@/components/live/WorkbookBlock';
+import { LessonViewerContext, WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { SlideDeck } from '@/components/live/SlideDeck';
 import { RightPanel } from '@/components/live/RightPanel';
 import { ChatDock } from '@/components/live/ChatDock';
@@ -183,6 +183,8 @@ export default function StudentLivePage() {
       setActiveSection((cur) => Math.min(cur, unlockedSections - 1));
     }
   }, [unlockedSections, hasSections, notebook, refetchSession, ts]);
+  const viewerName = sessionQuery.data?.me?.name ?? null;
+  const viewer = React.useMemo(() => ({ name: viewerName }), [viewerName]);
   const currentSection = sections[Math.min(activeSection, sections.length - 1)]!;
   const sectionLocked = hasSections && currentSection.index >= unlockedSections;
   const pageBlocks = hasSections ? currentSection.blocks : blocks;
@@ -588,6 +590,7 @@ export default function StudentLivePage() {
       <div className="grid flex-1 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* Workbook — single centered reading column */}
         <section className="mx-auto w-full max-w-3xl space-y-4">
+          <LessonViewerContext.Provider value={viewer}>
           {blocks.length === 0 && (
             <p className="text-sm text-muted-foreground">{tc('empty')}</p>
           )}
@@ -641,6 +644,7 @@ export default function StudentLivePage() {
               {sectionToast}
             </div>
           ) : null}
+          </LessonViewerContext.Provider>
         </section>
 
         {/* Right panel — Navigation · Chat · Materials · Notes · AI · Metrics */}

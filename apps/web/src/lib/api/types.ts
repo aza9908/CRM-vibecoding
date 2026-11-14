@@ -56,6 +56,8 @@ export interface SessionState {
   unlockedSections?: number;
   /** Sections in the lesson (1 = the lesson is not divided). */
   sectionCount?: number;
+  /** The caller, as the session knows them (name given at join / account name). */
+  me?: { name: string | null };
 }
 
 /** GET /sessions/live — a currently-running session, for "resume live". */

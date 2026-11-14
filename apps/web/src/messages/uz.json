@@ -406,7 +406,8 @@
     "endTitle": "Sessiya yakunlansinmi?",
     "endBody": "O‘quvchilar uziladi, videoqo‘ng‘iroq hamma uchun tugaydi.",
     "endBodySaved": "Barcha javoblar saqlanadi — hisobot darhol ochiladi.",
-    "endAction": "Sessiyani yakunlash"
+    "endAction": "Sessiyani yakunlash",
+    "welcomeNameHint": "ishtirokchi ismi"
   },
   "materials": {
     "title": "Materiallar",

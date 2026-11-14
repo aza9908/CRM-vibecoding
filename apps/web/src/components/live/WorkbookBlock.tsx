@@ -76,6 +76,51 @@ function parseSelectOptions(options: unknown): SelectOption[] {
   return [];
 }
 
+/**
+ * Who is reading the lesson. Lets text greet the student by name: `{{name}}`
+ * in a text block becomes the participant's name (the page provides it).
+ * `preview` = teacher view, where the placeholder is shown as a hint.
+ */
+export const LessonViewerContext = React.createContext<{
+  name: string | null;
+  preview?: boolean;
+}>({ name: null });
+
+function personalize(text: string, viewer: { name: string | null; preview?: boolean }, hint: string) {
+  if (!text.includes('{{name}}')) return text;
+  const name = viewer.name?.trim() || (viewer.preview ? `[${hint}]` : '');
+  // «Приветствуем, {{name}}!» → without a name the comma goes too.
+  return name
+    ? text.replaceAll('{{name}}', name)
+    : text.replace(/,?\s*\{\{name\}\}/g, '');
+}
+
+/** Text block; `blockRole: 'welcome'` renders as a greeting card. */
+function TextBlockBody({ block }: { block: Block }) {
+  const t = useTranslations('live');
+  const viewer = React.useContext(LessonViewerContext);
+  const text = personalize(block.content ?? '', viewer, t('welcomeNameHint'));
+  if (block.blockRole !== 'welcome') return <RichBlockText text={text} />;
+  const lines = text.split('\n');
+  const title = (lines.shift() ?? '').replace(/^[#*\s]+|[*\s]+$/g, '');
+  while (lines.length && !lines[0]!.trim()) lines.shift();
+  const lead = (lines.shift() ?? '').replace(/^[*\s]+|[*\s]+$/g, '');
+  const rest = lines.join('\n').trim();
+  return (
+    <div data-welcome className="-m-4 overflow-hidden rounded-[7px]">
+      <div className="bg-gradient-to-br from-[#3F3D9E] via-primary to-[#8C7BE8] px-5 py-7 text-white sm:px-8 sm:py-9">
+        <p className="text-2xl font-extrabold leading-tight sm:text-4xl">{title}</p>
+        {lead ? <p className="mt-2 text-base leading-snug text-white/90 sm:text-xl">{lead}</p> : null}
+      </div>
+      {rest ? (
+        <div className="px-5 py-5 sm:px-8 sm:py-6">
+          <RichBlockText text={rest} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export interface WorkbookBlockProps {
   block: Block;
   /** Whether this block is the one the teacher is currently focusing. */
@@ -240,7 +285,7 @@ function BlockBody({
 
   switch (block.type) {
     case 'text':
-      return block.content ? <RichBlockText text={block.content} /> : null;
+      return block.content ? <TextBlockBody block={block} /> : null;
 
     case 'image':
       return block.imageUrl ? (

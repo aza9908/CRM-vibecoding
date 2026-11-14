@@ -25,7 +25,7 @@ import { ResponsesSummary } from '@/components/live/ResponsesSummary';
 import { ConnectionBadge } from '@/components/live/ConnectionBadge';
 import { SessionStateBanner } from '@/components/live/SessionStateBanner';
 import { SessionEndedReport } from '@/components/live/SessionEndedReport';
-import { WorkbookBlock } from '@/components/live/WorkbookBlock';
+import { LessonViewerContext, WorkbookBlock } from '@/components/live/WorkbookBlock';
 import { GroupChatTab } from '@/components/live/GroupChatTab';
 import { ChatDock } from '@/components/live/ChatDock';
 import { SectionPager, SectionTabs } from '@/components/live/SectionNotebook';
@@ -61,6 +61,9 @@ function responseKey(participantId: string, blockId: string): string {
  * - "End" calls POST /sessions/:id/end; the server emits session:ended and we
  *   show the ended banner.
  */
+/** Teacher view: `{{name}}` is shown as a hint instead of a real name. */
+const TEACHER_PREVIEW = { name: null, preview: true };
+
 export default function TeacherLivePage() {
   const params = useParams<{ sessionId: string }>();
   const sessionId = params?.sessionId;
@@ -318,6 +321,7 @@ export default function TeacherLivePage() {
                 {ts('hostPreview')}
               </p>
             ) : null}
+            <LessonViewerContext.Provider value={TEACHER_PREVIEW}>
             {pageBlocks.map((block) => (
               <WorkbookBlock
                 key={block.id}
@@ -328,6 +332,7 @@ export default function TeacherLivePage() {
                 imageNav={imageNavMap.get(block.id)}
               />
             ))}
+            </LessonViewerContext.Provider>
             {hasSections ? (
               <SectionPager
                 sections={notebook}
