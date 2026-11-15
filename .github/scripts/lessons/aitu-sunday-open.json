@@ -413,8 +413,232 @@
       "content": "Завершение и демо"
     },
     {
-      "type": "text",
-      "content": "**Блок 3 · Завершение и демо**\n\nСодержание этого блока появится позже."
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-37.f698385e9a.w2560.jpg",
+      "content": "Блок 3 · Завершение: от MVP к продукту",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-38.f474f4ff1f.w2560.jpg",
+      "content": "У вас есть MVP. Что с этим делать: предприниматель и специалист в компании",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-39.ffd2d999b2.w2560.jpg",
+      "content": "Какие ошибки допускают после первого MVP",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-40.471974b41f.w2560.jpg",
+      "content": "Ошибка 1 · «У меня же работает»: нет копий, нет логов, код страшно трогать, не выдерживает рост",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-41.cef2df80be.w2560.jpg",
+      "content": "Ошибка 2 · Открытые ключи и открытая база",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-42.d1d6bbe135.w2560.jpg",
+      "content": "Ошибка 3 · Ошибка, которая может стоить миллионы: персональные данные",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-43.183f1b05bb.w2560.jpg",
+      "content": "Ошибка 3 · Чем это наказывается в Казахстане",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-44.304043dae6.w2560.jpg",
+      "content": "Проверка: ключевой фактор запуска",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-45.490a543433.w2560.jpg",
+      "content": "Сегодня MVP, в большой программе реальный продукт",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-46.8ddb05e467.w2560.jpg",
+      "content": "Хотите безопасно довести свой MVP до продукта, которым пользуются люди?",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-47.28a924c832.w2560.jpg",
+      "content": "Путь из трёх ступеней: MVP, AI for Leaders, AIRL HUB",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-48.651b2482b3.w2560.jpg",
+      "content": "6 скиллов: только начало",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-49.9b5324ecad.w2560.jpg",
+      "content": "AI for Leaders: 4 недели до готового продукта",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-50.6fc546dce0.w2560.jpg",
+      "content": "Как устроено обучение",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-51.f5cc73ea34.w2560.jpg",
+      "content": "Как проходит одна неделя",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-52.d325416184.w2560.jpg",
+      "content": "Урок 1,5 часа по минутам",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-53.e78795c589.w2560.jpg",
+      "content": "Программа по неделям: план и данные",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-54.e205de99df.w2560.jpg",
+      "content": "Программа по неделям: защита и запуск",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/s-25.b7fdd12dd9.w2560.jpg",
+      "content": "Скиллы AIRL: 6 сегодня и ещё 20 в большой программе",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-56.a7b1165e45.w2560.jpg",
+      "content": "Финал обучения: Demo Day",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-57.2b295a8a69.w2560.jpg",
+      "content": "Как мы следим за прогрессом",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-58.3414f16c7c.w2560.jpg",
+      "content": "Что вы получаете",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-59.4cd85bf370.w2560.jpg",
+      "content": "Команда обучения",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-60.bf4120119f.w2560.jpg",
+      "content": "AIRL HUB: сообщество без срока",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-61.89453a06f1.w2560.jpg",
+      "content": "Что уже собрано этими инструментами",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-62.98e23e5732.w2560.jpg",
+      "content": "И это они собрали сами",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-63.a84d7cd169.w2560.jpg",
+      "content": "Сколько берёт подрядчик",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-64.a76faf0851.w2560.jpg",
+      "content": "Подрядчик или вы сами",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-65.96dd1634e5.w2560.jpg",
+      "content": "Подрядчик или своя команда",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-66.2db388b27c.w2560.jpg",
+      "content": "Давайте посчитаем",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-67.94b1ed2c90.w2560.jpg",
+      "content": "ИИ удваивается каждые 4 месяца",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-68.4d8b7574c6.w2560.jpg",
+      "content": "Удобного момента не будет",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-69.cad0216af0.w2560.jpg",
+      "content": "С ИИ как с поездом",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-70.bb314c799a.w2560.jpg",
+      "content": "Стоимость входа в обучение, сопровождение и сообщество AIRL HUB",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-71.537d0f6b69.w2560.jpg",
+      "content": "Специальные условия для участников воркшопа",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-72.9e66691b36.w2560.jpg",
+      "content": "Оставьте заявку сегодня",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-73.fa922d9b81.w2560.jpg",
+      "content": "Обучаем и команды компаний",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/b3-74.47c9bc4eac.w2560.jpg",
+      "content": "Что получает компания",
+      "blockRole": "slide"
     },
     {
       "type": "checklist",
