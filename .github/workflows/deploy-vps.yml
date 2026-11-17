@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -676,6 +676,45 @@ jobs:
 
       - uses: actions/checkout@v4
         if: inputs.mode == 'call-smoke' || inputs.mode == 'analysis-smoke' || inputs.mode == 'create-lesson' || inputs.mode == 'load-smoke'
+
+      - name: End a live session by its code (the teacher's «Завершить», through the API)
+        if: inputs.mode == 'end-session'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          CODE: ${{ inputs.lesson_spec }}
+          API: https://lms-api.magauin.kz
+          WEB: https://airl.kz/lms
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          [[ "$CODE" =~ ^[A-Z0-9]{6}$ ]] || { echo "::error::lesson_spec must be the 6-character session code"; exit 1; }
+          # A 15-minute access token for the account, minted on the server and
+          # masked in the log. Never printed.
+          TOKEN=$(printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -e '
+            const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+            const { Pool } = require(\"pg\");
+            const jwt = require(\"jsonwebtoken\");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            (async () => {
+              const u = (await pool.query(\"select id, role, organization_id, is_platform_admin from users where encode(sha256(lower(email)::bytea), \\x27hex\\x27) = \$1\", [eh])).rows[0];
+              if (!u) { console.error(\"account not found\"); process.exit(2); }
+              const payload = { sub: u.id, role: u.role, orgId: u.organization_id || \"\", aud: \"user\" };
+              if (u.is_platform_admin) payload.isPlatformAdmin = true;
+              process.stdout.write(jwt.sign(payload, process.env.JWT_ACCESS_SECRET, { expiresIn: \"15m\" }));
+              await pool.end();
+            })().catch((e) => { console.error(\"error: \" + e.message); process.exit(1); });
+          '")
+          echo "::add-mask::$TOKEN"
+          [ -n "$TOKEN" ] || { echo "::error::no token"; exit 1; }
+          ID=$(curl -fsS "$API/sessions/live" -H "authorization: Bearer $TOKEN" | CODE="$CODE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s).find(x=>x.code===process.env.CODE);process.stdout.write(r?r.id:"")})')
+          if [ -z "$ID" ]; then echo "session $CODE is not live (already ended)"; exit 0; fi
+          curl -fsS -X POST "$API/sessions/$ID/end" -H "authorization: Bearer $TOKEN" -o /dev/null -w "end → HTTP %{http_code}\n"
+          STILL=$(curl -fsS "$API/sessions/live" -H "authorization: Bearer $TOKEN" | CODE="$CODE" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{process.stdout.write(JSON.parse(s).some(x=>x.code===process.env.CODE)?"yes":"no")})')
+          [ "$STILL" = "no" ] && echo "session $CODE ended" || { echo "::error::session $CODE is still live"; exit 1; }
 
       - name: Video call smoke test from the internet (teacher + student, temporary lesson)
         if: inputs.mode == 'call-smoke'
