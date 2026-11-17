@@ -260,10 +260,12 @@ jobs:
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -e EMAIL_SHA256=$EMAIL_SHA256 -e 'LESSON_MATCH=$LESSON_MATCH' -w /app/apps/api lms-api-1 node -" < .github/scripts/session-export.js > export.json
           echo "export bytes: $(wc -c < export.json)"
           openssl rand -hex 32 > k.txt
-          openssl enc -aes-256-cbc -pbkdf2 -pass file:k.txt -in export.json -out export.enc
+          gzip -9 -c export.json > export.json.gz
+          openssl enc -aes-256-cbc -pbkdf2 -pass file:k.txt -in export.json.gz -out export.enc
           echo "== key (RSA-OAEP, base64):"; openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep -in k.txt | base64 -w0; echo
-          echo "== export (AES-256-CBC, base64):"; base64 -w0 export.enc; echo
-          rm -f export.json k.txt
+          # Short lines: the log viewer drops very long ones.
+          echo "== export (gzip + AES-256-CBC, base64 lines):"; base64 -w 1000 export.enc; echo "== end of export"
+          rm -f export.json export.json.gz k.txt
 
       - name: Retire lms.magauin.kz (redirect visitors to airl.kz/lms)
         if: inputs.mode == 'retire-old-domain'
