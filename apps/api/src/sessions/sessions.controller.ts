@@ -130,6 +130,16 @@ export class SessionsController {
         })
       : undefined;
     if (existing) {
+      if (dto.phone || dto.company || dto.position) {
+        await this.db
+          .update(participants)
+          .set({
+            phone: dto.phone ?? existing.phone,
+            company: dto.company ?? existing.company,
+            position: dto.position ?? existing.position,
+          })
+          .where(eq(participants.id, existing.id));
+      }
       return {
         sessionId: session.id,
         participantId: existing.id,
@@ -144,6 +154,9 @@ export class SessionsController {
         name: dto.name,
         userId: dto.userId ?? null,
         clientKey: dto.clientKey ?? null,
+        phone: dto.phone ?? null,
+        company: dto.company ?? null,
+        position: dto.position ?? null,
       })
       .returning();
 

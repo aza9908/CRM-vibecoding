@@ -37,6 +37,16 @@ export default function JoinPage() {
   const [name, setName] = React.useState(user?.fullName?.trim() ?? '');
   const [fieldError, setFieldError] = React.useState<string | null>(null);
   const [retrying, setRetrying] = React.useState(false);
+  // Contacts for the session report; remembered on this device.
+  const [phone, setPhone] = React.useState('');
+  const [company, setCompany] = React.useState('');
+  const [position, setPosition] = React.useState('');
+  React.useEffect(() => {
+    const saved = savedContacts();
+    setPhone((v) => v || saved.phone);
+    setCompany((v) => v || saved.company);
+    setPosition((v) => v || saved.position || user?.occupation?.trim() || '');
+  }, [user?.occupation]);
 
   React.useEffect(() => {
     if (user?.fullName?.trim() && !name) {
@@ -50,7 +60,24 @@ export default function JoinPage() {
 
     const normalizedCode = code.trim().toUpperCase();
     const clientKey = deviceKey();
+    const phoneClean = phone.trim();
+    if (!/^\+?[0-9][0-9 ()-]{5,22}$/.test(phoneClean) || phoneClean.replace(/\D/g, '').length < 7) {
+      setFieldError(t('validationPhone'));
+      return;
+    }
+    if (!company.trim()) {
+      setFieldError(t('validationCompany'));
+      return;
+    }
+    if (!position.trim()) {
+      setFieldError(t('validationPosition'));
+      return;
+    }
+    rememberContacts({ phone: phoneClean, company: company.trim(), position: position.trim() });
     const parsed = joinSessionSchema.safeParse({
+      phone: phoneClean,
+      company: company.trim(),
+      position: position.trim(),
       code: normalizedCode,
       name: name.trim(),
       ...(user?.id ? { userId: user.id } : {}),
@@ -138,6 +165,43 @@ export default function JoinPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="join-phone">{t('phone')}</Label>
+              <Input
+                id="join-phone"
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                autoComplete="tel"
+                placeholder={t('phonePlaceholder')}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="join-company">{t('company')}</Label>
+                <Input
+                  id="join-company"
+                  value={company}
+                  autoComplete="organization"
+                  placeholder={t('companyPlaceholder')}
+                  onChange={(e) => setCompany(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="join-position">{t('position')}</Label>
+                <Input
+                  id="join-position"
+                  value={position}
+                  autoComplete="organization-title"
+                  placeholder={t('positionPlaceholder')}
+                  onChange={(e) => setPosition(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="-mt-2 text-xs text-muted-foreground">{t('contactsHint')}</p>
+
             {fieldError && (
               <p className="text-sm text-destructive" role="alert">
                 {fieldError}
@@ -217,5 +281,27 @@ function deviceKey(): string | null {
     return v;
   } catch {
     return null;
+  }
+}
+
+interface Contacts {
+  phone: string;
+  company: string;
+  position: string;
+}
+const CONTACTS_KEY = 'lms-join-contacts';
+function savedContacts(): Contacts {
+  try {
+    const v = JSON.parse(window.localStorage.getItem(CONTACTS_KEY) ?? 'null') as Partial<Contacts> | null;
+    return { phone: v?.phone ?? '', company: v?.company ?? '', position: v?.position ?? '' };
+  } catch {
+    return { phone: '', company: '', position: '' };
+  }
+}
+function rememberContacts(c: Contacts): void {
+  try {
+    window.localStorage.setItem(CONTACTS_KEY, JSON.stringify(c));
+  } catch {
+    /* storage blocked: nothing to remember */
   }
 }

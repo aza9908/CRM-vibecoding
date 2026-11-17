@@ -53,6 +53,7 @@ export interface ExportRow {
   full_name: string;
   occupation: string;
   company: string;
+  phone: string;
   progress_percent: number;
   block: string;
   question: string;
@@ -67,6 +68,7 @@ export interface ParticipantExportRow {
   full_name: string;
   occupation: string;
   company: string;
+  phone: string;
   progress_percent: number;
   answered: number;
   total_interactive: number;
@@ -316,8 +318,11 @@ export class ReportsService {
             p.id,
             {
               fullName: profile?.fullName?.trim() || p.name,
-              occupation: profile?.occupation?.trim() || '',
-              company: profile?.company?.trim() || '',
+              // What the person typed on the join form wins over the account
+              // profile (the account's «company» is the LMS workspace).
+              occupation: p.position?.trim() || profile?.occupation?.trim() || '',
+              company: p.company?.trim() || profile?.company?.trim() || '',
+              phone: p.phone?.trim() || '',
             },
           ] as const;
         }),
@@ -330,6 +335,7 @@ export class ReportsService {
           full_name: meta.fullName,
           occupation: meta.occupation,
           company: meta.company,
+          phone: meta.phone,
           progress_percent: progressByParticipant.get(p.id) ?? 0,
           answered: answeredByParticipant.get(p.id) ?? 0,
           total_interactive: interactiveCount,
@@ -345,6 +351,7 @@ export class ReportsService {
           full_name: meta?.fullName ?? '',
           occupation: meta?.occupation ?? '',
           company: meta?.company ?? '',
+          phone: meta?.phone ?? '',
           progress_percent: pid ? (progressByParticipant.get(pid) ?? 0) : 0,
           block: block ? (block.type as string) : '',
           question: block?.content ?? '',

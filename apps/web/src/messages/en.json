@@ -321,7 +321,17 @@
     "validationCode": "Code is 6 characters",
     "validationName": "Enter your name",
     "retrying": "The network is unstable, trying again…",
-    "networkFailed": "Could not connect. Check the internet and press “Join” again."
+    "networkFailed": "Could not connect. Check the internet and press “Join” again.",
+    "phone": "Phone",
+    "phonePlaceholder": "+7 707 000 00 00",
+    "company": "Company",
+    "companyPlaceholder": "Where you work",
+    "position": "Position",
+    "positionPlaceholder": "Your role",
+    "contactsHint": "Only the teacher sees your contacts: we use them to send you the lesson materials.",
+    "validationPhone": "Enter a phone number, e.g. +7 707 000 00 00",
+    "validationCompany": "Enter your company",
+    "validationPosition": "Enter your position"
   },
   "live": {
     "blockDone": "Answer accepted",

@@ -166,7 +166,7 @@ const connect = (token) => new Promise((resolve, reject) => {
       try {
         await pg.goto(`${WEB}/join`, { timeout: 60000 });
         await pg.fill('#join-code', session.code);
-        await pg.fill('#join-name', `Браузер ${i + 1}`);
+        await pg.fill('#join-name', `Браузер ${i + 1}`); await pg.fill('#join-phone', '+7 700 000 00 00'); await pg.fill('#join-company', 'AIRL (тест)'); await pg.fill('#join-position', 'Проверка');
         await pg.click('button[type=submit]');
         await pg.waitForURL(/\/live\//, { timeout: 60000 });
         await pg.locator('[data-welcome]').waitFor({ timeout: 60000 });

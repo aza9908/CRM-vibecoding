@@ -43,7 +43,7 @@ const api = async (path, init = {}) => {
     const sp = await (await browser.newContext({ viewport: { width: 1300, height: 800 } })).newPage();
     await sp.goto(`${WEB}/join`);
     await sp.fill('#join-code', session.code);
-    await sp.fill('#join-name', 'Smoke test');
+    await sp.fill('#join-name', 'Smoke test'); await sp.fill('#join-phone', '+7 700 000 00 00'); await sp.fill('#join-company', 'AIRL (тест)'); await sp.fill('#join-position', 'Проверка');
     await sp.click('button[type=submit]');
     await sp.waitForURL(/\/live\//, { timeout: 30000 });
     await sp.getByText('Вы в эфире').waitFor({ timeout: 30000 });

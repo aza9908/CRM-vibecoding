@@ -120,6 +120,13 @@
       "when": 1794698266227,
       "tag": "0016_participant_removed",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794904799044,
+      "tag": "0017_participant_contacts",
+      "breakpoints": true
     }
   ]
 }

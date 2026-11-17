@@ -375,6 +375,10 @@ export const participants = pgTable(
     // again from the same device (or retrying after a dropped response)
     // returns the same participant instead of adding a duplicate.
     clientKey: text('client_key'),
+    // Contacts asked on the join form (guests have no account profile).
+    phone: text('phone'),
+    company: text('company'),
+    position: text('position'),
   },
   (t) => ({
     sessionIdx: index('participants_session_idx').on(t.sessionId),

@@ -32,6 +32,15 @@ export const joinSessionSchema = z.object({
     ),
   name: z.string().trim().min(1).max(80),
   userId: z.string().uuid().optional(),
+  // Contacts for the session report. Optional for the API (scripts, older
+  // clients); the join form asks for all three.
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9][0-9 ()-]{5,22}$/, 'invalid_phone')
+    .optional(),
+  company: z.string().trim().min(1).max(120).optional(),
+  position: z.string().trim().min(1).max(120).optional(),
   // Random key the browser keeps per device (see participants.client_key).
   clientKey: z
     .string()

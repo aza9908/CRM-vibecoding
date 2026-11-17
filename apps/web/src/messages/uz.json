@@ -321,7 +321,17 @@
     "validationCode": "Kod 6 ta belgidan iborat",
     "validationName": "Ismingizni kiriting",
     "retrying": "Tarmoq barqaror emas, qayta ulanmoqdamiz…",
-    "networkFailed": "Ulanib boʻlmadi. Internetni tekshirib, «Kirish»ni qayta bosing."
+    "networkFailed": "Ulanib boʻlmadi. Internetni tekshirib, «Kirish»ni qayta bosing.",
+    "phone": "Telefon",
+    "phonePlaceholder": "+998 90 000 00 00",
+    "company": "Kompaniya",
+    "companyPlaceholder": "Qayerda ishlaysiz",
+    "position": "Lavozim",
+    "positionPlaceholder": "Sizning rolingiz",
+    "contactsHint": "Kontaktlarni faqat oʻqituvchi koʻradi: dars materiallarini shu orqali yuboramiz.",
+    "validationPhone": "Telefon raqamini kiriting, masalan +998 90 000 00 00",
+    "validationCompany": "Kompaniyani kiriting",
+    "validationPosition": "Lavozimni kiriting"
   },
   "live": {
     "blockDone": "Javob qabul qilindi",
