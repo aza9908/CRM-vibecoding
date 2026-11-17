@@ -237,6 +237,9 @@ jobs:
             rm -f catalogue.json k.txt
           fi
 
+      - uses: actions/checkout@v4
+        if: inputs.mode == 'session-export'
+
       - name: Session export — participants, profiles and answers of one lesson (printed only encrypted)
         if: inputs.mode == 'session-export'
         env:
