@@ -323,35 +323,35 @@ jobs:
               echo "DATABASE_URL switched to the local db (old value kept as NEON_DATABASE_URL)" ;;
           esac
           chmod 600 "$ENV_FILE"
-          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d db
-          for i in $(seq 1 60); do $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T db pg_isready -U lms -d lms >/dev/null 2>&1 && break; sleep 2; done
-          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T db pg_isready -U lms -d lms
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d db </dev/null
+          for i in $(seq 1 60); do $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T db pg_isready -U lms -d lms </dev/null >/dev/null 2>&1 && break; sleep 2; done
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T db pg_isready -U lms -d lms </dev/null
           PSQL="$DC --env-file $ENV_FILE -f docker-compose.prod.yml exec -T db psql -U lms -d lms -v ON_ERROR_STOP=1 -q"
-          if [ "$($PSQL -tAc "select to_regclass('public.users') is not null")" != "t" ]; then
+          if [ "$($PSQL -tAc "select to_regclass('public.users') is not null" </dev/null)" != "t" ]; then
             for f in $(ls apps/api/drizzle/0*.sql | sort); do
               echo "== schema $(basename "$f")"
               sed 's/--> statement-breakpoint//' "$f" | $PSQL -1 -f -
             done
-            $PSQL -c "create table if not exists _deploy_migrations (name text primary key, applied_at timestamptz not null default now())"
+            $PSQL -c "create table if not exists _deploy_migrations (name text primary key, applied_at timestamptz not null default now())" </dev/null
             for n in 0012_lesson_category.sql 0013_pulse_checks.sql 0014_lesson_analyses.sql 0015_session_sections.sql 0016_participant_removed.sql 0017_participant_contacts.sql; do
-              $PSQL -c "insert into _deploy_migrations (name) values ('$n') on conflict do nothing"
+              $PSQL -c "insert into _deploy_migrations (name) values ('$n') on conflict do nothing" </dev/null
             done
           else
             echo "schema already present"
           fi
-          echo "tables: $($PSQL -tAc "select count(*) from information_schema.tables where table_schema='public'")"
-          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d --no-build api
+          echo "tables: $($PSQL -tAc "select count(*) from information_schema.tables where table_schema='public'" </dev/null)"
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d --no-build api </dev/null
           for i in $(seq 1 45); do c=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/lessons || true); [ "$c" = "401" ] && break; sleep 2; done
           echo "api /lessons without a token → $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/lessons) (401 = up)"
           echo "bad login → $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}' http://127.0.0.1:3002/auth/login) (401 = database works)"
-          docker exec lms-api-1 node -e 'const {Pool}=require("pg");const p=new Pool({connectionString:process.env.DATABASE_URL});p.query("select current_database() as db, (select count(*) from users) as users").then(r=>{console.log("api → database", JSON.stringify(r.rows[0]));p.end()}).catch(e=>{console.log("api → database error: "+e.message);process.exit(1)})'
+          docker exec lms-api-1 node -e 'const {Pool}=require("pg");const p=new Pool({connectionString:process.env.DATABASE_URL});p.query("select current_database() as db, (select count(*) from users) as users").then(r=>{console.log("api → database", JSON.stringify(r.rows[0]));p.end()}).catch(e=>{console.log("api → database error: "+e.message);process.exit(1)})' </dev/null
           # Nightly backup at 02:15 Astana, 14 days kept.
           mkdir -p /root/lms-backups && chmod 700 /root/lms-backups
-          DBC=$($DC --env-file "$ENV_FILE" -f docker-compose.prod.yml ps -q db)
+          DBC=$($DC --env-file "$ENV_FILE" -f docker-compose.prod.yml ps -q db </dev/null)
           DBN=$(docker inspect -f '{{.Name}}' "$DBC" | tr -d /)
           printf '%s\n' "SHELL=/bin/bash" "15 21 * * * root docker exec $DBN pg_dump -U lms -Fc lms > /root/lms-backups/lms-\$(date +\\%F).dump 2>/root/lms-backups/last-error.log && find /root/lms-backups -name '*.dump' -mtime +14 -delete" > /etc/cron.d/lms-db-backup
           chmod 644 /etc/cron.d/lms-db-backup
-          docker exec "$DBN" pg_dump -U lms -Fc lms > "/root/lms-backups/lms-$(date +%F)-first.dump"
+          docker exec "$DBN" pg_dump -U lms -Fc lms </dev/null > "/root/lms-backups/lms-$(date +%F)-first.dump"
           echo "backup: $(ls -la /root/lms-backups | tail -n +2 | wc -l) file(s) · cron: $(cat /etc/cron.d/lms-db-backup | tail -1 | cut -c1-40)…"
           REMOTE
 
