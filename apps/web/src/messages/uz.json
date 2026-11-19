@@ -286,7 +286,8 @@
     "previewDemoFocus": "Fokusni koʻrsatish",
     "previewClearFocus": "Fokusni olib tashlash",
     "previewFocusNote": "live-da oʻqituvchi blokni tanlaydi — u hammada ajratib koʻrsatiladi",
-    "backToEditor": "Muharrirga"
+    "backToEditor": "Muharrirga",
+    "blockStatusBoard": "Holat jadvali"
   },
   "syllabus": {
     "title": "Oʻquv dasturi",
@@ -428,7 +429,13 @@
     "removeTitle": "{name} sessiyadan chiqarilsinmi?",
     "removeBody": "Oʻquvchi darsdan va videoaloqadan darhol chiqadi va roʻyxatlardan yoʻqoladi. Javoblari saqlanadi. Qayta faqat sessiya kodi bilan kira oladi.",
     "removeAction": "Chiqarish",
-    "removeFailed": "Chiqarib boʻlmadi. Qayta urinib koʻring."
+    "removeFailed": "Chiqarib boʻlmadi. Qayta urinib koʻring.",
+    "boardHintTeacher": "Bosqichni belgilash uchun katakni bosing. Qayta bosish belgini olib tashlaydi",
+    "boardHintStudent": "Belgilarni oʻqituvchi qoʻyadi, siz darhol koʻrasiz",
+    "boardMarked": "{total} tadan {marked} tasi belgilandi",
+    "boardName": "F.I.Sh.",
+    "boardProject": "Loyiha",
+    "boardTotal": "Shu bosqichda"
   },
   "materials": {
     "title": "Materiallar",

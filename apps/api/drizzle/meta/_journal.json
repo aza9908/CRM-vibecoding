@@ -127,6 +127,13 @@
       "when": 1794904799044,
       "tag": "0017_participant_contacts",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795121522239,
+      "tag": "0018_status_boards",
+      "breakpoints": true
     }
   ]
 }

@@ -52,6 +52,7 @@ export const blockTypeEnum = z.enum([
   'input_file',
   'test',
   'checklist',
+  'status_board',
 ]);
 export type BlockType = z.infer<typeof blockTypeEnum>;
 

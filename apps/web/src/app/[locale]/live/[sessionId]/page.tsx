@@ -28,6 +28,7 @@ import { sectionTitle, splitSections } from '@lms/shared';
 import { PulsePrompt } from '@/components/live/PulsePrompt';
 import { PulseRain } from '@/components/live/PulseRain';
 import { SlideshowContext } from '@/components/live/slideshow-context';
+import { BoardContext } from '@/components/live/board-context';
 import { useScrollAlong } from '@/lib/hooks/use-scroll-along';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
@@ -108,6 +109,7 @@ export default function StudentLivePage() {
     saveResponse,
     ended,
     removedIds,
+    boards: liveBoards,
     questions,
     askQuestion,
     voteQuestion,
@@ -206,6 +208,10 @@ export default function StudentLivePage() {
   // The right column scrolls along with the lesson feed (and on its own).
   const asideRef = React.useRef<HTMLElement>(null);
   useScrollAlong(asideRef);
+  const boardCtx = React.useMemo(
+    () => ({ boards: { ...(sessionQuery.data?.boards ?? {}), ...liveBoards } }),
+    [sessionQuery.data?.boards, liveBoards],
+  );
   const imageNavMap = React.useMemo(() => buildImageNavMap(pageBlocks), [pageBlocks]);
   // In fullscreen the student still sees «всё понятно?» and the reactions.
   const slideshow = React.useMemo(
@@ -568,8 +574,8 @@ export default function StudentLivePage() {
 
   return (
     <main className="container flex min-h-screen flex-col gap-4 py-6">
-      <header className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
+      <header className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
           <Brand size="sm" />
           <h1 className="text-xl font-semibold">{t('title')}</h1>
           {!focusedBlockId && (
@@ -578,16 +584,18 @@ export default function StudentLivePage() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {blocks.length > 0 ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setSlideDeckOpen(true)}
+              aria-label={t('fullscreenMode')}
+              title={t('fullscreenMode')}
             >
               <Maximize2 className="h-4 w-4" />
-              {t('fullscreenMode')}
+              <span className="hidden sm:inline">{t('fullscreenMode')}</span>
             </Button>
           ) : null}
           <ConnectionBadge status={status} />
@@ -647,6 +655,7 @@ export default function StudentLivePage() {
         {/* Workbook — single centered reading column */}
         <section className="mx-auto w-full max-w-3xl space-y-4">
           <LessonViewerContext.Provider value={viewer}>
+          <BoardContext.Provider value={boardCtx}>
           <SlideshowContext.Provider value={slideshow}>
           {blocks.length === 0 && (
             <p className="text-sm text-muted-foreground">{tc('empty')}</p>
@@ -702,6 +711,7 @@ export default function StudentLivePage() {
             </div>
           ) : null}
           </SlideshowContext.Provider>
+          </BoardContext.Provider>
           </LessonViewerContext.Provider>
         </section>
 

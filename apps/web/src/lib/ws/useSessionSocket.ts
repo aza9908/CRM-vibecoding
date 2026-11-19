@@ -61,6 +61,8 @@ export interface UseSessionSocketResult {
   participants: LiveParticipant[];
   /** Participants the teacher removed during this visit (this tab saw the event). */
   removedIds: string[];
+  /** Status boards changed live in this visit: block id → (row → column). */
+  boards: Record<string, Record<string, number>>;
   responses: LiveResponses;
   chatMessages: ChatMessagePayload[];
   sendChat: (text: string) => void;
@@ -100,6 +102,7 @@ export function useSessionSocket(
   const [chatMessages, setChatMessages] = useState<ChatMessagePayload[]>([]);
   const [ended, setEnded] = useState(false);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [boards, setBoards] = useState<Record<string, Record<string, number>>>({});
   const [questions, setQuestions] = useState<QaQuestion[]>([]);
   const [floor, setFloor] = useState<UseSessionSocketResult['floor']>(null);
   const [callState, setCallState] = useState<RtcRoomStatePayload | null>(null);
@@ -303,6 +306,11 @@ export function useSessionSocket(
       setTimer(payload);
     });
 
+    socket.on(WS_EVENTS.boardChanged, (payload) => {
+      if (payload.sessionId !== sessionId) return;
+      setBoards((prev) => ({ ...prev, [payload.blockId]: payload.state }));
+    });
+
     socket.on(WS_EVENTS.sectionsChanged, (payload) => {
       if (payload.sessionId !== sessionId) return;
       setSectionsUnlocked(payload.unlocked);
@@ -463,6 +471,7 @@ export function useSessionSocket(
     sendChat,
     ended,
     removedIds,
+    boards,
     questions,
     askQuestion,
     voteQuestion,

@@ -22,7 +22,7 @@ function blockLabel(block: Block, index: number): string {
     if (q) return q.slice(0, 48);
   }
   if (block.content) {
-    const first = block.content.split('\n')[0]?.trim() ?? '';
+    const first = (block.content.split('\n')[0] ?? '').replace(/\*\*/g, '').trim();
     if (first) return first.slice(0, 48);
   }
   return `#${index + 1}`;

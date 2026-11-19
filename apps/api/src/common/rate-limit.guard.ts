@@ -33,13 +33,17 @@ interface Rule {
   windowMs: number;
   /** What to count by; null = rule does not apply to this request. */
   by: 'ip' | 'identity' | 'email';
+  /** Count only requests that fail (e.g. wrong password); a success clears
+   * the account's counter. A class signing in from one Wi-Fi is never
+   * blocked for logging in correctly. */
+  failuresOnly?: boolean;
 }
 
 const MIN = 60_000;
 const RULES: Rule[] = [
   // Password guessing: per address and per targeted account.
-  { name: 'login-ip', method: 'POST', path: /^\/auth\/login$/, limit: 30, windowMs: 5 * MIN, by: 'ip' },
-  { name: 'login-email', method: 'POST', path: /^\/auth\/login$/, limit: 10, windowMs: 15 * MIN, by: 'email' },
+  { name: 'login-ip', method: 'POST', path: /^\/auth\/login$/, limit: 50, windowMs: 5 * MIN, by: 'ip', failuresOnly: true },
+  { name: 'login-email', method: 'POST', path: /^\/auth\/login$/, limit: 10, windowMs: 15 * MIN, by: 'email', failuresOnly: true },
   // Bot sign-ups (a workshop can register a few dozen people from one Wi-Fi).
   { name: 'register-ip', method: 'POST', path: /^\/auth\/register$/, limit: 60, windowMs: 60 * MIN, by: 'ip' },
   // Password-reset mail cannot be used to spam inboxes.
@@ -104,6 +108,17 @@ export class RateLimitGuard implements CanActivate {
         continue;
       }
       this.hit(res, rule.name, key, rule.limit, rule.windowMs);
+      if (rule.failuresOnly) {
+        const k = rule.name + '|' + key;
+        const byEmail = rule.by === 'email';
+        res.on('finish', () => {
+          if (res.statusCode >= 400) return;
+          const c = this.counters.get(k);
+          if (!c) return;
+          if (byEmail) this.counters.delete(k);
+          else c.count = Math.max(0, c.count - 1);
+        });
+      }
     }
     return true;
   }

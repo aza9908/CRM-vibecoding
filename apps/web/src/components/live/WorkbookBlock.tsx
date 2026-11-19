@@ -40,6 +40,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { RichBlockText } from './RichBlockText';
 import { ZoomableImage, type ZoomableImageSibling } from './ZoomableImage';
+import { BoardContext } from './board-context';
 
 /** Convention for `input_file` answers stored as plain text in `answerText`. */
 const FILE_ANSWER_PREFIX = 'file:';
@@ -440,13 +441,13 @@ function BlockBody({
         );
       }
       return href ? (
-        <Button asChild variant="secondary">
+        <Button asChild variant="secondary" className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-left">
           <a href={href} target="_blank" rel="noreferrer">
             {label}
           </a>
         </Button>
       ) : (
-        <Button type="button" variant="secondary" disabled={readOnly}>
+        <Button type="button" variant="secondary" disabled={readOnly} className="h-auto min-h-9 max-w-full whitespace-normal py-2 text-left">
           {label}
         </Button>
       );
@@ -543,6 +544,9 @@ function BlockBody({
           </div>
         </div>
       );
+
+    case 'status_board':
+      return <StatusBoard block={block} />;
 
     case 'checklist':
       return (
@@ -1250,4 +1254,124 @@ function blockIcon(options: unknown): LucideIcon | null {
   if (!options || typeof options !== 'object') return null;
   const name = (options as Record<string, unknown>).icon;
   return typeof name === 'string' ? (BLOCK_ICONS[name] ?? null) : null;
+}
+
+interface BoardColumn {
+  label: string;
+  title?: string;
+}
+interface BoardRow {
+  label: string;
+  sub?: string;
+}
+
+/**
+ * A status board: one row per person/project, one column per stage. The
+ * teacher ticks a cell (one per row; clicking it again clears the row) and
+ * every screen in the session updates at once. Students see it read-only.
+ */
+function StatusBoard({ block }: { block: Block }) {
+  const t = useTranslations('live');
+  const ctx = React.useContext(BoardContext);
+  const o = (block.options ?? {}) as {
+    columns?: (string | BoardColumn)[];
+    rows?: (string | BoardRow)[];
+    rowHeader?: string;
+    subHeader?: string;
+  };
+  const columns: BoardColumn[] = (o.columns ?? []).map((c) => (typeof c === 'string' ? { label: c } : c));
+  const rows: BoardRow[] = (o.rows ?? []).map((r) => (typeof r === 'string' ? { label: r } : r));
+  const state = ctx.boards[block.id] ?? {};
+  const editable = !!ctx.onSet;
+  const counts = columns.map((_, ci) => Object.values(state).filter((v) => v === ci).length);
+  const marked = Object.keys(state).length;
+
+  return (
+    <div className="space-y-3" data-status-board>
+      {block.content ? (
+        <div className="text-sm">
+          <RichBlockText text={block.content} asLabel />
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        {editable ? t('boardHintTeacher') : t('boardHintStudent')} · {t('boardMarked', { marked, total: rows.length })}
+      </p>
+      <div className="-mx-1 overflow-x-auto px-1">
+        <table className="w-full min-w-[300px] border-separate border-spacing-0 text-sm sm:min-w-[640px]">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 w-8 rounded-tl-md bg-primary px-2 py-2 text-left text-xs font-semibold text-primary-foreground">№</th>
+              <th className="bg-primary px-2 py-2 text-left text-xs font-semibold text-primary-foreground">{o.rowHeader ?? t('boardName')}</th>
+              {o.subHeader !== '' ? (
+                <th className="hidden bg-primary px-2 py-2 text-left text-xs font-semibold text-primary-foreground sm:table-cell">{o.subHeader ?? t('boardProject')}</th>
+              ) : null}
+              {columns.map((c, ci) => (
+                <th
+                  key={ci}
+                  title={c.title}
+                  className={cn('bg-primary px-0.5 py-2 text-center text-xs font-semibold text-primary-foreground sm:px-1', ci === columns.length - 1 && 'rounded-tr-md')}
+                >
+                  <div className="leading-none">{c.label}</div>
+                  {c.title ? <div className="mt-0.5 hidden text-[10px] font-normal opacity-80 md:block">{c.title}</div> : null}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, ri) => {
+              const sel = state[String(ri)];
+              return (
+                <tr key={ri} className="even:bg-muted/30" data-board-row={ri}>
+                  <td className="sticky left-0 border-b bg-card px-1.5 py-2 text-xs text-muted-foreground sm:px-2">{ri + 1}</td>
+                  <td className="border-b px-1.5 py-2 text-[13px] font-medium leading-tight sm:px-2 sm:text-sm">{r.label}</td>
+                  {o.subHeader !== '' ? (
+                    <td className="hidden whitespace-pre-line border-b px-2 py-2 text-xs text-muted-foreground sm:table-cell">{r.sub ?? ''}</td>
+                  ) : null}
+                  {columns.map((c, ci) => {
+                    const on = sel === ci;
+                    return (
+                      <td key={ci} className="border-b px-0.5 py-1.5 text-center sm:px-1">
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          aria-label={`${r.label}: ${c.title ?? c.label}`}
+                          data-board-cell={`${ri}:${ci}`}
+                          disabled={!editable}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            ctx.onSet?.(block.id, ri, on ? null : ci);
+                          }}
+                          className={cn(
+                            'inline-flex h-6 w-6 items-center justify-center rounded-full border transition-colors sm:h-7 sm:w-7',
+                            on
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-input bg-background',
+                            editable && !on && 'hover:border-primary hover:bg-primary/10',
+                            !editable && 'cursor-default',
+                          )}
+                        >
+                          {on ? <Check className="h-4 w-4" /> : null}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td className="sticky left-0 bg-card px-2 py-2" />
+              <td className="px-2 py-2 text-xs font-semibold text-muted-foreground">{t('boardTotal')}</td>
+              {o.subHeader !== '' ? <td className="hidden sm:table-cell" /> : null}
+              {counts.map((n, ci) => (
+                <td key={ci} className="px-1 py-2 text-center text-xs font-bold tabular-nums">{n || ''}</td>
+              ))}
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
 }

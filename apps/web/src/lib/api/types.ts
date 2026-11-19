@@ -60,6 +60,8 @@ export interface SessionState {
   timer?: import('@lms/shared').TimerStatePayload;
   /** The caller, as the session knows them (name given at join / account name). */
   me?: { name: string | null };
+  /** Status boards: block id → (row index → ticked column index). */
+  boards?: Record<string, Record<string, number>>;
 }
 
 /** GET /sessions/live — a currently-running session, for "resume live". */

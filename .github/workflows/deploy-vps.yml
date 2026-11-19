@@ -333,7 +333,7 @@ jobs:
               sed 's/--> statement-breakpoint//' "$f" | $PSQL -1 -f -
             done
             $PSQL -c "create table if not exists _deploy_migrations (name text primary key, applied_at timestamptz not null default now())" </dev/null
-            for n in 0012_lesson_category.sql 0013_pulse_checks.sql 0014_lesson_analyses.sql 0015_session_sections.sql 0016_participant_removed.sql 0017_participant_contacts.sql; do
+            for n in 0012_lesson_category.sql 0013_pulse_checks.sql 0014_lesson_analyses.sql 0015_session_sections.sql 0016_participant_removed.sql 0017_participant_contacts.sql 0018_status_boards.sql; do
               $PSQL -c "insert into _deploy_migrations (name) values ('$n') on conflict do nothing" </dev/null
             done
           else
@@ -854,7 +854,7 @@ jobs:
           # Database migrations that this release needs, applied through the
           # still-running API container before the new one starts. Each file
           # runs once (recorded in _deploy_migrations), in one transaction.
-          for f in apps/api/drizzle/0012_lesson_category.sql apps/api/drizzle/0013_pulse_checks.sql apps/api/drizzle/0014_lesson_analyses.sql apps/api/drizzle/0015_session_sections.sql apps/api/drizzle/0016_participant_removed.sql apps/api/drizzle/0017_participant_contacts.sql; do
+          for f in apps/api/drizzle/0012_lesson_category.sql apps/api/drizzle/0013_pulse_checks.sql apps/api/drizzle/0014_lesson_analyses.sql apps/api/drizzle/0015_session_sections.sql apps/api/drizzle/0016_participant_removed.sql apps/api/drizzle/0017_participant_contacts.sql apps/api/drizzle/0018_status_boards.sql; do
             [ -f "$f" ] || { echo "missing migration $f"; exit 1; }
             echo "== migration $f"
             { basename "$f"; cat "$f"; } | docker exec -i -w /app/apps/api lms-api-1 node -e '

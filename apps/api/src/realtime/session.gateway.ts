@@ -965,6 +965,10 @@ export class SessionGateway
   }
 
   /** The teacher opened / locked lesson sections (REST POST /sessions/:id/sections). */
+  broadcastBoard(sessionId: string, blockId: string, state: Record<string, number>): void {
+    this.io?.to(room(sessionId)).emit(WS_EVENTS.boardChanged, { sessionId, blockId, state });
+  }
+
   broadcastSections(sessionId: string, unlocked: number): void {
     this.io?.to(room(sessionId)).emit(WS_EVENTS.sectionsChanged, { sessionId, unlocked });
   }

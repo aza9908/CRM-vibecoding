@@ -38,6 +38,8 @@ export function blockLabelKey(type: BlockType): string {
       return 'blockTest';
     case 'checklist':
       return 'blockChecklist';
+    case 'status_board':
+      return 'blockStatusBoard';
     default:
       return 'blockText';
   }

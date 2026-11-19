@@ -286,7 +286,8 @@
     "previewDemoFocus": "Show focus",
     "previewClearFocus": "Clear focus",
     "previewFocusNote": "in live the teacher picks a block — it highlights for everyone",
-    "backToEditor": "Back to editor"
+    "backToEditor": "Back to editor",
+    "blockStatusBoard": "Status board"
   },
   "syllabus": {
     "title": "Syllabus",
@@ -428,7 +429,13 @@
     "removeTitle": "Remove {name} from the session?",
     "removeBody": "They leave the lesson and the video call at once and drop out of the lists. Their answers are kept. They can come back only with the session code.",
     "removeAction": "Remove",
-    "removeFailed": "Could not remove. Try again."
+    "removeFailed": "Could not remove. Try again.",
+    "boardHintTeacher": "Click a cell to mark the stage. Click again to clear it",
+    "boardHintStudent": "The teacher marks the stages; you see them at once",
+    "boardMarked": "{marked} of {total} marked",
+    "boardName": "Name",
+    "boardProject": "Project",
+    "boardTotal": "At this stage"
   },
   "materials": {
     "title": "Materials",

@@ -38,6 +38,7 @@ import { PulseTeacherCard } from '@/components/live/PulseTeacherCard';
 import { PulseRain } from '@/components/live/PulseRain';
 import { PulseStage } from '@/components/live/PulseStage';
 import { SlideshowContext } from '@/components/live/slideshow-context';
+import { BoardContext } from '@/components/live/board-context';
 import { useScrollAlong } from '@/lib/hooks/use-scroll-along';
 import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
 import { useLesson } from '@/lib/api/hooks/use-lessons';
@@ -91,6 +92,7 @@ export default function TeacherLivePage() {
     sendFocus,
     participants: liveParticipants,
     removedIds,
+    boards: liveBoards,
     responses: liveResponses,
     ended,
     questions,
@@ -120,6 +122,31 @@ export default function TeacherLivePage() {
 
   // Merge REST baseline + live deltas so a late-connecting teacher still sees
   // everyone who joined / answered before the socket was up.
+  // Status boards: the teacher ticks cells; shown at once (optimistic), saved
+  // on the server and pushed to every screen in the session.
+  const [localBoards, setLocalBoards] = React.useState<Record<string, Record<string, number>>>({});
+  const boards = React.useMemo(
+    () => ({ ...(sessionQuery.data?.boards ?? {}), ...liveBoards, ...localBoards }),
+    [sessionQuery.data?.boards, liveBoards, localBoards],
+  );
+  const setBoardCell = React.useCallback(
+    (blockId: string, row: number, col: number | null) => {
+      if (!sessionId) return;
+      setLocalBoards((prev) => {
+        const cur = { ...(prev[blockId] ?? boards[blockId] ?? {}) };
+        if (col === null) delete cur[String(row)];
+        else cur[String(row)] = col;
+        return { ...prev, [blockId]: cur };
+      });
+      void api
+        .post<{ state: Record<string, number> }>(`/sessions/${sessionId}/boards/${blockId}`, { row, col })
+        .then((r) => setLocalBoards((prev) => ({ ...prev, [blockId]: r.state })))
+        .catch(() => setLocalBoards((prev) => { const n = { ...prev }; delete n[blockId]; return n; }));
+    },
+    [sessionId, boards],
+  );
+  const boardCtx = React.useMemo(() => ({ boards, onSet: setBoardCell }), [boards, setBoardCell]);
+
   // Remove a participant from the session (duplicate / test entry / wrong person).
   const queryClient = useQueryClient();
   const [removing, setRemoving] = React.useState<LiveParticipant | null>(null);
@@ -404,6 +431,7 @@ export default function TeacherLivePage() {
               </p>
             ) : null}
             <LessonViewerContext.Provider value={TEACHER_PREVIEW}>
+            <BoardContext.Provider value={boardCtx}>
             <SlideshowContext.Provider value={slideshow}>
             {pageBlocks.map((block) => (
               <WorkbookBlock
@@ -416,6 +444,7 @@ export default function TeacherLivePage() {
               />
             ))}
             </SlideshowContext.Provider>
+            </BoardContext.Provider>
             </LessonViewerContext.Provider>
             {hasSections ? (
               <SectionPager

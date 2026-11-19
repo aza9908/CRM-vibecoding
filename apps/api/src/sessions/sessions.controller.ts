@@ -39,6 +39,8 @@ import {
   type SetFocusDto,
   type SetSectionsDto,
   type SetTimerDto,
+  setBoardCellSchema,
+  type SetBoardCellDto,
   type SaveSessionResponseDto,
   type UploadResponseFileDto,
   type SendSessionChatDto,
@@ -46,6 +48,7 @@ import {
 import { ZodBody } from '../common/zod-body.decorator';
 import { DRIZZLE, type Db } from '../db/db.module';
 import {
+  blockBoards,
   participants,
   lessonBlocks,
   lessons,
@@ -241,12 +244,23 @@ export class SessionsController {
       principal.aud === 'participant'
         ? await this.sessions.getParticipantName(principal.sub)
         : await this.sessions.getUserName(principal.sub);
+    // Status boards (teacher ticks, everyone sees): row → column per block.
+    const boardIds = visible.filter((b) => b.type === 'status_board').map((b) => b.id);
+    const boards: Record<string, Record<string, number>> = {};
+    if (boardIds.length) {
+      const rows = await this.db
+        .select()
+        .from(blockBoards)
+        .where(inArray(blockBoards.blockId, boardIds));
+      for (const r of rows) boards[r.blockId] = (r.state ?? {}) as Record<string, number>;
+    }
     return {
       ...session,
       blocks: visible,
       sectionCount,
       me: { name: viewerName },
       timer: this.gateway.timerState(id),
+      boards,
     };
   }
 
@@ -460,6 +474,61 @@ export class SessionsController {
     this.auth.forgetParticipant(participantId, id);
     await this.gateway.removeParticipant(id, participantId);
     return { ok: true };
+  }
+
+  /**
+   * POST /sessions/:id/boards/:blockId — the teacher ticks one row of a
+   * status board (e.g. the stage of each project). Saved on the lesson block
+   * so the next lesson continues from here; everyone in the session sees it
+   * at once.
+   */
+  @Post(':id/boards/:blockId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('teacher', 'methodist', 'admin')
+  async setBoardCell(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('blockId', new ParseUUIDPipe()) blockId: string,
+    @ZodBody(setBoardCellSchema) body: SetBoardCellDto,
+  ): Promise<{ state: Record<string, number> }> {
+    await this.sessions.assertSessionInOrg(id, user.orgId);
+    const [sess] = await this.db
+      .select({ lessonId: liveSessions.lessonId })
+      .from(liveSessions)
+      .where(eq(liveSessions.id, id));
+    const [block] = sess?.lessonId
+      ? await this.db
+          .select()
+          .from(lessonBlocks)
+          .where(and(eq(lessonBlocks.id, blockId), eq(lessonBlocks.lessonId, sess.lessonId)))
+      : [];
+    if (!block || block.type !== 'status_board') throw new NotFoundException('board_not_found');
+    const opts = (block.options ?? {}) as { rows?: unknown[]; columns?: unknown[] };
+    const rows = Array.isArray(opts.rows) ? opts.rows.length : 0;
+    const cols = Array.isArray(opts.columns) ? opts.columns.length : 0;
+    if (body.row >= rows || (body.col !== null && body.col >= cols)) {
+      throw new BadRequestException('cell_out_of_range');
+    }
+    const state = await this.db.transaction(async (tx) => {
+      const [cur] = await tx
+        .select()
+        .from(blockBoards)
+        .where(eq(blockBoards.blockId, blockId))
+        .for('update');
+      const next: Record<string, number> = { ...((cur?.state ?? {}) as Record<string, number>) };
+      if (body.col === null) delete next[String(body.row)];
+      else next[String(body.row)] = body.col;
+      await tx
+        .insert(blockBoards)
+        .values({ blockId, state: next, updatedBy: user.sub, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: blockBoards.blockId,
+          set: { state: next, updatedBy: user.sub, updatedAt: new Date() },
+        });
+      return next;
+    });
+    this.gateway.broadcastBoard(id, blockId, state);
+    return { state };
   }
 
   /** GET /sessions/:id/responses — teacher-only answer summary, org-scoped. */

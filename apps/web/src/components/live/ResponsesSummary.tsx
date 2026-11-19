@@ -68,7 +68,7 @@ function blockQuestion(block: Block, fallback: string): string {
     if (q?.trim()) return q.trim();
   }
   if (block.content?.trim()) {
-    return block.content.trim().split('\n')[0] ?? fallback;
+    return (block.content.trim().split('\n')[0] ?? fallback).replace(/\*\*/g, '').trim() || fallback;
   }
   return fallback;
 }

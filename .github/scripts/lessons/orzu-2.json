@@ -1,0 +1,383 @@
+{
+  "title": "Урок 2 · Добиваем MVP и загружаем на GitHub · 2-dars · MVP va GitHub",
+  "category": "Orzu Medical",
+  "blocks": [
+    {
+      "type": "text",
+      "blockRole": "welcome",
+      "content": "Приветствуем, {{name}}!\nOrzu Medical × AIRL · урок 2 · 2-dars\n\n**Сегодня 4 шага · Bugun 4 qadam**\n\n**Обсуждаем домашку.** Каждый показывает свой проект, 2 минуты.\n\n**Отмечаем стадию.** Преподаватель отмечает стадию каждого проекта в таблице.\n\n**Добиваем MVP.** Работает одна главная функция.\n\n**Загружаем на GitHub.** Все проекты в одном месте клиники.\n\nПосле каждого шага отметьте чеклист: так преподаватель видит, кто где, и помогает вовремя."
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-01.ac5119e164.w2560.jpg",
+      "content": "Orzu Medical × AIRL · Урок 2: добиваем MVP и загружаем проекты на GitHub",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-02.f45462ad7e.w2560.jpg",
+      "content": "Включите синхронный перевод · Sinxron tarjimani yoqing",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-03.0fab8c6b02.w2560.jpg",
+      "content": "Сегодня 4 шага: обсуждаем домашку, отмечаем стадию, добиваем MVP, загружаем на GitHub",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-04.0a065bf204.w2560.jpg",
+      "content": "Шаг 1 · Обсуждение статуса. Каждый показывает свой проект, 2 минуты",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-05.6fb25d654c.w2560.jpg",
+      "content": "Где вы остановились? Что получилось, покажите, где застряли",
+      "blockRole": "slide"
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 1 · Обсуждение · 1-qadam · Muhokama**",
+      "options": {
+        "items": [
+          "Показал(а) свой проект на экране · Loyihamni ekranda koʻrsatdim",
+          "Рассказал(а), что сделано и где застрял(а) · Nima qilinganini va qayerda toʻxtaganimni aytdim"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-06.481af92d04.w2560.jpg",
+      "content": "6 стадий: идея, MVP начат, MVP работает, на GitHub, есть ссылка, пользуются",
+      "blockRole": "slide"
+    },
+    {
+      "type": "status_board",
+      "blockRole": "task",
+      "content": "**Шаг 2 · Стадии проектов · 2-qadam · Loyihalar bosqichlari**",
+      "options": {
+        "rowHeader": "ФИО",
+        "subHeader": "Проект",
+        "columns": [
+          {
+            "label": "0",
+            "title": "Идея"
+          },
+          {
+            "label": "1",
+            "title": "MVP начат"
+          },
+          {
+            "label": "2",
+            "title": "MVP работает"
+          },
+          {
+            "label": "3",
+            "title": "На GitHub"
+          },
+          {
+            "label": "4",
+            "title": "Есть ссылка"
+          },
+          {
+            "label": "5",
+            "title": "Пользуются"
+          }
+        ],
+        "rows": [
+          {
+            "label": "Мейлиева Феруза",
+            "sub": "Учебные отчёты и курсы (LMS)"
+          },
+          {
+            "label": "Нурмухамедова Мохира",
+            "sub": "Учёт посещаемости сотрудников"
+          },
+          {
+            "label": "Акбарова Наргиза",
+            "sub": "Ежедневный отчёт"
+          },
+          {
+            "label": "Низамова Севинч",
+            "sub": "Gemba Walk"
+          },
+          {
+            "label": "Ахамова Севара",
+            "sub": "Чек-лист для младшего медперсонала"
+          },
+          {
+            "label": "Абдусамадов Абдулазиз",
+            "sub": "1. Ассистенты врачей\n2. Кайдзен-картирование"
+          },
+          {
+            "label": "Рустамова Нодира",
+            "sub": "Приложение «История болезни»"
+          },
+          {
+            "label": "Джорабаева Зарина",
+            "sub": "1. Система бронирования Bnovo\n2. Система управления отделом продаж"
+          },
+          {
+            "label": "Хайдаралыева Сугдиёна",
+            "sub": "1. Электронная очередь и вызов пациентов\n2. Smart Fitobar"
+          },
+          {
+            "label": "Махкамова Асел",
+            "sub": "Автоматизация материального отчёта"
+          },
+          {
+            "label": "Бахтиёр",
+            "sub": "Помощник на базе Яндекс Станции (Алиса)"
+          },
+          {
+            "label": "Файзиева Малика",
+            "sub": "Улучшенный график отпусков"
+          },
+          {
+            "label": "Жиенкулова Айсулу",
+            "sub": "Проверка полноты кадровых документов"
+          },
+          {
+            "label": "Ахмедов Мадияр",
+            "sub": "Подача предложения"
+          }
+        ]
+      }
+    },
+    {
+      "type": "input_select",
+      "blockRole": "exercise",
+      "content": "**Моя стадия сейчас · Hozirgi bosqichim**\nОтметьте честно: преподаватель сверит с таблицей.",
+      "options": {
+        "required": true,
+        "icon": "checklist",
+        "choices": [
+          "0 · Идея · Gʻoya",
+          "1 · MVP начат · MVP boshlangan",
+          "2 · MVP работает · MVP ishlaydi",
+          "3 · На GitHub · GitHubda",
+          "4 · Есть ссылка · Havola bor",
+          "5 · Пользуются · Foydalanishmoqda"
+        ]
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-09.391bd98deb.w2560.jpg",
+      "content": "Шаг 3 · Одна главная функция работает",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-10.d859058869.w2560.jpg",
+      "content": "MVP сегодня: 01–06a",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-11.517df0d23a.w2560.jpg",
+      "content": "MVP сегодня: 06b–09b",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-12.d6664ff6c9.w2560.jpg",
+      "content": "MVP сегодня: 10–14",
+      "blockRole": "slide"
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 3 · MVP · 3-qadam**",
+      "options": {
+        "items": [
+          "Одна главная функция работает · Bitta asosiy funksiya ishlaydi",
+          "Данные выдуманные, реальных пациентов нет · Maʼlumotlar oʻylab topilgan, haqiqiy bemorlar yoʻq",
+          "Показал(а) соседу, у него тоже работает · Qoʻshnimga koʻrsatdim, unda ham ishlaydi"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-13.8c06ae831d.w2560.jpg",
+      "content": "Для ответственного от Orzu Medical: создаём репозиторий клиники",
+      "blockRole": "slide"
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Только для ответственного от Orzu Medical · Faqat masʼul uchun**",
+      "options": {
+        "items": [
+          "Организация orzu-medical создана · orzu-medical tashkiloti yaratildi",
+          "Репозиторий ai-projects создан, тип Private · ai-projects repozitoriysi yaratildi (Private)",
+          "Тренер AIRL (aza9908) добавлен с ролью Write · AIRL treneri (aza9908) Write roli bilan qoʻshildi",
+          "Все участники добавлены с ролью Write · Barcha ishtirokchilar Write roli bilan qoʻshildi"
+        ],
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-14.d0e1a74bb7.w2560.jpg",
+      "content": "Создайте свой аккаунт GitHub",
+      "blockRole": "slide"
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Открыть github.com/signup",
+        "href": "https://github.com/signup"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 4 · Аккаунт GitHub · 4-qadam · GitHub akkaunti**",
+      "options": {
+        "items": [
+          "Аккаунт создан · Akkaunt yaratildi",
+          "Почта подтверждена · Pochta tasdiqlandi",
+          "Логин отправлен в чат группы · Login guruh chatiga yuborildi"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Мой логин GitHub · Mening GitHub loginim**\nНапример feruza-meylieva. По нему ответственный пригласит вас в репозиторий.",
+      "options": {
+        "required": true,
+        "icon": "question"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-15.32bf5b30fe.w2560.jpg",
+      "content": "Все проекты в одном месте клиники: загружаем на GitHub",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Загрузите проект на GitHub · Loyihani GitHubga yuklang**\n\nПримите приглашение из почты (orzu-medical/ai-projects), откройте свой проект в Claude Code и отправьте сообщение ниже. Вместо [имя] напишите своё имя.\n\nПРОМПТ · Сообщение агенту\nЗагрузи мой проект в github.com/orzu-medical/ai-projects в мою папку из README. Моё имя: [имя]. Не копируй node_modules, .env и ключи.",
+      "options": {
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Шаг 4 · Загрузка · Yuklash**",
+      "options": {
+        "items": [
+          "Приглашение в orzu-medical/ai-projects принято · Taklif qabul qilindi",
+          "Проект загружен в мою папку · Loyiha papkamga yuklandi",
+          "node_modules, .env и ключи не загружены · node_modules, .env va kalitlar yuklanmadi"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Ссылка на мою папку на GitHub · GitHubdagi papkamga havola**",
+      "options": {
+        "required": true,
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-16.93952f17db.w2560.jpg",
+      "content": "Что такое схема данных",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-17.bbe7d77e7f.w2560.jpg",
+      "content": "Как установить навыки",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Установите навыки Orzu Medical · Navyklarni oʻrnating**\n\nБез терминала: всё делает Claude по одному сообщению.\nTerminalsiz: Claude hammasini bitta xabar bilan qiladi.\n\n1. Откройте приложение Claude на ноутбуке, вкладка Code.\n\n2. Нажмите «Копировать» ниже, вставьте сообщение в Claude Code и отправьте.\n\nПРОМПТ · Установка навыков Orzu Medical\nУстанови навыки из репозитория https://github.com/aza9908/orzu-medical-skills: скачай его и скопируй папки из skills в папку навыков ~/.claude/skills. Потом скажи, что перезапустить.\n\n3. Перезапустите Claude: закройте и откройте приложение.\n\n4. Наберите / в Claude Code: в списке должны быть /airl-dwh и /orzu-status.",
+      "options": {
+        "icon": "download"
+      }
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Навыки на GitHub · orzu-medical-skills",
+        "href": "https://github.com/aza9908/orzu-medical-skills"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Навыки установлены · Navyklar oʻrnatildi**",
+      "options": {
+        "items": [
+          "Claude Code перезапущен · Claude Code qayta ishga tushirildi",
+          "В списке есть /airl-dwh и /orzu-status · Roʻyxatda /airl-dwh va /orzu-status bor"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-18.45046f13e5.w2560.jpg",
+      "content": "Статус за 2 минуты в неделю: /orzu-status",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-19.91d1eab75e.w2560.jpg",
+      "content": "Дома: 3 шага",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Домашка · Uy vazifasi**\n\nПРОМПТ · Шаг 2 дома: схема данных\n/airl-dwh\n\nПРОМПТ · Шаг 3 дома: статус (каждую пятницу)\n/orzu-status\n\nЗастряли? Пишите в чат группы сразу, не ждите урока.",
+      "options": {
+        "icon": "pen"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Домашка · Uy vazifasi**",
+      "options": {
+        "items": [
+          "Запустил(а) /airl-dwh: в папке проекта появился DWH.md · /airl-dwh ishga tushirildi, DWH.md paydo boʻldi",
+          "Запустил(а) /orzu-status: STATUS.md на GitHub · /orzu-status ishga tushirildi, STATUS.md GitHubda",
+          "Буду запускать /orzu-status каждую пятницу · /orzu-status ni har juma ishga tushiraman"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu2/oz2-20.b23d5e0a42.w2560.jpg",
+      "content": "Что у вас есть после урока: стадия, MVP, GitHub",
+      "blockRole": "slide"
+    }
+  ]
+}

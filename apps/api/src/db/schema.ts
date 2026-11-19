@@ -47,6 +47,7 @@ export const blockType = pgEnum('block_type', [
   'input_file',
   'test',
   'checklist',
+  'status_board',
 ]);
 export const progressStatus = pgEnum('progress_status', [
   'started',
@@ -386,6 +387,20 @@ export const participants = pgTable(
   }),
 );
 
+/**
+ * Ticks of a status board block (e.g. «стадия каждого проекта»): row index →
+ * column index. Kept per lesson block, not per session, so next week's
+ * lesson continues from where the group stopped.
+ */
+export const blockBoards = pgTable('block_boards', {
+  blockId: uuid('block_id')
+    .primaryKey()
+    .references(() => lessonBlocks.id, { onDelete: 'cascade' }),
+  state: jsonb('state').notNull().default({}),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  updatedBy: uuid('updated_by'),
+});
+
 export const responses = pgTable(
   'responses',
   {
@@ -593,6 +608,7 @@ export const schema = {
   liveSessions,
   participants,
   lessonAnalyses,
+  blockBoards,
   responses,
   sessionChatMessages,
   userProgress,

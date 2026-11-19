@@ -28,6 +28,7 @@ export const WS_EVENTS = {
   sessionEnded: 'session:ended',
   /** server → all in room: the teacher opened / locked lesson sections */
   sectionsChanged: 'sections:changed',
+  boardChanged: 'board:changed',
   /** server → all in room (and each joiner): the class timer started / stopped */
   timerState: 'timer:state',
   /** client → server: send a group-chat message */
@@ -177,6 +178,14 @@ export interface TimerStatePayload {
 }
 
 /** `sections:changed` (server → session). `unlocked` = how many sections are open. */
+/** `board:changed` (server → session): a status board's ticks. */
+export interface BoardChangedPayload {
+  sessionId: string;
+  blockId: string;
+  /** row index → column index. */
+  state: Record<string, number>;
+}
+
 export interface SectionsChangedPayload {
   sessionId: string;
   unlocked: number;
@@ -570,6 +579,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.participantRemoved]: (payload: ParticipantRemovedPayload) => void;
   [WS_EVENTS.sessionEnded]: (payload: SessionEndedPayload) => void;
   [WS_EVENTS.sectionsChanged]: (payload: SectionsChangedPayload) => void;
+  [WS_EVENTS.boardChanged]: (payload: BoardChangedPayload) => void;
   [WS_EVENTS.timerState]: (payload: TimerStatePayload) => void;
   [WS_EVENTS.chatMessage]: (payload: ChatMessagePayload) => void;
   [WS_EVENTS.chatHistory]: (payload: ChatHistoryPayload) => void;

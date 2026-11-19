@@ -118,15 +118,9 @@
       "blockRole": "slide"
     },
     {
-      "type": "image",
-      "imageUrl": "/workbook/master-coffee/mc-18.f686bc2934.w2560.jpg",
-      "content": "Ставим 6 скиллов AIRL",
-      "blockRole": "slide"
-    },
-    {
       "type": "text",
       "blockRole": "task",
-      "content": "**Ставим 6 скиллов AIRL**\n\n1. Установите в VS Code расширение Claude Code и войдите в аккаунт Claude Pro.\n\n2. Откройте терминал: Terminal, затем New Terminal.\n\n3. Вставьте команду ниже и нажмите Enter.\n\nФАЙЛ · Команда для терминала\ncd ~/Downloads && git clone https://github.com/aza9908/airl-vibecoding.git && cd airl-vibecoding && bash install.sh\n\n4. Перезагрузите окно: Ctrl/Cmd + Shift + P, затем Developer: Reload Window.\n\n5. Наберите /airl-start в панели Claude. Появилась подсказка на русском, значит всё готово. Не получилось? Поднимите руку, поставим вместе.",
+      "content": "**Ставим 6 скиллов AIRL**\n\nБез терминала: всё делает Claude по одному сообщению.\n\n1. Откройте приложение Claude на ноутбуке, вкладка Code. Войдите в аккаунт Claude Pro.\n\n2. Нажмите «Копировать» ниже, вставьте сообщение в Claude Code и отправьте.\n\nПРОМПТ · Установка скиллов AIRL\nУстанови скиллы из репозитория https://github.com/aza9908/airl-vibecoding: скачай его и скопируй все папки из skills в папку навыков ~/.claude/skills. Потом скажи, что перезапустить.\n\n3. Перезапустите Claude: закройте и откройте приложение.\n\n4. Наберите /airl-start в Claude Code. Появилась подсказка на русском, значит всё готово. Не получилось? Поднимите руку, поставим вместе.",
       "options": {
         "icon": "download"
       }
@@ -155,7 +149,7 @@
         "items": [
           "Есть подписка Claude Pro, вход выполнен",
           "Есть ноутбук: заряжен и подключён к Wi-Fi",
-          "Установлены VS Code и расширение Claude Code",
+          "Приложение Claude установлено, вкладка Code открывается",
           "Скиллы AIRL установлены: /airl-start показывает подсказку на русском"
         ],
         "required": true,

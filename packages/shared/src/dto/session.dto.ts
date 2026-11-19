@@ -106,3 +106,13 @@ export type JoinSessionResult = {
   sessionId: string;
   participantId: string;
 };
+
+/**
+ * Body for `POST /sessions/:id/boards/:blockId` — the teacher ticks one cell
+ * of a status board (one column per row; `col: null` clears the row).
+ */
+export const setBoardCellSchema = z.object({
+  row: z.number().int().min(0).max(500),
+  col: z.number().int().min(0).max(30).nullable(),
+});
+export type SetBoardCellDto = z.infer<typeof setBoardCellSchema>;
