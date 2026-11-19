@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -353,6 +353,91 @@ jobs:
           chmod 644 /etc/cron.d/lms-db-backup
           docker exec "$DBN" pg_dump -U lms -Fc lms </dev/null > "/root/lms-backups/lms-$(date +%F)-first.dump"
           echo "backup: $(ls -la /root/lms-backups | tail -n +2 | wc -l) file(s) · cron: $(cat /etc/cron.d/lms-db-backup | tail -1 | cut -c1-40)…"
+          REMOTE
+
+      - name: Move every row from the hosted Postgres (Neon) to this server, verify, then empty Neon
+        if: inputs.mode == 'neon-to-vps'
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "APP_DIR='$VPS_APP_DIR' FORCE='$FORCE' bash -s" <<'REMOTE'
+          set -euo pipefail
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find / -xdev -name docker-compose.prod.yml -not -path '*/.deploy-backup/*' 2>/dev/null \
+              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); if [ -d "$d/.git" ]; then echo "$d"; fi; done | head -1 || true)
+          fi
+          cd "$APP_DIR"
+          ENV_FILE=.env.prod; [ -f "$ENV_FILE" ] || ENV_FILE=.env
+          if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+          C="$DC --env-file $ENV_FILE -f docker-compose.prod.yml"
+          NEON=$(grep '^NEON_DATABASE_URL=' "$ENV_FILE" | tail -1 | cut -d= -f2- || true)
+          [ -n "$NEON" ] || { echo "no NEON_DATABASE_URL on this server (already moved?)"; exit 1; }
+          changed=$(git diff --name-only)
+          if [ -n "$changed" ]; then
+            [ "$changed" = "docker-compose.prod.yml" ] || { echo "Unexpected local changes, refusing:"; echo "$changed"; exit 1; }
+            git checkout -- docker-compose.prod.yml
+          fi
+          git fetch -q origin main && git checkout -q main && git pull -q --ff-only origin main
+          ts=$(date +%Y%m%d-%H%M%S); mkdir -p /root/lms-backups && chmod 700 /root/lms-backups
+
+          # 1. Full copy of Neon, kept on this server.
+          echo "== 1. dump Neon"
+          docker run --rm -e NEON="$NEON" -e OUT="/b/neon-full-$ts.dump" -v /root/lms-backups:/b postgres:17-alpine sh -c 'pg_dump "$NEON" --schema=public --no-owner --no-acl -Fc -f "$OUT"' </dev/null
+          docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -tAc "show server_version" </dev/null | sed 's/^/Neon Postgres /'
+          ls -la /root/lms-backups/neon-full-$ts.dump | awk '{print "dump size " $5 " bytes"}'
+
+          # 2. The local database must be the empty one created earlier (no accounts), unless forced.
+          echo "== 2. local database"
+          LUSERS=$(docker exec lms-db-1 psql -U lms -d lms -tAc "select count(*) from users" </dev/null 2>/dev/null || echo 0)
+          echo "accounts in the local database now: $LUSERS"
+          if [ "${LUSERS:-0}" != "0" ] && [ "$FORCE" != "true" ]; then echo "local database is not empty — refusing (run with force)"; exit 1; fi
+          docker exec lms-db-1 pg_dump -U lms -Fc lms </dev/null > /root/lms-backups/local-before-neon-$ts.dump 2>/dev/null || true
+
+          # 3. Recreate the local database on Postgres 17 and restore the copy.
+          echo "== 3. restore on this server"
+          $C stop api </dev/null
+          $C rm -sf db </dev/null
+          VOL=$(docker volume ls -q | grep -E '(^|_)lms_db$' | head -1)
+          [ -n "$VOL" ] && docker volume rm "$VOL" >/dev/null
+          $C up -d db </dev/null
+          for i in $(seq 1 60); do docker exec lms-db-1 pg_isready -U lms -d lms </dev/null >/dev/null 2>&1 && break; sleep 2; done
+          docker exec lms-db-1 psql -U lms -d lms -tAc "select version()" </dev/null | cut -c1-40
+          docker cp /root/lms-backups/neon-full-$ts.dump lms-db-1:/tmp/neon.dump
+          docker exec lms-db-1 pg_restore -U lms -d lms --no-owner --no-acl --exit-on-error /tmp/neon.dump </dev/null
+          docker exec lms-db-1 rm -f /tmp/neon.dump </dev/null
+
+          # 4. Compare exact row counts of every table.
+          echo "== 4. verify row counts"
+          Q="select string_agg(t || '=' || n, ' ' order by t) from (select table_name t, (xpath('/row/c/text()', query_to_xml('select count(*) as c from public.' || quote_ident(table_name), false, true, '')))[1]::text::bigint n from information_schema.tables where table_schema='public' and table_type='BASE TABLE') x"
+          A=$(docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -tAc "$Q" </dev/null)
+          B=$(docker exec lms-db-1 psql -U lms -d lms -tAc "$Q" </dev/null)
+          echo "$B" | tr ' ' '\n' | sed 's/^/  /'
+          if [ "$A" != "$B" ]; then echo "ROW COUNTS DIFFER — Neon is NOT emptied"; diff <(echo "$A" | tr ' ' '\n') <(echo "$B" | tr ' ' '\n') || true; $C up -d api </dev/null; exit 1; fi
+          echo "all tables match Neon exactly"
+
+          # 5. Start the API on the local database.
+          echo "== 5. API"
+          $C up -d --no-build api </dev/null
+          for i in $(seq 1 45); do c=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/lessons || true); [ "$c" = "401" ] && break; sleep 2; done
+          echo "bad login → $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}' http://127.0.0.1:3002/auth/login) (401 = works)"
+          docker exec lms-api-1 node -e 'const {Pool}=require("pg");const p=new Pool({connectionString:process.env.DATABASE_URL});p.query("select (select count(*) from users) u, (select count(*) from lessons) l, (select count(*) from responses) r").then(x=>{console.log("API reads: users "+x.rows[0].u+" · lessons "+x.rows[0].l+" · answers "+x.rows[0].r);p.end()})' </dev/null 2>&1 | grep -v -E "SECURITY|next major|prepare|If you|See https|trace|^$"
+
+          # 6. Empty Neon, only now that everything is here and verified.
+          echo "== 6. empty Neon"
+          docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -v ON_ERROR_STOP=1 -q -c "drop schema public cascade" -c "create schema public" </dev/null \
+            || docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -v ON_ERROR_STOP=1 -q -c "drop owned by current_user cascade" </dev/null
+          LEFT=$(docker run --rm postgres:17-alpine psql "$NEON" -tAc "select count(*) from information_schema.tables where table_schema='public'" </dev/null)
+          echo "tables left in Neon: $LEFT"
+          [ "$LEFT" = "0" ] || { echo "Neon still has tables — address kept on this server"; exit 1; }
+          sed -i '/^NEON_DATABASE_URL=/d' "$ENV_FILE"
+          for f in "$ENV_FILE".bak-*; do [ -f "$f" ] && sed -i '/neon\.tech/d' "$f"; done
+          echo "Neon address removed from this server's settings"
+          echo "copies kept: $(ls /root/lms-backups | tr '\n' ' ')"
           REMOTE
 
       - name: Make a registered account the owner (organization + admin role)

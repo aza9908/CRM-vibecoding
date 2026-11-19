@@ -34,7 +34,7 @@ services:
   # quota ran out). Not published to the host: only the API reaches it.
   # Nightly pg_dump → /root/lms-backups (see the db-to-vps workflow mode).
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     restart: unless-stopped
     shm_size: 256mb
     environment:
