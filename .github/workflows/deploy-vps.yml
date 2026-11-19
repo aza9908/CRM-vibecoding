@@ -148,6 +148,7 @@ jobs:
 
       - name: Diagnose login and data (counts only — logs are public)
         if: inputs.mode == 'diagnose'
+        continue-on-error: true
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
