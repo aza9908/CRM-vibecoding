@@ -387,8 +387,8 @@ jobs:
 
           # 1. Full copy of Neon, kept on this server.
           echo "== 1. dump Neon"
-          docker run --rm -e NEON="$NEON" -e OUT="/b/neon-full-$ts.dump" -v /root/lms-backups:/b postgres:17-alpine sh -c 'pg_dump "$NEON" --schema=public --no-owner --no-acl -Fc -f "$OUT"' </dev/null
-          docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -tAc "show server_version" </dev/null | sed 's/^/Neon Postgres /'
+          docker run --rm -e NEON="$NEON" -e OUT="/b/neon-full-$ts.dump" -v /root/lms-backups:/b postgres:18-alpine sh -c 'pg_dump "$NEON" --schema=public --no-owner --no-acl -Fc -f "$OUT"' </dev/null
+          docker run --rm -e NEON="$NEON" postgres:18-alpine psql "$NEON" -tAc "show server_version" </dev/null | sed 's/^/Neon Postgres /'
           ls -la /root/lms-backups/neon-full-$ts.dump | awk '{print "dump size " $5 " bytes"}'
 
           # 2. The local database must be the empty one created earlier (no accounts), unless forced.
@@ -414,7 +414,7 @@ jobs:
           # 4. Compare exact row counts of every table.
           echo "== 4. verify row counts"
           Q="select string_agg(t || '=' || n, ' ' order by t) from (select table_name t, (xpath('/row/c/text()', query_to_xml('select count(*) as c from public.' || quote_ident(table_name), false, true, '')))[1]::text::bigint n from information_schema.tables where table_schema='public' and table_type='BASE TABLE') x"
-          A=$(docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -tAc "$Q" </dev/null)
+          A=$(docker run --rm -e NEON="$NEON" postgres:18-alpine psql "$NEON" -tAc "$Q" </dev/null)
           B=$(docker exec lms-db-1 psql -U lms -d lms -tAc "$Q" </dev/null)
           echo "$B" | tr ' ' '\n' | sed 's/^/  /'
           if [ "$A" != "$B" ]; then echo "ROW COUNTS DIFFER — Neon is NOT emptied"; diff <(echo "$A" | tr ' ' '\n') <(echo "$B" | tr ' ' '\n') || true; $C up -d api </dev/null; exit 1; fi
@@ -429,9 +429,9 @@ jobs:
 
           # 6. Empty Neon, only now that everything is here and verified.
           echo "== 6. empty Neon"
-          docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -v ON_ERROR_STOP=1 -q -c "drop schema public cascade" -c "create schema public" </dev/null \
-            || docker run --rm -e NEON="$NEON" postgres:17-alpine psql "$NEON" -v ON_ERROR_STOP=1 -q -c "drop owned by current_user cascade" </dev/null
-          LEFT=$(docker run --rm postgres:17-alpine psql "$NEON" -tAc "select count(*) from information_schema.tables where table_schema='public'" </dev/null)
+          docker run --rm -e NEON="$NEON" postgres:18-alpine psql "$NEON" -v ON_ERROR_STOP=1 -q -c "drop schema public cascade" -c "create schema public" </dev/null \
+            || docker run --rm -e NEON="$NEON" postgres:18-alpine psql "$NEON" -v ON_ERROR_STOP=1 -q -c "drop owned by current_user cascade" </dev/null
+          LEFT=$(docker run --rm postgres:18-alpine psql "$NEON" -tAc "select count(*) from information_schema.tables where table_schema='public'" </dev/null)
           echo "tables left in Neon: $LEFT"
           [ "$LEFT" = "0" ] || { echo "Neon still has tables — address kept on this server"; exit 1; }
           sed -i '/^NEON_DATABASE_URL=/d' "$ENV_FILE"
