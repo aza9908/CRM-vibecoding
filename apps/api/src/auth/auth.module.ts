@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { APP_GUARD } from '@nestjs/core';
+import { RateLimitGuard } from '../common/rate-limit.guard';
 import { PassportModule } from '@nestjs/passport';
 
 import { UsersModule } from '../users/users.module';
@@ -46,6 +48,8 @@ import { WsRolesGuard } from './guards/ws-roles.guard';
   ],
   controllers: [AuthController],
   providers: [
+    // Request rate limits for the whole API (see RateLimitGuard).
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     AuthService,
     JwtStrategy,
     ParticipantStrategy,

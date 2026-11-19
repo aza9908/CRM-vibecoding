@@ -14,19 +14,30 @@ export const chatMessageSchema = z.object({
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
-/** Body for `POST /ai/chat` (SSE response). */
+/**
+ * One turn of the history a client sends back. Only the conversation itself:
+ * a client must never be able to inject a `system` message (that would let a
+ * script or an agent rewrite the tutor's instructions).
+ */
+export const chatHistoryItemSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().max(4000),
+});
+
+/** Body for `POST /ai/chat` (SSE response). Sizes are capped so one request
+ * cannot burn a large amount of model tokens. */
 export const chatSchema = z.object({
   lessonId: z.string().uuid().optional(),
-  userMessage: z.string().min(1),
-  blockContent: z.string().optional(),
-  taskContext: z.string().optional(),
-  history: z.array(chatMessageSchema).default([]),
+  userMessage: z.string().min(1).max(4000),
+  blockContent: z.string().max(20000).optional(),
+  taskContext: z.string().max(4000).optional(),
+  history: z.array(chatHistoryItemSchema).max(20).default([]),
 });
 export type ChatDto = z.infer<typeof chatSchema>;
 
 /** Body for `POST /lessons/:id/blocks/generate` — AI block generation. */
 export const generateBlocksSchema = z.object({
-  topic: z.string().min(1),
+  topic: z.string().min(1).max(2000),
 });
 export type GenerateBlocksDto = z.infer<typeof generateBlocksSchema>;
 

@@ -21,8 +21,21 @@ const nextConfig: NextConfig = {
         },
       }
     : {}),
+  poweredByHeader: false,
   async headers() {
     return [
+      {
+        // Hardening for every page: no MIME sniffing, no framing by other
+        // sites, no referrer leaks, camera/mic/screen only for this site.
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000' },
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=()' },
+        ],
+      },
       {
         // Other lesson files keep their names when they change: always ask
         // the server (a cheap 304 when nothing changed), never show a stale copy.

@@ -27,6 +27,15 @@ async function bootstrap(): Promise<void> {
   // class-validator pipe is needed.
 
   app.use(cookieParser());
+  // No framework banner; basic hardening headers on every API response.
+  app.disable('x-powered-by');
+  app.use((_req: unknown, res: { setHeader: (k: string, v: string) => void }, next: () => void) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    next();
+  });
 
   // Catch-all filter: turns unexpected errors into a clean, logged 500 instead
   // of leaking stacks (and makes storage/config faults return a real message).

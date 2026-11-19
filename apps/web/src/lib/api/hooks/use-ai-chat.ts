@@ -65,10 +65,17 @@ export function useAiChat(): UseAiChatResult {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      // The server accepts only the conversation itself (no system turns),
+      // the last 20 turns, each within its size cap.
       const body: ChatDto = {
-        userMessage,
-        history,
+        userMessage: userMessage.slice(0, 4000),
+        history: history
+          .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'system')
+          .slice(-20)
+          .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) })),
         ...context,
+        ...(context?.blockContent ? { blockContent: context.blockContent.slice(0, 20000) } : {}),
+        ...(context?.taskContext ? { taskContext: context.taskContext.slice(0, 4000) } : {}),
       };
 
       let accumulated = '';

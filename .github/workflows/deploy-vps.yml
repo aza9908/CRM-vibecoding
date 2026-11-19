@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -508,6 +508,69 @@ jobs:
           for v in tls1 tls1_1 tls1_2 tls1_3; do r=$(echo | timeout 8 openssl s_client -connect lms-api.magauin.kz:443 -servername lms-api.magauin.kz -$v 2>/dev/null | grep -c 'BEGIN CERTIFICATE'); echo "  $v: $([ "$r" -gt 0 ] && echo accepted || echo refused)"; done
           echo "== 8. nginx and kernel settings on the server"
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" 'for f in /etc/nginx/sites-enabled/*; do grep -qE "lms-api.magauin.kz|lms.magauin.kz" "$f" || continue; echo "-- $(basename $f)"; grep -hoE "^\s*(proxy_set_header|client_max_body_size|limit_req|limit_conn|proxy_read_timeout|add_header)[^;]*" "$f" | sed -E "s/^\s+/   /" | sort | uniq -c; done; grep -rhoE "^\s*(limit_req_zone|limit_conn_zone|client_header_timeout|client_body_timeout|keepalive_timeout|server_tokens)[^;]*" /etc/nginx/nginx.conf /etc/nginx/conf.d/ 2>/dev/null | sed "s/^/   /"; echo "syncookies $(sysctl -n net.ipv4.tcp_syncookies) · somaxconn $(sysctl -n net.core.somaxconn)"; echo "fail2ban: $(systemctl is-active fail2ban 2>/dev/null || echo none) · ssh password auth: $(sshd -T 2>/dev/null | grep -i "^passwordauthentication" | cut -d" " -f2) · root login: $(sshd -T 2>/dev/null | grep -i "^permitrootlogin" | cut -d" " -f2)"; echo "ssh failed logins (24h): $(journalctl -u ssh -u sshd --since "24 hours ago" 2>/dev/null | grep -c "Failed password")"'
+
+      - name: Harden the server (nginx request limits + timeouts, fail2ban for SSH) with automatic rollback
+        if: inputs.mode == 'harden'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" bash -s <<'REMOTE'
+          set -euo pipefail
+          ts=$(date +%Y%m%d%H%M%S)
+          SITE=$(readlink -f /etc/nginx/sites-enabled/lms-api.magauin.kz)
+          [ -f "$SITE" ] || { echo "API site config not found"; exit 1; }
+          BK=/root/nginx-hardening-backup-$ts; mkdir -p "$BK"
+          cp "$SITE" "$BK/site"; [ -f /etc/nginx/conf.d/lms-hardening.conf ] && cp /etc/nginx/conf.d/lms-hardening.conf "$BK/" || true
+          rollback() { echo "rolling back nginx"; cp "$BK/site" "$SITE"; rm -f /etc/nginx/conf.d/lms-hardening.conf; [ -f "$BK/lms-hardening.conf" ] && cp "$BK/lms-hardening.conf" /etc/nginx/conf.d/; nginx -t && systemctl reload nginx; }
+
+          # 1. Shared zones and slow-client timeouts (http level).
+          {
+            echo "# LMS hardening — written by the deploy workflow (mode harden)"
+            echo 'limit_req_zone $binary_remote_addr zone=lms_api_req:20m rate=100r/s;'
+            echo 'limit_conn_zone $binary_remote_addr zone=lms_api_conn:20m;'
+            echo 'limit_req_status 429;'
+            echo 'limit_conn_status 429;'
+            grep -qE '^\s*client_header_timeout' /etc/nginx/nginx.conf || echo 'client_header_timeout 15s;'
+            grep -qE '^\s*client_body_timeout' /etc/nginx/nginx.conf || echo 'client_body_timeout 30s;'
+            grep -qE '^\s*server_tokens' /etc/nginx/nginx.conf || echo 'server_tokens off;'
+          } > /etc/nginx/conf.d/lms-hardening.conf
+
+          # 2. Per-address limits on the API's HTTPS server block.
+          python3 - "$SITE" <<'PY'
+          import re, sys
+          p = sys.argv[1]; s = open(p).read()
+          if '# lms-hardening' not in s:
+              out, i = [], 0
+              for m in re.finditer(r'server\s*\{', s):
+                  pass
+              blocks = re.split(r'(?m)^(?=server\s*\{)', s)
+              for b in blocks:
+                  if 'lms-api.magauin.kz' in b and re.search(r'listen\s+443', b):
+                      b = re.sub(r'(server_name\s+lms-api\.magauin\.kz;)', r'\1\n    # lms-hardening\n    limit_req zone=lms_api_req burst=1500 nodelay;\n    limit_conn lms_api_conn 600;', b, count=1)
+                  out.append(b)
+              open(p, 'w').write(''.join(out))
+          print('api server block:', 'limits present' if 'limit_req zone=lms_api_req' in open(p).read() else 'NOT FOUND')
+          PY
+          grep -q 'limit_req zone=lms_api_req' "$SITE" || { echo "could not place the limits"; rollback; exit 1; }
+          if ! nginx -t 2>&1; then rollback; exit 1; fi
+          systemctl reload nginx
+          sleep 2
+          code=$(curl -s -o /dev/null -w '%{http_code}' --resolve lms-api.magauin.kz:443:127.0.0.1 https://lms-api.magauin.kz/lessons || true)
+          web=$(curl -s -o /dev/null -w '%{http_code}' --resolve lms.magauin.kz:443:127.0.0.1 https://lms.magauin.kz/lms/ru/login || true)
+          echo "after reload: API $code (401 = up) · web $web"
+          if [ "$code" != "401" ]; then rollback; exit 1; fi
+          echo "nginx hardened (backup in $BK)"
+
+          # 3. fail2ban for SSH password guessing.
+          if ! command -v fail2ban-client >/dev/null; then DEBIAN_FRONTEND=noninteractive apt-get -qq update && DEBIAN_FRONTEND=noninteractive apt-get -qq install -y fail2ban >/dev/null; fi
+          printf '%s\n' '[sshd]' 'enabled = true' 'backend = systemd' 'maxretry = 5' 'findtime = 10m' 'bantime = 1h' > /etc/fail2ban/jail.d/lms-sshd.local
+          systemctl enable --now fail2ban >/dev/null 2>&1 || true
+          systemctl restart fail2ban; sleep 3
+          fail2ban-client status sshd | grep -E 'Currently banned|Total banned|Currently failed' | sed 's/^[ |`-]*/  /'
+          REMOTE
 
       - name: Retire lms.magauin.kz (redirect visitors to airl.kz/lms)
         if: inputs.mode == 'retire-old-domain'

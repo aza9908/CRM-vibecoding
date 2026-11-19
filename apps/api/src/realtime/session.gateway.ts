@@ -88,6 +88,12 @@ type LiveSocket = Socket<
 
 type LiveServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
+/** WebSocket flood guard: sustained events per second, bucket depth, and
+ * how many dropped events before the connection is closed. */
+const WS_PER_SECOND = 40;
+const WS_BURST = 300;
+const WS_STRIKES_BEFORE_DISCONNECT = 500;
+
 const room = (sessionId: string) => `session:${sessionId}`;
 const teachersRoom = (sessionId: string) => `session:${sessionId}:teachers`;
 const rtcRoom = (sessionId: string) => `session:${sessionId}:rtc`;
@@ -199,6 +205,28 @@ export class SessionGateway
   }
 
   handleConnection(socket: LiveSocket): void {
+    // Per-connection flood guard: a token bucket of events. Joining a call
+    // sends a burst of signalling, so the bucket is deep; a script that keeps
+    // firing events is cut off instead of loading the server.
+    let tokens = WS_BURST;
+    let last = Date.now();
+    let strikes = 0;
+    socket.use((_packet, next) => {
+      const now = Date.now();
+      tokens = Math.min(WS_BURST, tokens + ((now - last) / 1000) * WS_PER_SECOND);
+      last = now;
+      if (tokens >= 1) {
+        tokens -= 1;
+        next();
+        return;
+      }
+      strikes += 1;
+      if (strikes === 1) this.logger.warn(`WS flood from ${socket.id}: events dropped`);
+      if (strikes > WS_STRIKES_BEFORE_DISCONNECT) {
+        this.logger.warn(`WS flood from ${socket.id}: disconnected`);
+        socket.disconnect(true);
+      }
+    });
     const id = socket.data.identity;
     this.logger.debug(
       `WS connected ${socket.id} aud=${id?.aud ?? '?'} sub=${id?.sub ?? '?'}`,

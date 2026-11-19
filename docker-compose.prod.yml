@@ -81,7 +81,8 @@ services:
       RTC_WORKERS: "2"
       PORT: "3001"
     ports:
-      - "0.0.0.0:3002:3001"
+      # Only nginx on this host reaches the API (TLS + limits); never the internet directly.
+      - "127.0.0.1:3002:3001"
       - "0.0.0.0:44444-44445:44444-44445/udp"
       - "0.0.0.0:44444-44445:44444-44445/tcp"
 
@@ -100,7 +101,7 @@ services:
     depends_on:
       - api
     ports:
-      - "0.0.0.0:3001:3000"
+      - "127.0.0.1:3001:3000"
 
 volumes:
   minio_data:
