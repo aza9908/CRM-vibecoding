@@ -90,6 +90,8 @@ type LiveServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
 /** WebSocket flood guard: sustained events per second, bucket depth, and
  * how many dropped events before the connection is closed. */
+/** How long a dropped connection keeps its place in the call. */
+const PEER_AWAY_GRACE_MS = Number(process.env.RTC_PEER_AWAY_GRACE_MS ?? 90_000);
 const WS_PER_SECOND = 40;
 const WS_BURST = 300;
 const WS_STRIKES_BEFORE_DISCONNECT = 500;
@@ -234,7 +236,46 @@ export class SessionGateway
   }
 
   handleDisconnect(socket: LiveSocket): void {
-    this.leaveVideo(socket);
+    // A dropped connection (reload, Wi-Fi blip) is not a departure: the
+    // person keeps their place in the call while they reconnect.
+    const sub = socket.data.identity?.sub;
+    this.leaveVideo(socket, { away: !(sub && this.removedSubs.has(sub)) });
+  }
+
+  /** Participants the teacher removed: their disconnect is a real departure. */
+  private readonly removedSubs = new Set<string>();
+
+  /**
+   * People whose connection dropped during a running call, by session, then
+   * peerId. They stay in everyone's call (marked «reconnecting») for
+   * PEER_AWAY_GRACE_MS; coming back replaces the entry, otherwise they are
+   * reported as left when the time is up.
+   */
+  private readonly awayPeers = new Map<
+    string,
+    Map<string, { info: RtcPeer; sub: string | null; timer: NodeJS.Timeout }>
+  >();
+
+  private clearAway(sessionId: string, peerId?: string): void {
+    const map = this.awayPeers.get(sessionId);
+    if (!map) return;
+    for (const [id, entry] of map) {
+      if (peerId && id !== peerId) continue;
+      clearTimeout(entry.timer);
+      map.delete(id);
+    }
+    if (map.size === 0) this.awayPeers.delete(sessionId);
+  }
+
+  /** Call state; people reconnecting still count as in the call. */
+  private roomState(sessionId: string) {
+    const st = this.video.state(sessionId);
+    const away = this.awayList(sessionId).filter((p) => !this.video.peer(sessionId, p.peerId)).length;
+    return { ...st, count: st.count + away };
+  }
+
+  private awayList(sessionId: string): RtcPeer[] {
+    return [...(this.awayPeers.get(sessionId)?.values() ?? [])].map((e) => e.info);
   }
 
   // ── Video room ─────────────────────────────────────────────────────────
@@ -300,6 +341,8 @@ export class SessionGateway
 
     // One video room per socket — re-joining replaces the previous entry.
     this.leaveVideo(socket, { silent: true });
+    // Back after a dropped connection: take the reserved place again.
+    this.clearAway(sessionId, peerId);
     const returning = !!this.video.peer(sessionId, peerId);
     if (!returning && this.video.size(sessionId) >= VIDEO_ROOM_MAX_PEERS) {
       return { ok: false, error: 'room_full' };
@@ -328,7 +371,10 @@ export class SessionGateway
       ok: true,
       selfId: peerId,
       role: who.role,
-      peers: this.video.peers(sessionId).filter((p) => p.peerId !== peerId),
+      peers: [
+        ...this.video.peers(sessionId),
+        ...this.awayList(sessionId).filter((p) => !this.video.peer(sessionId, p.peerId)),
+      ].filter((p) => p.peerId !== peerId),
       producers: this.video.producers(sessionId, peerId),
       routerRtpCapabilities: this.video.routerCapabilities(sessionId),
       startedAt: this.video.state(sessionId).startedAt,
@@ -365,6 +411,7 @@ export class SessionGateway
   }
 
   private endCall(sessionId: string): void {
+    this.clearAway(sessionId);
     this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcCallEnded, { sessionId });
     this.video.close(sessionId);
     this.io?.in(rtcRoom(sessionId)).socketsLeave(rtcRoom(sessionId));
@@ -573,13 +620,49 @@ export class SessionGateway
    * The socket's peer leaves the room. The call itself keeps running — it
    * ends only when a host ends it or the session ends.
    */
-  private leaveVideo(socket: LiveSocket, opts: { silent?: boolean } = {}): void {
+  private leaveVideo(
+    socket: LiveSocket,
+    opts: { silent?: boolean; away?: boolean } = {},
+  ): void {
     const peer = this.video.removeSocket(socket.id);
     if (!peer) return;
     void socket.leave(rtcRoom(peer.sessionId));
     // Replaced by a newer socket of the same tab → not a real departure.
     const current = this.video.peer(peer.sessionId, peer.info.peerId);
     if (current) return;
+    if (opts.away && this.video.state(peer.sessionId).active) {
+      const sessionId = peer.sessionId;
+      const peerId = peer.info.peerId;
+      this.clearAway(sessionId, peerId);
+      const info: RtcPeer = {
+        ...peer.info,
+        away: true,
+        media: {
+          ...peer.info.media,
+          audio: false,
+          video: false,
+          screen: false,
+          cameraStreamId: null,
+          screenStreamId: null,
+        },
+      };
+      const timer = setTimeout(() => {
+        const map = this.awayPeers.get(sessionId);
+        if (!map || map.get(peerId)?.timer !== timer) return;
+        map.delete(peerId);
+        if (map.size === 0) this.awayPeers.delete(sessionId);
+        if (this.video.peer(sessionId, peerId)) return;
+        this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerLeft, { peerId });
+        this.broadcastRoomState(sessionId);
+      }, PEER_AWAY_GRACE_MS);
+      timer.unref?.();
+      let map = this.awayPeers.get(sessionId);
+      if (!map) this.awayPeers.set(sessionId, (map = new Map()));
+      map.set(peerId, { info, sub: socket.data.identity?.sub ?? null, timer });
+      // Everyone keeps the tile, now marked «reconnecting».
+      this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerJoined, info);
+      return;
+    }
     this.io
       ?.to(rtcRoom(peer.sessionId))
       .emit(WS_EVENTS.rtcPeerLeft, { peerId: peer.info.peerId });
@@ -590,7 +673,7 @@ export class SessionGateway
   private broadcastRoomState(sessionId: string): void {
     this.io
       ?.to(room(sessionId))
-      .emit(WS_EVENTS.rtcRoomState, { sessionId, ...this.video.state(sessionId) });
+      .emit(WS_EVENTS.rtcRoomState, { sessionId, ...this.roomState(sessionId) });
   }
 
   @SubscribeMessage(WS_EVENTS.sessionJoin)
@@ -635,7 +718,7 @@ export class SessionGateway
     if (history.length > 0) {
       socket.emit(WS_EVENTS.chatHistory, { sessionId, messages: history });
     }
-    socket.emit(WS_EVENTS.rtcRoomState, { sessionId, ...this.video.state(sessionId) });
+    socket.emit(WS_EVENTS.rtcRoomState, { sessionId, ...this.roomState(sessionId) });
 
     const questions = this.qaBySession.get(sessionId);
     if (questions?.length) {
@@ -676,6 +759,13 @@ export class SessionGateway
     const payload = { sessionId, participantId };
     this.io.to(room(sessionId)).emit(WS_EVENTS.participantRemoved, payload);
     this.io.to(teachersRoom(sessionId)).emit(WS_EVENTS.participantRemoved, payload);
+    this.removedSubs.add(participantId);
+    // A removed person does not keep a reserved place in the call.
+    for (const [peerId, entry] of this.awayPeers.get(sessionId) ?? []) {
+      if (entry.sub !== participantId) continue;
+      this.clearAway(sessionId, peerId);
+      this.io.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerLeft, { peerId });
+    }
     const sockets = await this.io.in(room(sessionId)).fetchSockets();
     for (const s of sockets) {
       const id = (s.data as LiveSocketData).identity;

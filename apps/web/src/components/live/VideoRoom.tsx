@@ -112,6 +112,8 @@ interface TileModel {
   isHost: boolean;
   media: RtcMediaState;
   camera: MediaStream | null;
+  /** Connection dropped; their place is kept while they come back. */
+  away?: boolean;
 }
 
 /** Three small bars that move while someone is talking. */
@@ -160,7 +162,7 @@ function Tile({
   onPin: () => void;
   onMute: () => void;
   onLowerHand: () => void;
-  labels: { host: string; mute: string; lowerHand: string; pin: string; unpin: string; speaking: string };
+  labels: { host: string; mute: string; lowerHand: string; pin: string; unpin: string; speaking: string; away: string };
 }) {
   const showVideo = tile.media.video && !!tile.camera;
   return (
@@ -198,6 +200,9 @@ function Tile({
           {tile.name}
           {!tile.isSelf && tile.isHost ? ` · ${labels.host}` : ''}
         </span>
+        {tile.away ? (
+          <span className="shrink-0 rounded bg-black/60 px-1 text-[10px] text-amber-300">{labels.away}</span>
+        ) : null}
         {speaking ? <span className="sr-only">{labels.speaking}</span> : null}
         {tile.media.hand ? (
           <Hand className="ml-auto h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
@@ -745,6 +750,7 @@ export function VideoRoom({
       isHost: p.role === 'host',
       media: p.media,
       camera: p.camera,
+      away: !!p.away,
     }));
     // Hosts first, then raised hands, then people on camera — a stable order
     // (speaking is shown by the ring, not by reshuffling the strip).
@@ -976,7 +982,16 @@ export function VideoRoom({
                 })
               : null,
         });
-        recorder.onError = () => void stopRecording();
+        recorder.onError = (message) => {
+          // The internet is down: the video waits in memory and goes up
+          // when it is back — keep recording.
+          if (message === 'upload_backlog') {
+            showToast(t('recBacklog'), 9000);
+            return;
+          }
+          if (message === 'stream_refused') showToast(t('recStreamRefused'), 12000);
+          void stopRecording();
+        };
         recorderRef.current = recorder;
         setRecTarget(recorder.target);
         setRecSince(Date.now());
@@ -1065,6 +1080,7 @@ export function VideoRoom({
     pin: t('pin'),
     unpin: t('unpin'),
     speaking: t('speakingNow'),
+    away: t('peerAway'),
   };
 
   // Shown in and out of the call (e.g. «Преподаватель завершил видеосвязь»).
@@ -1127,7 +1143,11 @@ export function VideoRoom({
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">
-          {recResult.where === 'youtube'
+          {recResult.where !== 'download' && !recResult.link && recResult.cloudError
+            ? recResult.cloudError === 'offline'
+              ? t('recPending')
+              : t('recNotSaved')
+            : recResult.where === 'youtube'
             ? t('recSavedYoutube')
             : recResult.where === 'drive'
               ? t('recSavedDrive')
@@ -1150,7 +1170,14 @@ export function VideoRoom({
                 {recResult.privacy === 'private' ? t('recYoutubePrivate') : t('recYoutubeUnlisted')}
               </p>
             ) : null}
+            {recResult.cloudError === 'partial' ? (
+              <p className="mt-1 text-xs text-muted-foreground">{t('recPartial')}</p>
+            ) : null}
           </>
+        ) : recResult.where !== 'download' && recResult.cloudError ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {recResult.cloudError === 'offline' ? t('recPendingHint') : t('recNotSavedHint')}
+          </p>
         ) : recResult.cloudError ? (
           <p className="mt-1 text-xs text-muted-foreground">{t('recDriveFallback')}</p>
         ) : null}
@@ -1478,7 +1505,7 @@ export function VideoRoom({
               )}
               <span className="absolute inset-x-0 bottom-0 flex items-center gap-0.5 bg-black/60 px-1 text-[9px] leading-4 text-white">
                 {tile.media.hand ? <Hand className="h-2.5 w-2.5 shrink-0 text-warning" /> : !tile.media.audio ? <MicOff className="h-2.5 w-2.5 shrink-0 text-red-400" /> : null}
-                <span className="truncate">{tile.name}</span>
+                <span className={cn('truncate', tile.away && 'text-amber-300')}>{tile.name}</span>
               </span>
             </button>
           );

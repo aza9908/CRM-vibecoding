@@ -634,7 +634,8 @@ export function useVideoRoom(
       everJoinedRef.current = false;
       joinSeqRef.current++;
       const sid = sessionIdRef.current;
-      if (sid) socketRef.current?.emit(WS_EVENTS.rtcLeave, { sessionId: sid });
+      // A remount keeps my place (the server holds it while I reconnect).
+      if (sid && !opts.keepResume) socketRef.current?.emit(WS_EVENTS.rtcLeave, { sessionId: sid });
       if (!opts.keepResume) writeCallResume(sid, null);
       teardown();
       stopLocal();

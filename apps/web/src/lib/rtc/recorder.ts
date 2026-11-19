@@ -13,13 +13,19 @@
  *   - Google Drive, folder «Уроки LMS»;
  *   - a file downloaded to the computer.
  *
- * Nothing is lost on the way:
- *   - every few seconds of video are written to the browser's own database
- *     (IndexedDB) first, so a crashed tab, a closed laptop or a power cut
- *     leaves the recording on disk — the next visit offers to save it;
- *   - the upload runs during the lesson through a resumable session; when the
- *     internet drops it waits and continues from where the server stopped;
- *   - if the upload cannot be finished at all, the file is downloaded.
+ * YouTube / Drive: the video goes straight to the cloud while the lesson
+ * runs, through a resumable upload session, 8 MiB at a time. Nothing of the
+ * video is stored on the host's computer: only the piece not yet accepted by
+ * the server is held in memory (a few seconds; longer while the internet is
+ * down — then it is sent as soon as the connection is back, from where the
+ * server stopped). The only thing written to disk is a few hundred bytes of
+ * bookkeeping (the upload session's address), so that after a power cut or
+ * a closed tab the next visit asks the service to finish the video from
+ * what it already received.
+ *
+ * Download (the host chose a file): every few seconds are written to the
+ * browser's database (IndexedDB) so a crash does not lose the lesson, and
+ * the file is saved at the end.
  */
 
 export const DRIVE_FOLDER_NAME = 'Уроки LMS';
@@ -34,6 +40,8 @@ const GIS_SRC = 'https://accounts.google.com/gsi/client';
 /** Google wants non-final chunks in multiples of 256 KiB. */
 const CHUNK_UNIT = 256 * 1024;
 const FLUSH_BYTES = 32 * CHUNK_UNIT; // 8 MiB
+/** Warn the host when this much video waits in memory (the internet is down). */
+const BACKLOG_WARN_BYTES = 150 * 1024 * 1024;
 
 /** Layout is drawn in 1280×720 units and rendered at 1.5× → Full HD. */
 const WIDTH = 1280;
@@ -276,6 +284,10 @@ export interface SavedRecording {
   createdAt: number;
   updatedAt: number;
   bytes: number;
+  /** Streamed to the cloud: no video bytes are kept locally, only this record. */
+  streamOnly?: boolean;
+  /** Bytes the cloud has confirmed (stream-only recordings). */
+  committed?: number;
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -346,6 +358,20 @@ class LocalCopy {
           t.objectStore(META).put(meta);
         }),
       )
+      .catch(() => {
+        this.broken = true;
+      });
+  }
+
+  /** Stream-only: update the bookkeeping record (no video bytes). */
+  touch(bytes: number, committed: number): void {
+    if (this.broken) return;
+    this.meta.bytes = bytes;
+    this.meta.committed = committed;
+    this.meta.updatedAt = Date.now();
+    const meta = { ...this.meta };
+    this.chain = this.chain
+      .then(() => tx(this.db, [META], 'readwrite', (t) => t.objectStore(META).put(meta)))
       .catch(() => {
         this.broken = true;
       });
@@ -534,6 +560,12 @@ class LiveUpload {
   private offset = 0;
   private chain: Promise<void> = Promise.resolve();
   failed: Error | null = null;
+  /** Called once when the stream fails for good (e.g. the service refuses it). */
+  onFail: ((err: Error) => void) | null = null;
+  /** Bytes recorded but not yet confirmed by the server (held in memory). */
+  get backlog(): number {
+    return this.offset + this.pendingBytes - this.upload.committed;
+  }
 
   constructor(readonly upload: ResumableUpload) {}
 
@@ -552,10 +584,14 @@ class LiveUpload {
     this.offset += sendBytes;
     this.chain = this.chain
       .then(async () => {
-        if (!this.failed) await this.upload.send(piece, start, null);
+        // No copy on disk: keep retrying for as long as it takes (the
+        // piece waits in memory; backoff tops out at 15 s).
+        if (!this.failed) await this.upload.send(piece, start, null, Number.MAX_SAFE_INTEGER);
       })
       .catch((err: unknown) => {
+        if (this.failed) return;
         this.failed = err instanceof Error ? err : new Error('upload_failed');
+        this.onFail?.(this.failed);
       });
   }
 
@@ -564,10 +600,22 @@ class LiveUpload {
     if (this.failed) throw this.failed;
     const tail = new Blob(this.pending);
     const total = this.offset + tail.size;
-    // The last piece gets a few minutes of patience, then we fall back.
-    const res = await this.upload.send(tail, this.offset, total, 20);
+    // The last piece gets a long patience (about half an hour of retries):
+    // there is no copy on disk to fall back to.
+    const res = await this.upload.send(tail, this.offset, total, 120);
     if (!res.done) throw new Error('upload_incomplete');
     return res;
+  }
+
+  /**
+   * Last resort when the tail cannot be sent: ask the service to finish the
+   * video from the bytes it already has (the last seconds are lost).
+   */
+  async finalizeWhatArrived(): Promise<{ done: boolean; id?: string; privacy?: string }> {
+    const st = await this.upload.status(null);
+    if (st.done) return st;
+    if (this.upload.committed <= 0) return { done: false };
+    return this.upload.status(this.upload.committed);
   }
 }
 
@@ -713,6 +761,8 @@ export async function startCallRecording(opts: {
   const recId = newRecId();
   activeRecId = recId;
   const now = Date.now();
+  /** Streaming to the cloud: no video is kept on this computer. */
+  const streamOnly = !!(live && cloud);
   const local = await LocalCopy.create({
     recId,
     fileName,
@@ -723,8 +773,10 @@ export async function startCallRecording(opts: {
     createdAt: now,
     updatedAt: now,
     bytes: 0,
+    streamOnly,
+    committed: 0,
   });
-  /** Used only when the browser gives us no disk (private mode). */
+  /** Download target without a disk (private mode): the file is kept in memory. */
   const memory: Blob[] = [];
 
   // Picture.
@@ -839,10 +891,25 @@ export async function startCallRecording(opts: {
   recorder.ondataavailable = (e) => {
     if (!e.data || e.data.size === 0) return;
     bytes += e.data.size;
+    if (streamOnly && live) {
+      live.write(e.data);
+      local?.touch(bytes, live.upload.committed);
+      // Internet down for a while: tell the host (the video waits in memory).
+      if (live.backlog > BACKLOG_WARN_BYTES && !backlogWarned) {
+        backlogWarned = true;
+        api.onError?.('upload_backlog');
+      } else if (live.backlog < BACKLOG_WARN_BYTES / 4) {
+        backlogWarned = false;
+      }
+      return;
+    }
     if (local && !local.broken) local.add(e.data);
     else memory.push(e.data);
-    live?.write(e.data);
   };
+  let backlogWarned = false;
+  if (live) {
+    live.onFail = (err) => api.onError?.(err instanceof StreamingUnsupported ? 'stream_refused' : 'upload_failed');
+  }
 
   /** The whole file, from disk (or memory when there is no disk). */
   const wholeFile = async (): Promise<Blob> => {
@@ -942,6 +1009,44 @@ export async function startCallRecording(opts: {
           return res;
         };
 
+        if (streamOnly && live && cloud) {
+          try {
+            const done = await live.finish();
+            if (done.id) {
+              return finish({ where: cloud, fileName, bytes, link: linkFor(cloud, done.id), privacy: done.privacy });
+            }
+            cloudError = 'no_id';
+          } catch (err) {
+            cloudError = err instanceof Error ? err.message : 'cloud_failed';
+            if (err instanceof StreamingUnsupported || err instanceof UploadGone) {
+              // Nothing to finish later.
+              return finish({ where: cloud, fileName, bytes: 0, cloudError: 'refused' });
+            }
+            // The tail could not be sent: finish the video from what arrived.
+            try {
+              const done = await live.finalizeWhatArrived();
+              if (done.id) {
+                return finish({
+                  where: cloud,
+                  fileName,
+                  bytes,
+                  link: linkFor(cloud, done.id),
+                  privacy: done.privacy,
+                  cloudError: 'partial',
+                });
+              }
+              if (live.upload.committed <= 0) {
+                return finish({ where: cloud, fileName, bytes: 0, cloudError: 'nothing_uploaded' });
+              }
+            } catch {
+              /* no internet at all: the bookkeeping record stays, the next
+                 visit finishes the video */
+            }
+          }
+          if (activeRecId === recId) activeRecId = null;
+          return { where: cloud, fileName, bytes, cloudError: 'offline' };
+        }
+
         if (live && cloud) {
           try {
             const done = await live.finish();
@@ -1006,6 +1111,26 @@ export async function recoverRecording(
   rec: SavedRecording,
   onProgress?: (fraction: number) => void,
 ): Promise<RecordingResult> {
+  if (rec.streamOnly && rec.sessionUrl && (rec.target === 'youtube' || rec.target === 'drive')) {
+    // Nothing of the video is on this computer: ask the service to finish
+    // the video from what it received before the crash.
+    const live = new LiveUpload(new ResumableUpload(rec.sessionUrl));
+    try {
+      const done = await live.finalizeWhatArrived();
+      await discardSavedRecording(rec.recId);
+      if (done.id) {
+        return { fileName: rec.fileName, bytes: live.upload.committed, where: rec.target, link: linkFor(rec.target, done.id), privacy: done.privacy, cloudError: 'partial' };
+      }
+      return { fileName: rec.fileName, bytes: 0, where: rec.target, cloudError: 'nothing_uploaded' };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'cloud_failed';
+      if (/^gone_/.test(msg)) {
+        await discardSavedRecording(rec.recId);
+        return { fileName: rec.fileName, bytes: 0, where: rec.target, cloudError: 'refused' };
+      }
+      return { fileName: rec.fileName, bytes: 0, where: rec.target, cloudError: 'offline' };
+    }
+  }
   const file = new Blob(await readChunks(rec.recId), { type: rec.mimeType });
   const base = { fileName: rec.fileName, bytes: file.size };
   let cloudError: string | undefined;

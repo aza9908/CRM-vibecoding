@@ -239,6 +239,12 @@ export interface RtcPeer {
   /** `host` = teacher / methodist / admin; can moderate. */
   role: 'host' | 'participant';
   media: RtcMediaState;
+  /**
+   * The connection dropped (reload, Wi-Fi blip). The person keeps their place
+   * in the call for a while and comes back on their own; only after the
+   * grace period are they reported as left.
+   */
+  away?: boolean;
 }
 
 /** What a published track carries. */
