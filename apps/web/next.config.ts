@@ -35,6 +35,10 @@ const nextConfig: NextConfig = {
         source: '/workbook/aitu/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
+      {
+        source: '/workbook/master-coffee/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
   transpilePackages: ['@lms/shared'],

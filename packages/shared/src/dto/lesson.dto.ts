@@ -56,6 +56,7 @@ export const LESSON_CATEGORY_PRESETS = [
   'Pingwin',
   'Orzu Medical',
   'Kazakhtelecom',
+  'Master Coffee',
 ] as const;
 
 /** Body for `POST /lessons`. */

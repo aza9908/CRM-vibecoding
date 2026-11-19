@@ -1,0 +1,314 @@
+{
+  "title": "Урок 1 Master Coffee · STEP OS",
+  "category": "Master Coffee",
+  "blocks": [
+    {
+      "type": "text",
+      "blockRole": "section",
+      "content": "Знакомство и программа"
+    },
+    {
+      "type": "text",
+      "blockRole": "welcome",
+      "content": "Приветствуем, {{name}}!\nMaster Coffee × AIRL · STEP OS · урок 1\n\n**Как устроена программа**\n\nЗа 5 недель каждый участник собирает свой модуль единой системы STEP OS. Код пишет Claude, вы знаете свой процесс. Сегодня первая версия: к 17:30 у каждого рабочая ссылка на свой модуль.\n\n**Что останется у вас после программы**\n\n**Продукт.** Модуль STEP OS, которым пользуется ваш отдел.\n\n**Знания.** Как устроена работа с ИИ-агентом.\n\n**Навыки.** Следующий модуль вы соберёте сами.\n\nСегодня два блока: знакомство и программа, затем практика. Следующий блок открывает преподаватель, когда вся группа готова."
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-01.7958856d21.w2560.jpg",
+      "content": "STEP OS: программа на 5 недель. Каждый участник делает свой модуль единой системы компании",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-02.9d539b0817.w2560.jpg",
+      "content": "Сегодня: к 17:30 у каждого ссылка на свой модуль. План дня",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-03.c159bb77b0.w2560.jpg",
+      "content": "Кто ведёт программу: Жанибек Серкулов, Азамат Арманұлы, Бахтияр Оспанов",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-04.ebceccdfc7.w2560.jpg",
+      "content": "AI Research Labs: центр прикладного ИИ",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-05.d6db579b44.w2560.jpg",
+      "content": "Одна система вместо разрозненных приложений, таблиц и переписок: 14 модулей, 8 за 5 недель, 1 стандарт",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-06.b8d5d43ba6.w2560.jpg",
+      "content": "Доменная экспертиза + ИИ = суперсила",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-07.5ac9181ca0.w2560.jpg",
+      "content": "Вы не становитесь разработчиками: вы знаете свой процесс, Claude пишет код, AIRL ведёт до результата",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-08.e3137926b4.w2560.jpg",
+      "content": "Кейс AIRL · PINGWIN: своя система вместо подписок",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-09.df749b23f1.w2560.jpg",
+      "content": "Кейс AIRL · Kaizen: TPM и TWI в одном приложении",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-10.1b51ab4a53.w2560.jpg",
+      "content": "Кейс AIRL · Orzu Medical: хаб и CRM для 7 филиалов",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-11.f84d9877d8.w2560.jpg",
+      "content": "Кейс AIRL · Physical AI · Мамулины Вкусняшки: камеры считают работу цеха",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/mam.d418f28c8a.mp4",
+        "frame": {
+          "left": 5.03,
+          "top": 26.27,
+          "width": 53.86,
+          "height": 54.0
+        }
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-12.22af756f1c.w2560.jpg",
+      "content": "Схема одна, меняется только способ передачи данных",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-13.c7499b0d89.w2560.jpg",
+      "content": "Модуль выбираете сами: рекомендация по участникам",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-14.a9f549443f.w2560.jpg",
+      "content": "Один стандарт, чтобы потом всё склеить",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-15.74b2b810c1.w2560.jpg",
+      "content": "Куда встраивается ваш модуль: карта STEP OS",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-16.e3f898f777.w2560.jpg",
+      "content": "Каждый модуль пишет только свои данные: общие ключи",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-18.f686bc2934.w2560.jpg",
+      "content": "Ставим 6 скиллов AIRL",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Ставим 6 скиллов AIRL**\n\n1. Установите в VS Code расширение Claude Code и войдите в аккаунт Claude Pro.\n\n2. Откройте терминал: Terminal, затем New Terminal.\n\n3. Вставьте команду ниже и нажмите Enter.\n\nФАЙЛ · Команда для терминала\ncd ~/Downloads && git clone https://github.com/aza9908/airl-vibecoding.git && cd airl-vibecoding && bash install.sh\n\n4. Перезагрузите окно: Ctrl/Cmd + Shift + P, затем Developer: Reload Window.\n\n5. Наберите /airl-start в панели Claude. Появилась подсказка на русском, значит всё готово. Не получилось? Поднимите руку, поставим вместе.",
+      "options": {
+        "icon": "download"
+      }
+    },
+    {
+      "type": "action_button",
+      "blockRole": "task",
+      "options": {
+        "label": "Скиллы и инструкция на GitHub",
+        "href": "https://github.com/aza9908/airl-vibecoding"
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Проверка готовности к практике**\n\nПрежде чем преподаватель откроет второй блок, отметьте всё ниже.\n\n**Обязательно.** Отметки сохраняются и видны преподавателю в реальном времени. Ваш прогресс отслеживается.",
+      "options": {
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Готовность к блоку 2 · отметьте всё**",
+      "options": {
+        "items": [
+          "Есть подписка Claude Pro, вход выполнен",
+          "Есть ноутбук: заряжен и подключён к Wi-Fi",
+          "Установлены VS Code и расширение Claude Code",
+          "Скиллы AIRL установлены: /airl-start показывает подсказку на русском"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "section",
+      "content": "Собираем первую версию модуля"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-17.c66e8578fd.w2560.jpg",
+      "content": "Практика · Собираем первую версию модуля",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-19.eb893d2cb7.w2560.jpg",
+      "content": "6 скиллов: от идеи до работающего продукта",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-20.5667203f82.w2560.jpg",
+      "content": "Как выглядит работа со скиллом",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/aitu/video/restaurant.0ebd1e328b.jpg",
+      "content": "Анимация: приложение как ресторан. Зал это фронтенд, официант это API, кухня это бэкенд, кладовая это база данных",
+      "blockRole": "slide",
+      "options": {
+        "video": "/workbook/aitu/video/restaurant.0ebd1e328b.mp4"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-22.9d797bc9dd.w2560.jpg",
+      "content": "Мастер-промпт: начинаете с рассказа о себе",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Мастер-промпт · скопируйте и заполните**\n\nНажмите «Копировать», вставьте целиком в панель Claude и замените слова в квадратных скобках. Claude сначала расспросит вас и только потом начнёт собирать.\n\nПРОМПТ · Мастер-промпт STEP OS\n/airl-start\nЯ [имя], [должность] в STEP COFFEE, [отдел и город].\nКаждый день я занимаюсь: [2–3 главные задачи].\nЯ не разработчик. Что именно должна уметь программа, пока точно не знаю.\nБольше всего времени у меня уходит на: [ваша боль].\nХочу модуль STEP OS «[название из меню]», коллекции с префиксом [xx_].\nСначала задавай мне вопросы о моей работе по одному, с вариантами ответа.\nПомоги выбрать один главный сценарий. Не начинай собирать, пока я не скажу «да».\nСтандарт: React + Vite, Firebase (Authentication, Firestore, Hosting), все запросы к базе в data.js, товар = артикул 1С, клиент = код контрагента 1С, тёмно-зелёная тема STEP OS, интерфейс на русском.\nПерсональные данные не храним, только тестовые.",
+      "options": {
+        "icon": "pen"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-23.dd33574d61.w2560.jpg",
+      "content": "Мастер-промпт · пример: так его заполняет Лика из продаж",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Пример: так его заполняет Лика из продаж**\n\nПишите своими словами, как рассказали бы новому коллеге. Ошибиться нельзя: Claude уточнит сам.\n\nПРОМПТ · Пример: Лика, продажи\n/airl-start\nЯ Лика, старший менеджер продаж в STEP COFFEE, Алматы.\nКаждый день я занимаюсь: принимаю заказы B2B-клиентов из чата, вношу их в 1С, слежу за повторными заказами.\nЯ не разработчик. Что именно должна уметь программа, пока точно не знаю.\nБольше всего времени у меня уходит на: ручной ввод заказа, 2–3 минуты на каждый, 30–40 заказов в неделю.\nБывают пропуски помола и ошибки в адресах и датах.\nХочу модуль STEP OS «CRM & Sales», коллекции с префиксом crm_.\nСначала задавай мне вопросы о моей работе по одному, с вариантами ответа.\nПомоги выбрать один главный сценарий. Не начинай собирать, пока я не скажу «да».\nСтандарт: React + Vite, Firebase (Authentication, Firestore, Hosting), все запросы к базе в data.js, товар = артикул 1С, клиент = код контрагента 1С, тёмно-зелёная тема STEP OS, интерфейс на русском.\nПерсональные данные не храним, только тестовые.",
+      "options": {
+        "icon": "question"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-24.61d5d8a53b.w2560.jpg",
+      "content": "Сегодня всё происходит в Firebase",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-25.3d1ab8c74d.w2560.jpg",
+      "content": "Что дальше · 5 недель до модуля, которым пользуются",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-26.b8783ab539.w2560.jpg",
+      "content": "Каждая неделя заканчивается демо по живой ссылке",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-27.80a46d5431.w2560.jpg",
+      "content": "3–4 часа в неделю вместе с созвоном",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-28.de82b2bf0e.w2560.jpg",
+      "content": "Мы не пишем код за вас. Мы ведём каждого до результата",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-29.0bebd72fda.w2560.jpg",
+      "content": "Если застряли: к кому идти",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-30.1317deeb84.w2560.jpg",
+      "content": "Восемь правил предсказуемого результата",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-31.1a0bdc7d01.w2560.jpg",
+      "content": "Что будет на руках у компании к 25 декабря",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-32.9f278a8073.w2560.jpg",
+      "content": "Задание до созвона 27 ноября",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc-33.90e275e5d0.w2560.jpg",
+      "content": "Каждый показывает свой модуль за 2 минуты",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Сдаём MVP**\n\nКогда первая версия модуля открывается по ссылке, отметьте галочку и вставьте ссылку.\n\n**Обязательно.** Отметки сохраняются и видны преподавателю в реальном времени. Ваш прогресс отслеживается.",
+      "options": {
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Мой MVP готов**",
+      "options": {
+        "items": [
+          "Я сделал(а) MVP: первая версия моего модуля открывается по ссылке"
+        ],
+        "required": true,
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Ссылка на мой модуль.** Вставьте адрес вашего модуля (проект.web.app).",
+      "options": {
+        "icon": "rocket"
+      }
+    }
+  ]
+}
