@@ -481,7 +481,7 @@ jobs:
           API: https://lms-api.magauin.kz
           WEB: https://airl.kz/lms
         run: |
-          set -uo pipefail
+          set +e -u
           echo "== 1. open ports on the server (from the internet)"
           for p in 22 80 443 3001 3002 5432 6379 9000 9001 44444; do
             if timeout 4 bash -c "</dev/tcp/$VPS_HOST/$p" 2>/dev/null; then echo "  port $p: OPEN"; else echo "  port $p: closed"; fi
