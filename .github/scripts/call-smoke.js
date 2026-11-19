@@ -60,6 +60,49 @@ const api = async (path, init = {}) => {
     await sp.waitForTimeout(3000);
     const t2 = await sp.evaluate(() => [...document.querySelectorAll('#video-room video')].map((v) => v.currentTime));
     ok(t2.some((t, i) => t > (t1[i] ?? 0) + 1), 'video keeps playing for 3 s');
+
+    // A whole class: PEERS more students join at once (all from this machine).
+    const PEERS = Math.min(80, Number(process.env.PEERS || 0));
+    if (PEERS > 0) {
+      const t0 = Date.now();
+      const crowd = [];
+      const joinOne = async (i) => {
+        const ctx = await browser.newContext({ viewport: { width: 640, height: 480 } });
+        const p = await ctx.newPage();
+        await p.goto(`${WEB}/join`, { timeout: 90000 });
+        await p.fill('#join-code', session.code);
+        await p.fill('#join-name', `Нагрузка ${i + 1}`); await p.fill('#join-phone', '+7 700 000 00 00'); await p.fill('#join-company', 'AIRL (тест)'); await p.fill('#join-position', 'Проверка');
+        await p.click('button[type=submit]');
+        await p.waitForURL(/\/live\//, { timeout: 90000 });
+        await p.getByText('Вы в эфире').waitFor({ timeout: 120000 });
+        crowd.push(p);
+      };
+      const results = await Promise.allSettled(Array.from({ length: PEERS }, (_, i) => joinOne(i)));
+      const failed = results.filter((x) => x.status === 'rejected');
+      ok(failed.length === 0, `${PEERS - failed.length}/${PEERS} more students are in the call (${((Date.now() - t0) / 1000).toFixed(0)} s)` + (failed.length ? ' · ' + String(failed[0].reason).split('\n')[0] : ''));
+      const total = crowd.length + 2;
+      const seen = async () => Number((await tp.locator('text=/Участников: \\d+/').first().textContent({ timeout: 5000 }).catch(() => '')).replace(/\D+/g, '')) || 0;
+      let n = 0;
+      for (let i = 0; i < 60 && n < total; i++) { n = await seen(); if (n < total) await tp.waitForTimeout(1000); }
+      ok(n === total, `teacher sees everyone: «Участников: ${n}» (expected ${total})`);
+      // Each student still gets the teacher's media.
+      let good = 0;
+      for (const p of crowd) {
+        const g = await p.evaluate(() => [...document.querySelectorAll('#video-room video')].some((v) => v.videoWidth > 0)).catch(() => false);
+        if (g) good++;
+      }
+      ok(good >= crowd.length - 1, `${good}/${crowd.length} students receive the teacher's video`);
+      // A reload in the middle of the lesson does not remove anyone.
+      if (crowd[0]) {
+        const reload = crowd[0].reload({ timeout: 90000 });
+        let min = total;
+        for (let i = 0; i < 12; i++) { min = Math.min(min, await seen()); await tp.waitForTimeout(500); }
+        await reload;
+        await crowd[0].getByText('Вы в эфире').waitFor({ timeout: 60000 });
+        ok(min === total, `a student reloads: the teacher's count never drops (min ${min}/${total}), the student is back in the call`);
+      }
+      ok(await sp.getByText('Вы в эфире').count() > 0, 'the first student is still in the call');
+    }
   } catch (err) {
     ok(false, 'error: ' + (err && err.message ? err.message.split('\n')[0] : String(err)));
   } finally {

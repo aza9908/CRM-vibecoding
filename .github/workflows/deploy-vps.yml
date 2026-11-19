@@ -41,6 +41,9 @@ on:
       lesson_spec:
         description: create-lesson — spec file name in .github/scripts/lessons (without .json)
         default: ''
+      peers:
+        description: call-smoke — how many extra students join the test call (0–80)
+        default: '0'
       google_client_id:
         description: deploy — Google OAuth client id (public) for saving call recordings to Google Drive; empty keeps the current one
         default: ''
@@ -1055,7 +1058,7 @@ jobs:
           mkdir -p /tmp/smoke && cp .github/scripts/call-smoke.js /tmp/smoke/ && cd /tmp/smoke
           npm init -y >/dev/null && npm install --silent playwright@1 >/dev/null
           npx playwright install --with-deps chromium >/dev/null
-          TOKEN="$TOKEN" node call-smoke.js
+          TOKEN="$TOKEN" PEERS="${{ inputs.peers }}" node call-smoke.js
 
       - name: Load test from the internet (60 people at once from one IP, service lesson)
         if: inputs.mode == 'load-smoke'
