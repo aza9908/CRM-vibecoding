@@ -86,12 +86,26 @@ const api = async (path, init = {}) => {
       for (let i = 0; i < 60 && n < total; i++) { n = await seen(); if (n < total) await tp.waitForTimeout(1000); }
       ok(n === total, `teacher sees everyone: «Участников: ${n}» (expected ${total})`);
       // Each student still gets the teacher's media.
-      let good = 0;
-      for (const p of crowd) {
-        const g = await p.evaluate(() => [...document.querySelectorAll('#video-room video')].some((v) => v.videoWidth > 0)).catch(() => false);
-        if (g) good++;
+      // track = the media server sends the teacher's video to this student;
+      // decoded = this (shared, overloaded) test machine also drew a frame.
+      const probe = (p) => p.evaluate(() => {
+        const vids = [...document.querySelectorAll('#video-room video')];
+        const track = vids.some((v) => v.srcObject && v.srcObject.getVideoTracks().some((t) => t.readyState === 'live' && !t.muted));
+        const decoded = vids.some((v) => v.videoWidth > 0);
+        const audio = [...document.querySelectorAll('audio[data-peer-audio]')].some((a) => a.srcObject && a.srcObject.getAudioTracks().some((t) => t.readyState === 'live'));
+        return { track, decoded, audio };
+      }).catch(() => ({ track: false, decoded: false, audio: false }));
+      let st = [];
+      for (let round = 0; round < 6; round++) {
+        st = [];
+        for (const p of crowd) st.push(await probe(p));
+        if (st.every((x) => x.track && x.audio)) break;
+        await tp.waitForTimeout(5000);
       }
-      ok(good >= crowd.length - 1, `${good}/${crowd.length} students receive the teacher's video`);
+      const tracks = st.filter((x) => x.track).length, audio = st.filter((x) => x.audio).length, dec = st.filter((x) => x.decoded).length;
+      ok(tracks >= crowd.length - 1 && audio >= crowd.length - 1, `media server sends the teacher's video to ${tracks}/${crowd.length} and audio to ${audio}/${crowd.length} students (frames drawn on this test machine: ${dec})`);
+      const load = require('os').loadavg()[0].toFixed(1);
+      console.log(`· test machine: ${require('os').cpus().length} CPU, load ${load}`);
       // A reload in the middle of the lesson does not remove anyone.
       if (crowd[0]) {
         const reload = crowd[0].reload({ timeout: 90000 });
