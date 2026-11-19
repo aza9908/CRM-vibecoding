@@ -400,6 +400,7 @@ jobs:
 
           # 3. Recreate the local database on Postgres 17 and restore the copy.
           echo "== 3. restore on this server"
+          trap 'echo "failed — starting the API again"; $C up -d --no-build api </dev/null' ERR
           $C stop api </dev/null
           $C rm -sf db </dev/null
           VOL=$(docker volume ls -q | grep -E '(^|_)lms_db$' | head -1)
@@ -407,6 +408,7 @@ jobs:
           $C up -d db </dev/null
           for i in $(seq 1 60); do docker exec lms-db-1 pg_isready -U lms -d lms </dev/null >/dev/null 2>&1 && break; sleep 2; done
           docker exec lms-db-1 psql -U lms -d lms -tAc "select version()" </dev/null | cut -c1-40
+          docker exec lms-db-1 psql -U lms -d lms -q -c "drop schema public cascade" </dev/null
           docker cp /root/lms-backups/neon-full-$ts.dump lms-db-1:/tmp/neon.dump
           docker exec lms-db-1 pg_restore -U lms -d lms --no-owner --no-acl --exit-on-error /tmp/neon.dump </dev/null
           docker exec lms-db-1 rm -f /tmp/neon.dump </dev/null
