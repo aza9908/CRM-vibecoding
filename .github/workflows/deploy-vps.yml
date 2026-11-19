@@ -214,6 +214,18 @@ jobs:
           echo "api log (24h): lines $(docker logs --since 24h lms-api-1 2>&1 | wc -l) · errors $(docker logs --since 24h lms-api-1 2>&1 | grep -ciE 'error|exception|unhandled' )"
           docker logs --since 24h lms-api-1 2>&1 | grep -iE 'error|exception|unhandled|ECONN|timeout' | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+/<email>/g; s/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f-]{22,}/<id>/g' | cut -c1-200 | sort | uniq -c | sort -rn | head -15
           echo "nginx (today): 502/504 on the API → $(grep -cE '" (502|504) ' /var/log/nginx/access.log 2>/dev/null || echo n/a)"
+          echo "== database: provider (host suffix only) and a test query"
+          docker exec lms-api-1 sh -c 'printf "%s" "$DATABASE_URL"' | sed -E 's#^[a-z]+://[^@]*@([^/:?]+).*#\1#' | awk -F. '{ if (NF>=2) print "host suffix: " $(NF-1) "." $NF; else print "host: local name" }'
+          docker exec lms-api-1 node -e 'const {Pool}=require("pg");const p=new Pool({connectionString:process.env.DATABASE_URL});p.query("select 1").then(()=>{console.log("select 1: ok");p.end()}).catch(e=>{console.log("select 1: "+e.message.slice(0,200));process.exit(0)})' 2>&1 | grep -v SECURITY | grep -v "next major" | head -3
+          echo "== old local postgres container on this server"
+          docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Image}}' | grep -i postgres || true
+          if docker ps --format '{{.Names}}' | grep -qx lms-postgres-1; then
+            docker exec lms-postgres-1 psql -U postgres -tAc "select datname from pg_database where datistemplate = false" 2>&1 | head
+            for db in $(docker exec lms-postgres-1 psql -U postgres -tAc "select datname from pg_database where datistemplate = false and datname <> 'postgres'" 2>/dev/null); do
+              echo "-- $db: $(docker exec lms-postgres-1 psql -U postgres -d "$db" -tAc "select 'lessons ' || (select count(*) from lessons) || ' · sessions ' || (select count(*) from live_sessions) || ' · users ' || (select count(*) from users) || ' · last session ' || coalesce((select max(created_at)::date::text from live_sessions), '-') || ' · size ' || pg_size_pretty(pg_database_size(current_database()))" 2>&1 | head -2)"
+            done
+          fi
+          df -h / | tail -1
           dmesg -T 2>/dev/null | grep -i 'killed process' | tail -3 || true
           REMOTE
           if [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] && [ -n "$PUBKEY_B64" ]; then
