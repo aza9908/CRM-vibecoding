@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -279,6 +279,110 @@ jobs:
           # Short lines: the log viewer drops very long ones.
           echo "== export (gzip + AES-256-CBC, base64 lines):"; base64 -w 1000 export.enc; echo "== end of export"
           rm -f export.json export.json.gz k.txt
+
+      - name: Move the LMS database onto this server (fresh Postgres, all migrations, nightly backups)
+        if: inputs.mode == 'db-to-vps'
+        env:
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "APP_DIR='$VPS_APP_DIR' bash -s" <<'REMOTE'
+          set -euo pipefail
+          if [ -z "$APP_DIR" ]; then
+            APP_DIR=$(find / -xdev -name docker-compose.prod.yml -not -path '*/.deploy-backup/*' 2>/dev/null \
+              | xargs -r grep -l 'apps/web' | while read -r f; do d=$(dirname "$f"); if [ -d "$d/.git" ]; then echo "$d"; fi; done | head -1 || true)
+          fi
+          [ -n "$APP_DIR" ] && [ -d "$APP_DIR/.git" ] || { echo "LMS clone not found on this server"; exit 1; }
+          cd "$APP_DIR"
+          ENV_FILE=.env.prod; [ -f "$ENV_FILE" ] || ENV_FILE=.env
+          [ -f "$ENV_FILE" ] || { echo "No .env.prod/.env"; exit 1; }
+          if docker compose version >/dev/null 2>&1; then DC="docker compose"; else DC="docker-compose"; fi
+          changed=$(git diff --name-only)
+          if [ -n "$changed" ]; then
+            [ "$changed" = "docker-compose.prod.yml" ] || { echo "Unexpected local changes, refusing:"; echo "$changed"; exit 1; }
+            git checkout -- docker-compose.prod.yml
+          fi
+          git fetch origin main && git checkout main && git pull --ff-only origin main
+          grep -q '^  db:' docker-compose.prod.yml || { echo "compose has no db service"; exit 1; }
+          cp "$ENV_FILE" "$ENV_FILE.bak-$(date +%Y%m%d%H%M%S)"; chmod 600 "$ENV_FILE".bak-*
+          if ! grep -q '^LMS_DB_PASSWORD=' "$ENV_FILE"; then
+            PW=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 || true)
+            [ ${#PW} -eq 32 ] || { echo "password generation failed"; exit 1; }
+            printf '\nLMS_DB_PASSWORD=%s\n' "$PW" >> "$ENV_FILE"
+          fi
+          PW=$(grep '^LMS_DB_PASSWORD=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
+          CUR=$(grep '^DATABASE_URL=' "$ENV_FILE" | tail -1 | cut -d= -f2-)
+          case "$CUR" in
+            *@db:5432/*) echo "DATABASE_URL already points at the local db" ;;
+            *)
+              grep -q '^NEON_DATABASE_URL=' "$ENV_FILE" || printf 'NEON_DATABASE_URL=%s\n' "$CUR" >> "$ENV_FILE"
+              sed -i "s#^DATABASE_URL=.*#DATABASE_URL=postgres://lms:${PW}@db:5432/lms#" "$ENV_FILE"
+              echo "DATABASE_URL switched to the local db (old value kept as NEON_DATABASE_URL)" ;;
+          esac
+          chmod 600 "$ENV_FILE"
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d db
+          for i in $(seq 1 60); do $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T db pg_isready -U lms -d lms >/dev/null 2>&1 && break; sleep 2; done
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T db pg_isready -U lms -d lms
+          PSQL="$DC --env-file $ENV_FILE -f docker-compose.prod.yml exec -T db psql -U lms -d lms -v ON_ERROR_STOP=1 -q"
+          if [ "$($PSQL -tAc "select to_regclass('public.users') is not null")" != "t" ]; then
+            for f in $(ls apps/api/drizzle/0*.sql | sort); do
+              echo "== schema $(basename "$f")"
+              sed 's/--> statement-breakpoint//' "$f" | $PSQL -1 -f -
+            done
+            $PSQL -c "create table if not exists _deploy_migrations (name text primary key, applied_at timestamptz not null default now())"
+            for n in 0012_lesson_category.sql 0013_pulse_checks.sql 0014_lesson_analyses.sql 0015_session_sections.sql 0016_participant_removed.sql 0017_participant_contacts.sql; do
+              $PSQL -c "insert into _deploy_migrations (name) values ('$n') on conflict do nothing"
+            done
+          else
+            echo "schema already present"
+          fi
+          echo "tables: $($PSQL -tAc "select count(*) from information_schema.tables where table_schema='public'")"
+          $DC --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d --no-build api
+          for i in $(seq 1 45); do c=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/lessons || true); [ "$c" = "401" ] && break; sleep 2; done
+          echo "api /lessons without a token → $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/lessons) (401 = up)"
+          echo "bad login → $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}' http://127.0.0.1:3002/auth/login) (401 = database works)"
+          docker exec lms-api-1 node -e 'const {Pool}=require("pg");const p=new Pool({connectionString:process.env.DATABASE_URL});p.query("select current_database() as db, (select count(*) from users) as users").then(r=>{console.log("api → database", JSON.stringify(r.rows[0]));p.end()}).catch(e=>{console.log("api → database error: "+e.message);process.exit(1)})'
+          # Nightly backup at 02:15 Astana, 14 days kept.
+          mkdir -p /root/lms-backups && chmod 700 /root/lms-backups
+          DBC=$($DC --env-file "$ENV_FILE" -f docker-compose.prod.yml ps -q db)
+          DBN=$(docker inspect -f '{{.Name}}' "$DBC" | tr -d /)
+          printf '%s\n' "SHELL=/bin/bash" "15 21 * * * root docker exec $DBN pg_dump -U lms -Fc lms > /root/lms-backups/lms-\$(date +\\%F).dump 2>/root/lms-backups/last-error.log && find /root/lms-backups -name '*.dump' -mtime +14 -delete" > /etc/cron.d/lms-db-backup
+          chmod 644 /etc/cron.d/lms-db-backup
+          docker exec "$DBN" pg_dump -U lms -Fc lms > "/root/lms-backups/lms-$(date +%F)-first.dump"
+          echo "backup: $(ls -la /root/lms-backups | tail -n +2 | wc -l) file(s) · cron: $(cat /etc/cron.d/lms-db-backup | tail -1 | cut -c1-40)…"
+          REMOTE
+
+      - name: Make a registered account the owner (organization + admin role)
+        if: inputs.mode == 'promote-owner'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          printf '%s\n' "$EMAIL_SHA256" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-api-1 node -e '
+            const eh = require(\"fs\").readFileSync(0, \"utf8\").trim();
+            const { Pool } = require(\"pg\");
+            const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+            (async () => {
+              const u = (await pool.query(\"select id, organization_id from users where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$1\", [eh])).rows[0];
+              if (!u) { console.log(\"account not registered yet\"); process.exit(2); }
+              let org = u.organization_id;
+              if (!org) {
+                org = (await pool.query(\"insert into organizations (name, created_by) values (\$1, \$2) returning id\", [\"AI Research Labs\", u.id])).rows[0].id;
+              }
+              await pool.query(\"update users set organization_id = \$1, role = \x27admin\x27, is_platform_admin = true where id = \$2\", [org, u.id]);
+              const r = (await pool.query(\"select role, is_platform_admin, (select name from organizations where id = organization_id) as org from users where id = \$1\", [u.id])).rows[0];
+              console.log(\"owner: role \" + r.role + \" · platform admin \" + r.is_platform_admin + \" · organization \" + r.org);
+              await pool.end();
+            })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
+          '"
 
       - name: Retire lms.magauin.kz (redirect visitors to airl.kz/lms)
         if: inputs.mode == 'retire-old-domain'

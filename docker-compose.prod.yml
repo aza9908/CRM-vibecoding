@@ -30,6 +30,26 @@ services:
     image: redis:7
     restart: unless-stopped
 
+  # The LMS database, on this server (moved off a hosted Postgres whose free
+  # quota ran out). Not published to the host: only the API reaches it.
+  # Nightly pg_dump → /root/lms-backups (see the db-to-vps workflow mode).
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    shm_size: 256mb
+    environment:
+      POSTGRES_USER: lms
+      POSTGRES_PASSWORD: ${LMS_DB_PASSWORD}
+      POSTGRES_DB: lms
+    command: postgres -c shared_buffers=512MB -c max_connections=200
+    volumes:
+      - lms_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lms -d lms"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   api:
     build:
       context: .
@@ -38,6 +58,7 @@ services:
     depends_on:
       - redis
       - minio
+      - db
     environment:
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379
@@ -83,3 +104,4 @@ services:
 
 volumes:
   minio_data:
+  lms_db:
