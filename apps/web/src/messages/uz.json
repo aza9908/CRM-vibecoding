@@ -818,6 +818,8 @@
     "findSaved": "Fayl saqlandi ({size}), «Yuklanmalar» papkasini koʻring.",
     "findNoVideo": "Brauzerda video topilmadi.",
     "findElsewhere": "Yozuv olib borilgan kompyuter va brauzerda qidiring. «Yuklanmalar» papkasini va YouTube Studio → Kontent boʻlimini (qoralamalar bilan) tekshiring.",
+    "srvSendAgain": "YouTube ga qayta yuborish",
+    "srvTooLongHint": "YouTube videoni «juda uzun» deb oʻchirsa, kanalni youtube.com/verify da telefon orqali tasdiqlang va qayta yuboring. Nusxa serverda 7 kun saqlanadi.",
     "recFailed": "Bu brauzerda yozuvni boshlab bo‘lmadi. Kompyuterda Chrome’dan foydalaning.",
     "recDriveDenied": "Google Drive’ga ruxsat bermadi (to‘g‘ri Google akkaunt tanlanganini tekshiring) — yozuv shu kompyuterga saqlanadi.",
     "recSavedDrive": "Yozuv Google Drive’ga saqlandi, «Уроки LMS» papkasi",

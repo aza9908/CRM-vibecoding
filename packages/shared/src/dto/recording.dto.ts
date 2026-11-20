@@ -40,6 +40,8 @@ export interface ServerRecording {
   youtubeId?: string;
   privacy?: string;
   error?: string;
+  /** The server still holds the video file (download / send again). */
+  fileKept?: boolean;
   createdAt: string;
   updatedAt: string;
 }

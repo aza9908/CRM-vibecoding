@@ -77,6 +77,13 @@ export class RecordingsController {
     return this.recordings.pending(user.orgId);
   }
 
+  /** A 15-minute link to download the server copy. */
+  @Post('recordings/:rid/download-link')
+  @HttpCode(200)
+  link(@CurrentUser() user: AuthUserPayload, @Param('rid', new ParseUUIDPipe()) id: string) {
+    return this.recordings.downloadLink(user.orgId, id);
+  }
+
   @Get('recordings/:rid')
   get(@CurrentUser() user: AuthUserPayload, @Param('rid', new ParseUUIDPipe()) id: string) {
     return this.recordings.get(user.orgId, id);

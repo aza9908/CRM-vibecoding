@@ -7,7 +7,7 @@ import {
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createWriteStream, promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import type { Readable } from 'node:stream';
@@ -26,6 +26,8 @@ const MAX_BYTES = Number(process.env.RECORDINGS_MAX_BYTES ?? 10 * 1024 ** 3);
 const MIN_FREE_BYTES = Number(process.env.RECORDINGS_MIN_FREE_BYTES ?? 3 * 1024 ** 3);
 /** Recordings nobody sent anywhere are removed after this long. */
 const KEEP_MS = 14 * 24 * 3600_000;
+/** Copies already on YouTube are kept this long (YouTube may still reject them). */
+const DONE_KEEP_MS = 7 * 24 * 3600_000;
 const YT_UPLOAD = process.env.YOUTUBE_UPLOAD_URL ?? 'https://www.googleapis.com/upload/youtube/v3/videos';
 /** YouTube chunks must be multiples of 256 KiB. */
 const YT_CHUNK = 64 * 256 * 1024; // 16 MiB
@@ -128,6 +130,50 @@ export class RecordingsService implements OnModuleInit {
     if (!meta || meta.orgId !== orgId) throw new NotFoundException('recording_not_found');
     return meta;
   }
+  private async hasFile(id: string): Promise<boolean> {
+    return fs.stat(this.dataPath(id)).then((st) => st.size > 0).catch(() => false);
+  }
+
+  /** A link that downloads the server copy for 15 minutes, without a login header. */
+  async downloadLink(orgId: string, id: string): Promise<{ path: string }> {
+    const meta = await this.scoped(orgId, id);
+    if (!(await this.hasFile(id))) throw new NotFoundException('file_gone');
+    const exp = Date.now() + 15 * 60_000;
+    return { path: `/recordings/${meta.id}/file?exp=${exp}&sig=${this.sign(meta.id, exp)}` };
+  }
+
+  private sign(id: string, exp: number): string {
+    const secret = process.env.JWT_ACCESS_SECRET ?? '';
+    return createHmac('sha256', `recording-download:${secret}`).update(`${id}:${exp}`).digest('hex');
+  }
+
+  /** Check a download link; returns what to stream. */
+  async openDownload(
+    id: string,
+    exp: number,
+    sig: string,
+  ): Promise<{ path: string; size: number; fileName: string; mimeType: string }> {
+    const good = this.sign(id, exp);
+    if (
+      !Number.isFinite(exp) ||
+      exp < Date.now() ||
+      sig.length !== good.length ||
+      !timingSafeEqual(Buffer.from(sig), Buffer.from(good))
+    ) {
+      throw new NotFoundException('link_expired');
+    }
+    const meta = await this.read(id);
+    if (!meta || !(await this.hasFile(id))) throw new NotFoundException('file_gone');
+    const st = await fs.stat(this.dataPath(id));
+    const ext = meta.mimeType.includes('mp4') ? 'mp4' : 'webm';
+    return {
+      path: this.dataPath(id),
+      size: st.size,
+      fileName: `${meta.title.replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 120)}.${ext}`,
+      mimeType: meta.mimeType.split(';')[0] || 'video/webm',
+    };
+  }
+
   private dto(m: Meta): ServerRecording {
     return {
       id: m.id,
@@ -244,15 +290,18 @@ export class RecordingsService implements OnModuleInit {
   }
 
   async get(orgId: string, id: string): Promise<ServerRecording> {
-    return this.dto(await this.scoped(orgId, id));
+    const m = await this.scoped(orgId, id);
+    return { ...this.dto(m), fileKept: await this.hasFile(id) };
   }
 
   /** Recordings of this organisation that are not on YouTube yet. */
   async pending(orgId: string): Promise<ServerRecording[]> {
     const list = (await this.all()).filter((m) => m.orgId === orgId && m.status !== 'done');
-    return list
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .map((m) => this.dto(m));
+    const out: ServerRecording[] = [];
+    for (const m of list.sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+      out.push({ ...this.dto(m), fileKept: await this.hasFile(m.id) });
+    }
+    return out;
   }
 
   async remove(orgId: string, id: string): Promise<void> {
@@ -284,7 +333,7 @@ export class RecordingsService implements OnModuleInit {
     const now = Date.now();
     for (const m of await this.all()) {
       const age = now - Date.parse(m.updatedAt);
-      if (m.status === 'done' && age > 24 * 3600_000) await this.removeFiles(m.id);
+      if (m.status === 'done' && age > DONE_KEEP_MS) await this.removeFiles(m.id);
       else if (m.status !== 'uploading' && age > KEEP_MS) await this.removeFiles(m.id);
     }
   }
@@ -295,7 +344,12 @@ export class RecordingsService implements OnModuleInit {
   async sendToYoutube(orgId: string, id: string, accessToken: string): Promise<ServerRecording> {
     return this.withLock(id, async () => {
       const meta = await this.scoped(orgId, id);
-      if (meta.status === 'done') return this.dto(meta);
+      if (meta.status === 'done') {
+        // Send again (e.g. YouTube removed it): a new video from the kept copy.
+        if (!(await this.hasFile(id))) return this.dto(meta);
+        meta.sessionUrl = undefined;
+        meta.youtubeId = undefined;
+      }
       if (this.running.has(id)) {
         this.running.set(id, accessToken); // a fresher token for the rest
         return this.dto(meta);
@@ -473,8 +527,9 @@ export class RecordingsService implements OnModuleInit {
     m.progress = 1;
     m.sessionUrl = undefined;
     await this.save(m);
-    // YouTube has it: the server copy goes.
-    await fs.rm(this.dataPath(id), { force: true }).catch(() => undefined);
+    // The server copy is kept for a week: YouTube can still reject a video
+    // after accepting it (e.g. «too long» for a channel without phone
+    // verification) — then it can be downloaded or sent again.
     this.logger.log(`recording ${id}: on YouTube`);
   }
 }

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { ExternalLink, Trash2, Upload, Youtube } from 'lucide-react';
+import { Download, ExternalLink, Trash2, Upload, Youtube } from 'lucide-react';
 import type { ServerRecording } from '@lms/shared';
 import { serverRecordings } from '@/lib/api/recordings';
 import {
@@ -208,6 +208,9 @@ export function ServerRecordings({ className }: { className?: string }) {
                     <div className="h-full bg-red-600 transition-all" style={{ width: `${Math.round((r.progress ?? 0) * 100)}%` }} />
                   </div>
                 ) : null}
+                {r.status === 'done' && r.fileKept ? (
+                  <p className="mt-1 text-xs text-muted-foreground">{t('srvTooLongHint')}</p>
+                ) : null}
                 {r.status === 'done' && r.privacy === 'private' ? (
                   <p className="mt-1 text-xs text-muted-foreground">{t('recYoutubePrivate')}</p>
                 ) : null}
@@ -225,6 +228,18 @@ export function ServerRecordings({ className }: { className?: string }) {
                 >
                   {t('recOpenYoutube')} <ExternalLink className="h-3.5 w-3.5" />
                 </a>
+              ) : null}
+              {r.fileKept && r.status !== 'uploading' ? (
+                <Button size="sm" variant="outline" onClick={() => void serverRecordings.download(r.id).catch(() => undefined)}>
+                  <Download className="mr-1 h-3.5 w-3.5" />
+                  {t('findDownload')}
+                </Button>
+              ) : null}
+              {r.status === 'done' && r.fileKept ? (
+                <Button size="sm" variant="outline" onClick={() => void send(r)} disabled={busy === r.id}>
+                  <Upload className="mr-1 h-3.5 w-3.5" />
+                  {t('srvSendAgain')}
+                </Button>
               ) : null}
               {r.status === 'done' ? (
                 <button

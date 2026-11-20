@@ -12,6 +12,11 @@ export const serverRecordings = {
   sendToYoutube: (id: string, accessToken: string) =>
     api.post<ServerRecording>(`/recordings/${id}/youtube`, { accessToken }),
   remove: (id: string) => api.del<void>(`/recordings/${id}`),
+  /** Start a browser download of the server copy (signed 15-minute link). */
+  async download(id: string): Promise<void> {
+    const { path } = await api.post<{ path: string }>(`/recordings/${id}/download-link`);
+    window.location.assign(`${API_URL}${path}`);
+  },
 
   /** Raw bytes starting at `offset`; resolves with the size the server has. */
   async putPiece(id: string, offset: number, piece: Blob): Promise<{ size: number }> {
