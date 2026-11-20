@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -473,6 +473,24 @@ jobs:
               await pool.end();
             })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
           '"
+
+      - name: What is left of recent lesson recordings (sizes and states only)
+        if: inputs.mode == 'recording-check'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          set +e
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" bash -s <<'REMOTE'
+          echo "== live sessions of the last 2 days"
+          docker exec lms-db-1 psql -U lms -d lms -At -F ' | ' -c "select s.code, s.status, to_char(s.start_time at time zone 'Asia/Almaty','DD.MM HH24:MI'), to_char(s.end_time at time zone 'Asia/Almaty','HH24:MI'), left(l.title,50), (select count(*) from participants p where p.session_id=s.id) from live_sessions s left join lessons l on l.id=s.lesson_id where s.created_at > now() - interval '2 days' order by s.created_at" </dev/null
+          echo "== AI review (audio copy of recordings) of the last 2 days"
+          docker exec lms-db-1 psql -U lms -d lms -At -F ' | ' -c "select to_char(created_at at time zone 'Asia/Almaty','DD.MM HH24:MI'), status, stage, coalesce(duration_sec,0)/60 || ' min', coalesce(length(transcript),0) || ' chars of transcript', (report is not null), left(coalesce(error,''),80), left(title,50) from lesson_analyses where created_at > now() - interval '2 days' order by created_at" </dev/null
+          echo "== files: audio pieces in the API container, server recordings volume"
+          docker exec lms-api-1 sh -c 'ls -la /tmp/lms-analysis 2>/dev/null | tail -n +2; ls -la /data/recordings 2>/dev/null | tail -n +2' </dev/null
+          REMOTE
 
       - uses: actions/checkout@v4
         if: inputs.mode == 'security-scan'
