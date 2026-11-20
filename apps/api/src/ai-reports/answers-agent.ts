@@ -524,7 +524,8 @@ export class AnswersAgent {
   private readAnswer(q: Question, raw: string | null, completed: boolean): Answer {
     const value = (raw ?? '').trim();
     if (q.type === 'checklist') {
-      const ticked = checklistIndices(raw);
+      const all = [...new Set(checklistIndices(raw))];
+      const ticked = q.items.length ? all.filter((i) => i >= 0 && i < q.items.length) : all;
       const names = ticked.map((i) => q.items[i]).filter((s): s is string => !!s);
       return {
         text: q.items.length

@@ -11,6 +11,7 @@ import type {
 } from '@lms/shared';
 import { Link } from '@/i18n/routing';
 import { useSessionReport, downloadReportExport } from '@/lib/api/hooks';
+import { AnswersAnalysisCard } from '@/components/ai-reports/AnswersAnalysisCard';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
@@ -349,6 +350,9 @@ export function ReportDetailView({
           }
         />
       </div>
+
+      {/* «ИИ-анализ ответов» — start, progress, report (staff page). */}
+      <AnswersAnalysisCard sessionId={sessionId} className="mb-6" />
 
       <Tabs items={tabs} value={tab} onChange={(v) => setTab(v as TabValue)} />
 

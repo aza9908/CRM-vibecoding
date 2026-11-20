@@ -10,8 +10,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { PointsRules, RankBadge } from './rating-parts';
 
-/** A company tile (same look as the company tiles of the lessons board). */
-function CompanyTile({
+/** A company tile (same look as the company tiles of the lessons board).
+ * Also used by the «ИИ-куратор» page. */
+export function CompanyTile({
   active,
   onClick,
   label,

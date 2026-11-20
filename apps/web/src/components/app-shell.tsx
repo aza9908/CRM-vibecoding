@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   BookOpen,
+  Bot,
   Building2,
   FolderOpen,
   HelpCircle,
@@ -34,6 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const ta = useTranslations('admin');
   const tt = useTranslations('tour');
   const tr = useTranslations('rating');
+  const tcur = useTranslations('curator');
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -91,6 +93,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             tourText: isTeacher ? tr('tourStaff') : tr('tourStudent'),
           },
         ]),
+    // «ИИ-куратор»: staff only, next to the rating it is built on.
+    ...(isTeacher
+      ? [
+          {
+            href: '/teacher/curator',
+            label: tcur('navLabel'),
+            icon: Bot,
+            tourId: 'curator',
+            tourText: tcur('tour'),
+          },
+        ]
+      : []),
     {
       href: '/join',
       label: t('join'),

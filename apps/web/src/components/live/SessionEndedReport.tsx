@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/hooks/use-reports';
 import { Brand } from '@/components/brand';
 import { LessonAnalysisCard } from '@/components/analysis/LessonAnalysisCard';
+import { AnswersAnalysisCard } from '@/components/ai-reports/AnswersAnalysisCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
@@ -136,6 +137,9 @@ export function SessionEndedReport({
 
         {/* «ИИ-разбор урока» — progress, then the review, if it was recorded. */}
         <LessonAnalysisCard sessionId={sessionId} wide />
+
+        {/* «ИИ-анализ ответов» of the workbook answers, on demand. */}
+        <AnswersAnalysisCard sessionId={sessionId} />
 
         {report && (
           <>

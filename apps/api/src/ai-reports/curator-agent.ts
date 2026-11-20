@@ -272,7 +272,13 @@ export class CuratorAgent {
     let table = learners;
     let tableNote = '';
     if (learners.length > MAIN_TABLE_MAX) {
-      const risk = (l: Learner) => l.attendance * 2 - (l.daysIdle ?? 999) / 30 - l.flagged;
+      // Lower = more at risk: missed lessons, skipped checkpoints, silence, idle days, flags.
+      const risk = (l: Learner) =>
+        l.attendance +
+        (requiredTotal ? Math.min(1, l.row.requiredDone / requiredTotal) : 0) +
+        (l.row.answered > 0 ? 0.5 : 0) -
+        Math.min(2, (l.daysIdle ?? 60) / 30) -
+        0.5 * l.flagged;
       const top = learners.slice(0, 10);
       const rest = learners
         .slice(10)
