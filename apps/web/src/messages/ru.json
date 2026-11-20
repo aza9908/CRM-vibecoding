@@ -213,6 +213,7 @@
     "lessonsCount": "{count, plural, one {# урок} few {# урока} many {# уроков} other {# урока}}",
     "categoryAll": "Все",
     "categoryEmpty": "В этой категории пока нет уроков",
+    "pickCompany": "Нажмите на компанию выше, чтобы открыть её уроки.",
     "categoryNone": "Без категории",
     "categoryNew": "+ Новая категория…",
     "categoryNewPlaceholder": "Название компании",

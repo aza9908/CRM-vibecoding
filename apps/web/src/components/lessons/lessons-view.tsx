@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, FolderOpen, Plus, Search, X } from 'lucide-react';
+import { FolderOpen, Plus, Search, X } from 'lucide-react';
 import { LESSON_CATEGORY_PRESETS } from '@lms/shared';
 import { useCurriculum, useLessons, useLiveSessions } from '@/lib/api/hooks';
 import type { Lesson, LiveSessionSummary } from '@/lib/api/types';
@@ -50,7 +50,6 @@ export function LessonsView() {
   const [showArchived, setShowArchived] = useState(false);
   const [filter, setFilter] = useState<string>(ALL);
   const [query, setQuery] = useState('');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const dateFormatter = useLessonDateFormatter();
 
   const archivedCount = lessons?.filter((l) => l.archived).length ?? 0;
@@ -139,7 +138,9 @@ export function LessonsView() {
     filter === ALL ? groups : groups.filter((g) => g.key === filter);
   const totalShown = shownGroups.reduce((n, g) => n + g.lessons.length, 0);
   const hasLessons = (lessons?.length ?? 0) > 0;
-  const board = filter === ALL && usesCategories;
+  // Nothing below the company buttons until one is pressed (a search shows
+  // its matches right away).
+  const pickFirst = filter === ALL && usesCategories && !query.trim();
 
   function openCreate(category: string | null) {
     setDialogCategory(category);
@@ -256,7 +257,7 @@ export function LessonsView() {
             </Button>
           }
         />
-      ) : totalShown === 0 && !board ? (
+      ) : totalShown === 0 && !pickFirst ? (
         <EmptyState
           title={query ? t('nothingFound') : t('categoryEmpty')}
           hint={query ? t('nothingFoundHint') : undefined}
@@ -275,76 +276,10 @@ export function LessonsView() {
             )
           }
         />
-      ) : board ? (
-        // One column per category: stacked collapsible sections on phones; from
-        // `lg` up a board whose columns wrap to the next row, so nothing is
-        // ever cut off at the right edge.
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] lg:items-start">
-          {shownGroups.map((g) => {
-            const isCollapsed = collapsed[g.key] ?? false;
-            const addTo = g.key === NONE ? null : g.key;
-            return (
-              <section
-                key={g.key}
-                aria-label={g.label}
-                className="flex min-w-0 flex-col rounded-xl border bg-muted/40"
-              >
-                <div className="flex items-center gap-2 px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCollapsed((c) => ({ ...c, [g.key]: !isCollapsed }))
-                    }
-                    aria-expanded={!isCollapsed}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:pointer-events-none"
-                  >
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 shrink-0 text-muted-foreground transition-transform lg:hidden',
-                        isCollapsed && '-rotate-90',
-                      )}
-                      aria-hidden
-                    />
-                    <h2 className="truncate text-sm font-semibold">{g.label}</h2>
-                    <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-                      {g.lessons.length}
-                    </span>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-muted-foreground"
-                    onClick={() => openCreate(addTo)}
-                    aria-label={`${t('newLesson')} — ${g.label}`}
-                    title={t('newLesson')}
-                  >
-                    <Plus />
-                  </Button>
-                </div>
-                <div
-                  className={cn(
-                    'flex-col gap-3 px-3 pb-3',
-                    isCollapsed ? 'hidden lg:flex' : 'flex',
-                  )}
-                >
-                  {/* «Add a lesson» always comes first in a column. */}
-                  <button
-                    type="button"
-                    onClick={() => openCreate(addTo)}
-                    className={cn(
-                      'flex items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      g.lessons.length > 0 ? 'py-3' : 'py-6',
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t('categoryEmptyAdd')}
-                  </button>
-                  {cards(g.lessons)}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+      ) : pickFirst ? (
+        <p className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+          {t('pickCompany')}
+        </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <button

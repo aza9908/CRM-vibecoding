@@ -213,6 +213,7 @@
     "lessonsCount": "{count} ta dars",
     "categoryAll": "Barchasi",
     "categoryEmpty": "Bu toifada hali darslar yo‘q",
+    "pickCompany": "Darslarini ochish uchun yuqoridagi kompaniyani bosing.",
     "categoryNone": "Toifasiz",
     "categoryNew": "+ Yangi toifa…",
     "categoryNewPlaceholder": "Kompaniya nomi",

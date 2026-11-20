@@ -213,6 +213,7 @@
     "lessonsCount": "{count, plural, one {# lesson} other {# lessons}}",
     "categoryAll": "All",
     "categoryEmpty": "No lessons in this category yet",
+    "pickCompany": "Press a company above to open its lessons.",
     "categoryNone": "Uncategorised",
     "categoryNew": "+ New category…",
     "categoryNewPlaceholder": "Company name",

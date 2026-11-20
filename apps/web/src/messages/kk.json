@@ -213,6 +213,7 @@
     "lessonsCount": "{count} сабақ",
     "categoryAll": "Барлығы",
     "categoryEmpty": "Бұл санатта әзірге сабақ жоқ",
+    "pickCompany": "Сабақтарын ашу үшін жоғарыдағы компанияны басыңыз.",
     "categoryNone": "Санатсыз",
     "categoryNew": "+ Жаңа санат…",
     "categoryNewPlaceholder": "Компания атауы",
