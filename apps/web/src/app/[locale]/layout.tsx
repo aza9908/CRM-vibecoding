@@ -42,6 +42,14 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Pages are rendered per request and sent with «no-store»: airl.kz/lms sits
+ * behind a CDN that otherwise keeps a prerendered page for a year
+ * (s-maxage=31536000), so people kept seeing an old version after a deploy.
+ * Static files under /_next/static stay cached (their names change per build).
+ */
+export const dynamic = 'force-dynamic';
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
