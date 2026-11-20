@@ -56,6 +56,11 @@ export interface TranscribeResult {
 export const LLM_TASK_MARKER = {
   analysisNotes: '[[task:lesson-analysis-notes]]',
   analysisReport: '[[task:lesson-analysis-report]]',
+  answersQuestions: '[[task:answers-questions]]',
+  answersFeedback: '[[task:answers-feedback]]',
+  answersSummary: '[[task:answers-summary]]',
+  curatorReport: '[[task:curator-report]]',
+  curatorSteps: '[[task:curator-steps]]',
 } as const;
 
 export interface LlmProvider {

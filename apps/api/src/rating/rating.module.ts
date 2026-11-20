@@ -15,5 +15,7 @@ import { RatingService } from './rating.service';
   imports: [AuthModule],
   controllers: [RatingController],
   providers: [RatingService, UserOrParticipantGuard],
+  // The «ИИ-куратор» agent reads the rating (same students, same rules).
+  exports: [RatingService],
 })
 export class RatingModule {}

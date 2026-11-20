@@ -358,6 +358,46 @@ export const lessonAnalyses = pgTable(
   }),
 );
 
+/**
+ * Reports of the two AI agents that work on what the LMS already knows (no
+ * recording): «ИИ-анализ ответов» (`kind='answers'`, per live session) and
+ * «ИИ-куратор» (`kind='curator'`, per company = lesson category). Same job
+ * life cycle as `lesson_analyses` (status / progress / stage).
+ */
+export const aiReports = pgTable(
+  'ai_reports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(), // answers|curator
+    sessionId: uuid('session_id').references(() => liveSessions.id, {
+      onDelete: 'cascade',
+    }),
+    category: text('category'),
+    status: text('status').notNull().default('queued'), // queued|processing|done|failed
+    progress: integer('progress').notNull().default(0), // 0–100
+    stage: text('stage').notNull().default('queued'),
+    locale: text('locale').notNull().default('ru'),
+    /** `{ report, stats }` — see `ai-report.dto.ts` in @lms/shared. */
+    result: jsonb('result'),
+    error: text('error'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => ({
+    sessionIdx: index('ai_reports_session_idx').on(t.sessionId, t.createdAt),
+    categoryIdx: index('ai_reports_org_category_idx').on(
+      t.organizationId,
+      t.kind,
+      t.category,
+      t.createdAt,
+    ),
+  }),
+);
+
 export const participants = pgTable(
   'participants',
   {
@@ -608,6 +648,7 @@ export const schema = {
   liveSessions,
   participants,
   lessonAnalyses,
+  aiReports,
   blockBoards,
   responses,
   sessionChatMessages,

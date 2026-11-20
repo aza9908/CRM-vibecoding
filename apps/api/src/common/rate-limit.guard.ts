@@ -54,6 +54,8 @@ const RULES: Rule[] = [
   // The AI model costs money per token: per person, per minute and per day.
   { name: 'ai-minute', method: 'POST', path: /^\/(ai\/chat|lessons\/[^/]+\/blocks\/generate.*)$/, limit: 20, windowMs: MIN, by: 'identity' },
   { name: 'ai-day', method: 'POST', path: /^\/(ai\/chat|lessons\/[^/]+\/blocks\/generate.*)$/, limit: 400, windowMs: 24 * 60 * MIN, by: 'identity' },
+  // AI reports («ИИ-анализ ответов», «ИИ-куратор»): each start runs many model calls.
+  { name: 'ai-report', method: 'POST', path: /^\/(sessions\/[^/]+\/answers-analysis|curator\/reports)$/, limit: 20, windowMs: 60 * MIN, by: 'identity' },
   // Uploads.
   { name: 'upload', method: 'POST', path: /upload|\/storage/, limit: 60, windowMs: MIN, by: 'identity' },
   // Everything else: a floor against floods, far above what a person does.
