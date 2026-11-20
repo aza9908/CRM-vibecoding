@@ -451,6 +451,10 @@ export class RecordingsService implements OnModuleInit {
       if (res.status === 401) throw new Error('google_signin_expired');
       throw new Error(`youtube_create_${res.status} ${text.slice(0, 300)}`);
     }
+    // Defence in depth (SSRF): only ever talk to YouTube's own upload host.
+    if (new URL(location).origin !== new URL(YT_UPLOAD).origin) {
+      throw new Error('youtube_bad_location');
+    }
     return location;
   }
 
