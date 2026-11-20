@@ -169,3 +169,76 @@
     background: transparent;
   }
 }
+
+/* Call reactions: an emoji (+ sender's name) floats up over the video and
+   fades out. Pure CSS, compositor-only (transform/opacity) — cheap for a
+   class of 50+. Reduced motion: no travel, just a fade. */
+@keyframes call-reaction-float {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translate3d(0, -8%, 0) scale(1.1);
+  }
+  25% {
+    transform: translate3d(var(--reaction-drift, 0px), -40%, 0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(var(--reaction-drift, 0px) * -1), -260%, 0) scale(1);
+  }
+}
+
+@keyframes call-reaction-fade {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes call-reaction-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  25%,
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.call-reaction {
+  animation: call-reaction-float 3.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.call-reaction-badge {
+  animation: call-reaction-pop 2.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-reaction,
+  .call-reaction-badge {
+    animation: call-reaction-fade 3s linear forwards;
+  }
+}

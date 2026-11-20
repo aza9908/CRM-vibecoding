@@ -474,6 +474,9 @@ jobs:
             })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
           '"
 
+      - uses: actions/checkout@v4
+        if: inputs.mode == 'security-scan'
+
       - name: Security scan from the internet (read-only probes, no data changed)
         if: inputs.mode == 'security-scan'
         env:
@@ -509,6 +512,27 @@ jobs:
           echo "  a normal request right after: $(curl -s -m 15 -o /dev/null -w '%{http_code} in %{time_total}s' $API/lessons)"
           echo "== 7. TLS"
           for v in tls1 tls1_1 tls1_2 tls1_3; do r=$(echo | timeout 8 openssl s_client -connect lms-api.magauin.kz:443 -servername lms-api.magauin.kz -$v 2>/dev/null | grep -c 'BEGIN CERTIFICATE'); echo "  $v: $([ "$r" -gt 0 ] && echo accepted || echo refused)"; done
+          echo "== 9. CSRF: a request another site makes the browser send (cookies only, no Authorization header)"
+          echo "  forged cookie access_token → /auth/me: $(curl -s -m 10 -o /dev/null -w '%{http_code}' -H 'Origin: https://evil.example' -H 'Cookie: access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.x' $API/auth/me) (401 = cookies are never accepted as login)"
+          echo "  cross-site form POST (text/plain) → /sessions: $(curl -s -m 10 -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://evil.example' -H 'content-type: text/plain' -d 'x' $API/sessions) (401 = refused)"
+          echo "  refresh cookie flags: $(curl -s -m 10 -D - -o /dev/null -X POST -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"x"}' $API/auth/login | grep -i '^set-cookie' | sed -E 's/=[^;]+;/=<value>;/' | tr -d '\r' || true) (only set after a real login; HttpOnly + Secure + SameSite=Lax)"
+          echo "== 10. CORS: can another site read answers as the user?"
+          for o in https://evil.example https://airl.kz.evil.example null; do
+            h=$(curl -s -m 10 -D - -o /dev/null -H "Origin: $o" $API/auth/me | grep -i '^access-control-allow-origin' | tr -d '\r')
+            echo "  Origin $o → [${h:-no Access-Control-Allow-Origin}]"
+          done
+          echo "  Origin https://airl.kz → [$(curl -s -m 10 -D - -o /dev/null -H 'Origin: https://airl.kz' $API/auth/me | grep -i '^access-control-allow-origin' | tr -d '\r')] (our site: allowed)"
+          echo "== 11. password brute force: 300 guesses at one account"
+          for i in $(seq 1 300); do curl -s -m 10 -o /dev/null -w '%{http_code}\n' -X POST -H 'content-type: application/json' -d '{"email":"owner-check@example.com","password":"guess-'$i'"}' $API/auth/login; done | sort | uniq -c | sed 's/^/  /'
+          echo "== 12. SSRF: does the server fetch addresses users give it?"
+          echo "  server-side fetch() targets in the code (must be fixed services only):"
+          grep -rhoE "fetch\([^,)]*" apps/api/src --include=*.ts | sort -u | sed 's/^/    /'
+          echo "== 13. recordings API without / with a fake login"
+          echo "  GET /recordings/pending (no login) → $(curl -s -m 10 -o /dev/null -w '%{http_code}' $API/recordings/pending)"
+          echo "  PUT piece (no login) → $(curl -s -m 10 -o /dev/null -w '%{http_code}' -X PUT -H 'content-type: application/octet-stream' --data-binary 'x' "$API/recordings/00000000-0000-4000-8000-000000000000/pieces?offset=0")"
+          echo "  path trick ../ in id → $(curl -s -m 10 -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer x' "$API/recordings/..%2F..%2Fetc%2Fpasswd")"
+          echo "== 14. password storage (counts only, no data)"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec lms-db-1 psql -U lms -d lms -At -c \"select coalesce(substring(password_hash from '^\\\$[a-z0-9]+'),'(none)') as kind, count(*) from users group by 1\" </dev/null" | sed 's/^/  /'
           echo "== 8. nginx and kernel settings on the server"
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" 'for f in /etc/nginx/sites-enabled/*; do grep -qE "lms-api.magauin.kz|lms.magauin.kz" "$f" || continue; echo "-- $(basename $f)"; grep -hoE "^\s*(proxy_set_header|client_max_body_size|limit_req|limit_conn|proxy_read_timeout|add_header)[^;]*" "$f" | sed -E "s/^\s+/   /" | sort | uniq -c; done; grep -rhoE "^\s*(limit_req_zone|limit_conn_zone|client_header_timeout|client_body_timeout|keepalive_timeout|server_tokens)[^;]*" /etc/nginx/nginx.conf /etc/nginx/conf.d/ 2>/dev/null | sed "s/^/   /"; echo "syncookies $(sysctl -n net.ipv4.tcp_syncookies) · somaxconn $(sysctl -n net.core.somaxconn)"; echo "fail2ban: $(systemctl is-active fail2ban 2>/dev/null || echo none) · ssh password auth: $(sshd -T 2>/dev/null | grep -i "^passwordauthentication" | cut -d" " -f2) · root login: $(sshd -T 2>/dev/null | grep -i "^permitrootlogin" | cut -d" " -f2)"; echo "ssh failed logins (24h): $(journalctl -u ssh -u sshd --since "24 hours ago" 2>/dev/null | grep -c "Failed password")"'
 

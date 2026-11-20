@@ -87,6 +87,9 @@ export const WS_EVENTS = {
   rtcReset: 'rtc:reset',
   /** server → whole session (and each joiner): is a video call running? */
   rtcRoomState: 'rtc:room-state',
+  /** client → server: a quick emoji reaction in the call; server → rtc room:
+   * who reacted with what (RtcReactionPayload / RtcReactionRelay) */
+  rtcReaction: 'rtc:reaction',
 
   // ── Q&A queue ────────────────────────────────────────────────────────────
   /** client → server: ask a question */
@@ -425,6 +428,39 @@ export interface RtcPeerStatePayload {
   media: RtcMediaState;
 }
 
+/** Emoji anyone in the call may send as a quick reaction (fixed allow-list:
+ * the server drops anything else). */
+export const RTC_REACTIONS = ['👍', '❤️', '😂', '😮', '👏', '🎉', '🤔', '🙏'] as const;
+export type RtcReactionEmoji = (typeof RTC_REACTIONS)[number];
+
+export function isRtcReaction(value: unknown): value is RtcReactionEmoji {
+  return (
+    typeof value === 'string' &&
+    (RTC_REACTIONS as readonly string[]).includes(value)
+  );
+}
+
+/** Per-socket reaction rate limit: at most one per `minGapMs`, and at most
+ * `burst` within `windowMs`. Extra reactions are dropped silently. */
+export const RTC_REACTION_LIMIT = {
+  minGapMs: 700,
+  windowMs: 10_000,
+  burst: 6,
+} as const;
+
+/** `rtc:reaction` (client → server). */
+export interface RtcReactionPayload {
+  sessionId: string;
+  emoji: RtcReactionEmoji;
+}
+
+/** `rtc:reaction` (server → rtc room, sender included). */
+export interface RtcReactionRelay {
+  peerId: string;
+  name: string;
+  emoji: RtcReactionEmoji;
+}
+
 // ── Q&A payloads ─────────────────────────────────────────────────────────────
 
 export type QaStatus = 'open' | 'live' | 'answered';
@@ -599,6 +635,7 @@ export interface ServerToClientEvents {
   [WS_EVENTS.rtcSpeakers]: (payload: RtcSpeakersPayload) => void;
   [WS_EVENTS.rtcCallEnded]: (payload: RtcCallEndPayload) => void;
   [WS_EVENTS.rtcReset]: () => void;
+  [WS_EVENTS.rtcReaction]: (payload: RtcReactionRelay) => void;
   [WS_EVENTS.qaList]: (payload: QaListPayload) => void;
   [WS_EVENTS.qaFloor]: (payload: QaFloorPayload) => void;
   [WS_EVENTS.pulseState]: (payload: PulseStatePayload) => void;
@@ -648,6 +685,7 @@ export interface ClientToServerEvents {
   ) => void;
   [WS_EVENTS.rtcConsumerLayers]: (payload: RtcConsumerLayersPayload) => void;
   [WS_EVENTS.rtcModerate]: (payload: RtcModeratePayload) => void;
+  [WS_EVENTS.rtcReaction]: (payload: RtcReactionPayload) => void;
   [WS_EVENTS.qaAsk]: (payload: QaAskPayload) => void;
   [WS_EVENTS.qaVote]: (payload: QaVotePayload) => void;
   [WS_EVENTS.qaStatus]: (payload: QaStatusPayload) => void;

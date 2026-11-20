@@ -61,6 +61,23 @@ const api = async (path, init = {}) => {
     const t2 = await sp.evaluate(() => [...document.querySelectorAll('#video-room video')].map((v) => v.currentTime));
     ok(t2.some((t, i) => t > (t1[i] ?? 0) + 1), 'video keeps playing for 3 s');
 
+    // Recording for YouTube goes through the server: pieces in, then the
+    // server talks to YouTube itself. A fake Google token must come back as
+    // «sign in again» — that proves the whole path up to YouTube works.
+    {
+      const rec = await api(`/sessions/${session.id}/recordings`, { method: 'POST', body: JSON.stringify({ title: 'Проверка записи (авто)', mimeType: 'video/webm' }) });
+      const piece = Buffer.alloc(1024 * 1024, 7);
+      const put = await fetch(`${API}/recordings/${rec.id}/pieces?offset=0`, { method: 'PUT', headers: { authorization: 'Bearer ' + TOKEN, 'content-type': 'application/octet-stream' }, body: piece });
+      const putJson = await put.json().catch(() => ({}));
+      ok(put.ok && putJson.size === piece.length, `recording: 1 MB piece stored on the server (${put.status}, size ${putJson.size})`);
+      await api(`/recordings/${rec.id}/complete`, { method: 'POST' });
+      await api(`/recordings/${rec.id}/youtube`, { method: 'POST', body: JSON.stringify({ accessToken: 'ya29.not-a-real-token-smoke-test' }) });
+      let st = null;
+      for (let i = 0; i < 30; i++) { st = await api(`/recordings/${rec.id}`); if (st.status !== 'uploading') break; await new Promise((r) => setTimeout(r, 1000)); }
+      ok(st && st.status === 'ready' && st.error === 'google_signin_expired', `recording: the server reached YouTube, which refused the fake token as expected (${st && st.status} · ${st && st.error})`);
+      await api(`/recordings/${rec.id}`, { method: 'DELETE' }).catch(() => undefined);
+    }
+
     // A whole class: PEERS more students join at once (all from this machine).
     const PEERS = Math.min(80, Number(process.env.PEERS || 0));
     if (PEERS > 0) {

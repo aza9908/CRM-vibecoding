@@ -80,6 +80,10 @@ services:
       RTC_PORT: "44444"
       RTC_WORKERS: "2"
       PORT: "3001"
+      # Lesson recordings wait here until the server has sent them to YouTube.
+      RECORDINGS_DIR: /data/recordings
+    volumes:
+      - lms_recordings:/data/recordings
     ports:
       # Only nginx on this host reaches the API (TLS + limits); never the internet directly.
       - "127.0.0.1:3002:3001"
@@ -106,3 +110,4 @@ services:
 volumes:
   minio_data:
   lms_db:
+  lms_recordings:

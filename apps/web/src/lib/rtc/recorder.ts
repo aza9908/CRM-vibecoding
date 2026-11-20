@@ -84,6 +84,10 @@ export interface RecordingResult {
   privacy?: string;
   /** Why the chosen cloud target was not used (shown to the host). */
   cloudError?: string;
+  /** YouTube via the LMS server: the recording waiting there to be sent. */
+  serverRecordingId?: string;
+  /** The server is already sending it to YouTube. */
+  serverSending?: boolean;
 }
 
 export interface RecorderScene {
@@ -457,6 +461,9 @@ class ResumableUpload {
   committed = 0;
   aborted = false;
 
+  /** Google sign-in sent with every request (YouTube wants it on each one). */
+  authToken: string | null = null;
+
   constructor(
     private readonly sessionUrl: string,
     committed = 0,
@@ -464,11 +471,15 @@ class ResumableUpload {
     this.committed = committed;
   }
 
+  private auth(): Record<string, string> {
+    return this.authToken ? { authorization: `Bearer ${this.authToken}` } : {};
+  }
+
   /** Ask the server how many bytes it holds (also detects a finished file). */
   async status(total: number | null): Promise<{ done: boolean; id?: string; privacy?: string }> {
     const res = await fetch(this.sessionUrl, {
       method: 'PUT',
-      headers: { 'content-range': `bytes */${total ?? '*'}` },
+      headers: { ...this.auth(), 'content-range': `bytes */${total ?? '*'}` },
     });
     if (res.status === 308) {
       const range = res.headers.get('range');
@@ -505,7 +516,7 @@ class ResumableUpload {
       try {
         const res = await fetch(this.sessionUrl, {
           method: 'PUT',
-          headers: { 'content-range': range },
+          headers: { ...this.auth(), 'content-range': range },
           body,
         });
         if (res.status === 308) {
@@ -612,8 +623,13 @@ class LiveUpload {
    * video from the bytes it already has (the last seconds are lost).
    */
   async finalizeWhatArrived(): Promise<{ done: boolean; id?: string; privacy?: string }> {
-    const st = await this.upload.status(null);
-    if (st.done) return st;
+    let st: { done: boolean; id?: string; privacy?: string } | null = null;
+    try {
+      st = await this.upload.status(null);
+    } catch (err) {
+      if (err instanceof UploadGone) throw err;
+    }
+    if (st?.done) return st;
     if (this.upload.committed <= 0) return { done: false };
     return this.upload.status(this.upload.committed);
   }
@@ -720,6 +736,101 @@ function newRecId(): string {
  * `requestGoogleToken`) the file is streamed to the cloud during the lesson;
  * otherwise it is downloaded when recording stops.
  */
+/** How the recorder talks to the LMS server (YouTube target). */
+export interface RecordingRelay {
+  create(title: string, mimeType: string): Promise<{ id: string }>;
+  putPiece(id: string, offset: number, piece: Blob): Promise<{ size: number }>;
+  complete(id: string): Promise<unknown>;
+}
+
+/**
+ * Streams the recording to the LMS server while the lesson runs. Pieces stay
+ * in memory only until the server confirms them; network trouble is retried
+ * for as long as it takes (the server answers where it stopped).
+ */
+class RelayUpload {
+  private pending: Blob[] = [];
+  private pendingBytes = 0;
+  /** Bytes the server has confirmed. */
+  confirmed = 0;
+  /** Bytes handed to the queue (confirmed + in flight + pending). */
+  private queued = 0;
+  private chain: Promise<void> = Promise.resolve();
+  failed: Error | null = null;
+  onFail: ((err: Error) => void) | null = null;
+  constructor(
+    readonly relay: RecordingRelay,
+    readonly id: string,
+  ) {}
+  get backlog(): number {
+    return this.queued + this.pendingBytes - this.confirmed;
+  }
+  write(blob: Blob): void {
+    if (this.failed) return;
+    this.pending.push(blob);
+    this.pendingBytes += blob.size;
+    if (this.pendingBytes >= flushBytes()) this.flush();
+  }
+  private flush(): void {
+    if (!this.pendingBytes) return;
+    const piece = new Blob(this.pending);
+    const start = this.queued;
+    this.queued += piece.size;
+    this.pending = [];
+    this.pendingBytes = 0;
+    this.chain = this.chain
+      .then(() => this.send(piece, start))
+      .catch((err: unknown) => {
+        if (this.failed) return;
+        this.failed = err instanceof Error ? err : new Error('upload_failed');
+        this.onFail?.(this.failed);
+      });
+  }
+  private async send(piece: Blob, start: number): Promise<void> {
+    let failures = 0;
+    for (;;) {
+      if (this.confirmed >= start + piece.size) return;
+      const from = Math.max(start, this.confirmed);
+      try {
+        const { size } = await this.relay.putPiece(this.id, from, piece.slice(from - start));
+        this.confirmed = Math.max(this.confirmed, size);
+        if (this.confirmed >= start + piece.size) return;
+        // The server has less than expected: resend from its size.
+        if (size < from) throw new Error('lost_bytes');
+      } catch (err) {
+        const gap = err as { size?: number; status?: number; message?: string };
+        if (typeof gap.size === 'number') {
+          if (gap.size < start) throw new Error('lost_bytes');
+          this.confirmed = Math.max(this.confirmed, gap.size);
+          if (/not_recording/.test(gap.message ?? '')) throw new Error('not_recording');
+          continue;
+        }
+        // A 4xx other than auth/limits is final; everything else is retried.
+        if (gap.status && gap.status >= 400 && gap.status < 500 && ![401, 408, 429].includes(gap.status)) {
+          throw err instanceof Error ? err : new Error('upload_failed');
+        }
+      }
+      failures++;
+      await sleep(Math.min(15_000, 1000 * failures));
+    }
+  }
+  async finish(): Promise<void> {
+    this.flush();
+    await this.chain;
+    if (this.failed) throw this.failed;
+    // Several tries (the tab may be closing soon after); the server keeps
+    // what it has either way.
+    for (let i = 0; i < 5; i++) {
+      try {
+        await this.relay.complete(this.id);
+        return;
+      } catch {
+        await sleep(1500 * (i + 1));
+      }
+    }
+  }
+}
+
 export async function startCallRecording(opts: {
   title: string;
   target: RecordingTarget;
@@ -729,6 +840,8 @@ export async function startCallRecording(opts: {
    * send to the server piece by piece) — the input of the AI lesson review.
    */
   audioSink?: (mimeType: string) => AudioOnlySink | null;
+  /** YouTube target: stream to the LMS server, which sends it to YouTube. */
+  relay?: RecordingRelay | null;
 }): Promise<CallRecorder> {
   const mimeType = pickMimeType();
   const ext = mimeType.startsWith('video/mp4') ? 'mp4' : 'webm';
@@ -741,7 +854,15 @@ export async function startCallRecording(opts: {
 
   let cloudError: string | undefined;
   let sessionUrl: string | null = null;
-  if (cloud && opts.token) {
+  let relayed: RelayUpload | null = null;
+  if (cloud === 'youtube' && opts.relay) {
+    try {
+      const rec = await opts.relay.create(title, baseType);
+      relayed = new RelayUpload(opts.relay, rec.id);
+    } catch (err) {
+      cloudError = err instanceof Error ? err.message : 'server_failed';
+    }
+  } else if (cloud && opts.token) {
     try {
       sessionUrl = await openUploadSession(cloud, opts.token, {
         fileName,
@@ -763,7 +884,8 @@ export async function startCallRecording(opts: {
   const now = Date.now();
   /** Streaming to the cloud: no video is kept on this computer. */
   const streamOnly = !!(live && cloud);
-  const local = await LocalCopy.create({
+  // Relayed: the server keeps everything; nothing at all on this computer.
+  const local = relayed ? null : await LocalCopy.create({
     recId,
     fileName,
     title,
@@ -891,6 +1013,16 @@ export async function startCallRecording(opts: {
   recorder.ondataavailable = (e) => {
     if (!e.data || e.data.size === 0) return;
     bytes += e.data.size;
+    if (relayed) {
+      relayed.write(e.data);
+      if (relayed.backlog > BACKLOG_WARN_BYTES && !backlogWarned) {
+        backlogWarned = true;
+        api.onError?.('upload_backlog');
+      } else if (relayed.backlog < BACKLOG_WARN_BYTES / 4) {
+        backlogWarned = false;
+      }
+      return;
+    }
     if (streamOnly && live) {
       live.write(e.data);
       local?.touch(bytes, live.upload.committed);
@@ -907,6 +1039,7 @@ export async function startCallRecording(opts: {
     else memory.push(e.data);
   };
   let backlogWarned = false;
+  if (relayed) relayed.onFail = () => api.onError?.('upload_failed');
   if (live) {
     live.onFail = (err) => api.onError?.(err instanceof StreamingUnsupported ? 'stream_refused' : 'upload_failed');
   }
@@ -946,6 +1079,7 @@ export async function startCallRecording(opts: {
   let stopped: Promise<RecordingResult> | null = null;
   const api: CallRecorder = {
     get target() {
+      if (relayed) return 'youtube';
       return live && cloud ? cloud : 'download';
     },
     onError: null,
@@ -1008,6 +1142,23 @@ export async function startCallRecording(opts: {
           if (activeRecId === recId) activeRecId = null;
           return res;
         };
+
+        if (relayed) {
+          if (activeRecId === recId) activeRecId = null;
+          try {
+            await relayed.finish();
+            return { where: 'youtube', fileName, bytes, serverRecordingId: relayed.id };
+          } catch (err) {
+            // What arrived is kept on the server and can still be sent.
+            return {
+              where: 'youtube',
+              fileName,
+              bytes: relayed.confirmed,
+              serverRecordingId: relayed.confirmed > 0 ? relayed.id : undefined,
+              cloudError: relayed.confirmed > 0 ? 'partial' : 'server_failed',
+            };
+          }
+        }
 
         if (streamOnly && live && cloud) {
           try {
@@ -1110,18 +1261,29 @@ export async function startCallRecording(opts: {
 export async function recoverRecording(
   rec: SavedRecording,
   onProgress?: (fraction: number) => void,
+  /** Google sign-in for the service (YouTube asks for it on every request). */
+  authToken?: string | null,
 ): Promise<RecordingResult> {
   if (rec.streamOnly && rec.sessionUrl && (rec.target === 'youtube' || rec.target === 'drive')) {
     // Nothing of the video is on this computer: ask the service to finish
     // the video from what it received before the crash.
-    const live = new LiveUpload(new ResumableUpload(rec.sessionUrl));
+    const upload = new ResumableUpload(rec.sessionUrl);
+    upload.authToken = authToken ?? null;
+    const live = new LiveUpload(upload);
     try {
-      const done = await live.finalizeWhatArrived();
-      await discardSavedRecording(rec.recId);
+      let done = await live.finalizeWhatArrived();
+      // The service may not tell how much it holds (hidden header): use the
+      // amount it confirmed during the lesson.
+      if (!done.id && !done.done && (rec.committed ?? 0) > 0) {
+        done = await upload.status(rec.committed!);
+      }
       if (done.id) {
+        await discardSavedRecording(rec.recId);
         return { fileName: rec.fileName, bytes: live.upload.committed, where: rec.target, link: linkFor(rec.target, done.id), privacy: done.privacy, cloudError: 'partial' };
       }
-      return { fileName: rec.fileName, bytes: 0, where: rec.target, cloudError: 'nothing_uploaded' };
+      // Keep the record: a later try (another Google account, the internet
+      // back) may still finish it.
+      return { fileName: rec.fileName, bytes: 0, where: rec.target, cloudError: 'offline' };
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'cloud_failed';
       if (/^gone_/.test(msg)) {

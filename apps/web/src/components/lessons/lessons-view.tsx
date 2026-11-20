@@ -13,8 +13,7 @@ import { cn } from '@/lib/utils';
 import { LessonCard } from './lesson-card';
 import { CreateLessonDialog } from './create-lesson-dialog';
 
-/** Filter value for "every category" / "lessons without a category". */
-const ALL = '__all__';
+/** Group key for lessons without a category. */
 const NONE = '__none__';
 
 type OrderedLesson = Lesson & { moduleOrder: number };
@@ -28,8 +27,8 @@ interface Group {
 
 /**
  * Teacher lessons dashboard: lessons grouped into one column per category
- * (usually the client company), with search, a category filter and
- * per-lesson actions.
+ * (usually the client company), with search and per-lesson actions. The
+ * by-category board is the only view — there is no flat «all lessons» list.
  *
  * `GET /lessons` (guarded server-side to teacher/methodist/admin, unlike
  * `/curriculum`) is the primary — and access-gating — data source;
@@ -48,7 +47,6 @@ export function LessonsView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogCategory, setDialogCategory] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [filter, setFilter] = useState<string>(ALL);
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const dateFormatter = useLessonDateFormatter();
@@ -135,11 +133,7 @@ export function LessonsView() {
     return result;
   }, [orderedLessons, query, categoryOptions, usesCategories, t]);
 
-  const shownGroups =
-    filter === ALL ? groups : groups.filter((g) => g.key === filter);
-  const totalShown = shownGroups.reduce((n, g) => n + g.lessons.length, 0);
   const hasLessons = (lessons?.length ?? 0) > 0;
-  const board = filter === ALL && usesCategories;
 
   function openCreate(category: string | null) {
     setDialogCategory(category);
@@ -179,9 +173,7 @@ export function LessonsView() {
               {archivedCount})
             </Button>
           ) : null}
-          <Button
-            onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
-          >
+          <Button onClick={() => openCreate(null)}>
             <Plus />
             {t('newLesson')}
           </Button>
@@ -189,7 +181,7 @@ export function LessonsView() {
       </div>
 
       {hasLessons ? (
-        <div className="mb-6 flex flex-col gap-3">
+        <div className="mb-6">
           <div className="relative max-w-md">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -214,25 +206,6 @@ export function LessonsView() {
               </button>
             ) : null}
           </div>
-          {groups.length > 1 || filter !== ALL ? (
-            <div
-              className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
-              role="tablist"
-              aria-label={t('category')}
-            >
-              {/* No «All» chip: the board already shows everything. A chip
-                  narrows to one company; pressing it again shows all. */}
-              {groups.map((g) => (
-                <FilterChip
-                  key={g.key}
-                  active={filter === g.key}
-                  onClick={() => setFilter((cur) => (cur === g.key ? ALL : g.key))}
-                  label={g.label}
-                  count={g.lessons.length}
-                />
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -256,31 +229,31 @@ export function LessonsView() {
             </Button>
           }
         />
-      ) : totalShown === 0 && !board ? (
+      ) : groups.length === 0 ? (
+        // Nothing matches the search (or every lesson is archived and the
+        // archive is hidden).
         <EmptyState
-          title={query ? t('nothingFound') : t('categoryEmpty')}
-          hint={query ? t('nothingFoundHint') : undefined}
+          title={query ? t('nothingFound') : t('noLessons')}
+          hint={query ? t('nothingFoundHint') : t('noLessonsHint')}
           action={
             query ? (
               <Button variant="outline" onClick={() => setQuery('')}>
                 {t('clearSearch')}
               </Button>
             ) : (
-              <Button
-                onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
-              >
+              <Button onClick={() => openCreate(null)}>
                 <Plus />
                 {t('newLesson')}
               </Button>
             )
           }
         />
-      ) : board ? (
+      ) : (
         // One column per category: stacked collapsible sections on phones; from
         // `lg` up a board whose columns wrap to the next row, so nothing is
         // ever cut off at the right edge.
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] lg:items-start">
-          {shownGroups.map((g) => {
+          {groups.map((g) => {
             const isCollapsed = collapsed[g.key] ?? false;
             const addTo = g.key === NONE ? null : g.key;
             return (
@@ -345,18 +318,6 @@ export function LessonsView() {
             );
           })}
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
-            className="flex min-h-[8rem] items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Plus className="h-4 w-4" />
-            {t('categoryEmptyAdd')}
-          </button>
-          {cards(shownGroups.flatMap((g) => g.lessons))}
-        </div>
       )}
 
       <CreateLessonDialog
@@ -366,43 +327,6 @@ export function LessonsView() {
         defaultCategory={dialogCategory}
       />
     </>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-  count,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count: number;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-        active
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'bg-background text-foreground hover:bg-accent',
-      )}
-    >
-      {label}
-      <span
-        className={cn(
-          'text-xs tabular-nums',
-          active ? 'text-primary-foreground/80' : 'text-muted-foreground',
-        )}
-      >
-        {count}
-      </span>
-    </button>
   );
 }
 

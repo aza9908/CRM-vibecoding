@@ -16,6 +16,7 @@ import {
   MonitorX,
   PhoneOff,
   Pin,
+  SmilePlus,
   Square,
   Users,
   Video,
@@ -23,8 +24,15 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import type { RtcMediaState } from '@lms/shared';
-import { readCallResume, useVideoRoom, type RemotePeer } from '@/lib/rtc/useVideoRoom';
+import { RTC_REACTIONS, type RtcMediaState, type RtcReactionRelay } from '@lms/shared';
+import {
+  readCallResume,
+  screenShareSupported,
+  useVideoRoom,
+  type RemotePeer,
+} from '@/lib/rtc/useVideoRoom';
+import { serverRecordings } from '@/lib/api/recordings';
+import { ServerRecordings, watchServerRecording } from '@/components/live/ServerRecordings';
 import {
   discardSavedRecording,
   googleClientId,
@@ -154,6 +162,7 @@ function Tile({
   onMute,
   onLowerHand,
   labels,
+  subscribeReactions,
 }: {
   tile: TileModel;
   speaking: boolean;
@@ -163,6 +172,8 @@ function Tile({
   onMute: () => void;
   onLowerHand: () => void;
   labels: { host: string; mute: string; lowerHand: string; pin: string; unpin: string; speaking: string; away: string };
+  /** Pops this person's emoji reactions on the tile. */
+  subscribeReactions?: SubscribeReactions;
 }) {
   const showVideo = tile.media.video && !!tile.camera;
   return (
@@ -188,6 +199,9 @@ function Tile({
           </span>
         )}
       </button>
+      {subscribeReactions ? (
+        <TileReaction peerId={tile.id} subscribe={subscribeReactions} />
+      ) : null}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-black/80 to-transparent px-2 pb-1 pt-5 text-[11px] text-white">
         {speaking ? (
           <SpeakingBars className="shrink-0" />
@@ -513,6 +527,124 @@ function Elapsed({ since }: { since: number }) {
   );
 }
 
+type SubscribeReactions = (cb: (r: RtcReactionRelay) => void) => () => void;
+
+/** At most this many emoji float at once — keeps a class of 50+ smooth. */
+const MAX_FLOATING_REACTIONS = 25;
+const FLOAT_MS = 3300;
+
+interface FloatingReaction {
+  id: number;
+  emoji: string;
+  name: string;
+  /** Horizontal start, % of the stage width. */
+  left: number;
+  /** Sideways sway, px. */
+  drift: number;
+}
+
+/**
+ * Emoji reactions floating up over the stage. Owns its state, so a burst of
+ * reactions re-renders only this layer, not the whole call.
+ */
+const ReactionLayer = React.memo(function ReactionLayer({
+  subscribe,
+  selfId,
+  youLabel,
+}: {
+  subscribe: SubscribeReactions;
+  selfId: string | null;
+  youLabel: string;
+}) {
+  const [items, setItems] = React.useState<FloatingReaction[]>([]);
+  const seq = React.useRef(0);
+  const timers = React.useRef(new Set<number>());
+  const selfRef = React.useRef(selfId);
+  selfRef.current = selfId;
+  const youRef = React.useRef(youLabel);
+  youRef.current = youLabel;
+
+  React.useEffect(() => {
+    const live = timers.current;
+    const off = subscribe((r) => {
+      const id = ++seq.current;
+      const item: FloatingReaction = {
+        id,
+        emoji: r.emoji,
+        name: r.peerId === selfRef.current ? youRef.current : r.name,
+        left: 8 + Math.random() * 76,
+        drift: Math.round((Math.random() - 0.5) * 40),
+      };
+      setItems((prev) => {
+        const next = [...prev, item];
+        return next.length > MAX_FLOATING_REACTIONS
+          ? next.slice(next.length - MAX_FLOATING_REACTIONS)
+          : next;
+      });
+      const timer = window.setTimeout(() => {
+        live.delete(timer);
+        setItems((prev) => prev.filter((x) => x.id !== id));
+      }, FLOAT_MS);
+      live.add(timer);
+    });
+    return () => {
+      off();
+      for (const timer of live) window.clearTimeout(timer);
+      live.clear();
+    };
+  }, [subscribe]);
+
+  if (items.length === 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden" aria-hidden>
+      {items.map((it) => (
+        <span
+          key={it.id}
+          className="call-reaction absolute bottom-[12%] flex flex-col items-center gap-0.5"
+          style={
+            { left: `${it.left}%`, '--reaction-drift': `${it.drift}px` } as React.CSSProperties
+          }
+        >
+          <span className="text-3xl leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] sm:text-4xl">
+            {it.emoji}
+          </span>
+          <span className="max-w-[9rem] truncate rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+            {it.name}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+});
+
+/** The latest reaction of one person, popped briefly on their tile. */
+function TileReaction({ peerId, subscribe }: { peerId: string; subscribe: SubscribeReactions }) {
+  const [shown, setShown] = React.useState<{ emoji: string; key: number } | null>(null);
+  React.useEffect(() => {
+    let timer: number | null = null;
+    const off = subscribe((r) => {
+      if (r.peerId !== peerId) return;
+      setShown({ emoji: r.emoji, key: Date.now() });
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setShown(null), 2600);
+    });
+    return () => {
+      off();
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [peerId, subscribe]);
+  if (!shown) return null;
+  return (
+    <span
+      key={shown.key}
+      aria-hidden
+      className="call-reaction-badge pointer-events-none absolute left-1.5 top-1.5 z-[1] flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-lg leading-none"
+    >
+      {shown.emoji}
+    </span>
+  );
+}
+
 /** Round control button of the call bar. */
 function CtrlButton({
   on,
@@ -653,6 +785,38 @@ export function VideoRoom({
   React.useEffect(() => {
     if (room.endedAt) showToast(t('callEnded'), 6000);
   }, [room.endedAt, showToast, t]);
+
+  // Screen sharing failed for a reason the user can act on (a cancelled
+  // picker is not reported by the hook).
+  React.useEffect(() => {
+    if (!room.screenError) return;
+    const key = {
+      unsupported: 'shareUnsupported',
+      os_denied_mac: 'shareOsDeniedMac',
+      denied: 'shareDenied',
+      failed: 'shareFailed',
+    }[room.screenError.code];
+    showToast(t(key), 9000);
+  }, [room.screenError, showToast, t]);
+
+  // Emoji reactions picker — one per control bar (docked / full screen).
+  const [reactMenu, setReactMenu] = React.useState<'dock' | 'full' | null>(null);
+  React.useEffect(() => {
+    if (!reactMenu) return;
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (!el?.closest?.('[data-react-menu]')) setReactMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setReactMenu(null);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [reactMenu]);
 
   // ── auto-join ───────────────────────────────────────────────────────────
   // Students enter a running call automatically, listen-only (no permission
@@ -918,7 +1082,15 @@ export function VideoRoom({
     setRecovering(rec.recId);
     setRecProgress(0);
     try {
-      setRecResult(await recoverRecording(rec, setRecProgress));
+      // YouTube wants the Google sign-in on every request of the upload.
+      let auth: string | null = null;
+      const clientId = googleClientId();
+      if (rec.streamOnly && rec.target === 'youtube' && clientId) {
+        auth = await requestGoogleToken(clientId, 'youtube', useAuthStore.getState().user?.email).catch(
+          () => null,
+        );
+      }
+      setRecResult(await recoverRecording(rec, setRecProgress, auth));
     } finally {
       setRecovering(null);
       setRecProgress(null);
@@ -930,6 +1102,8 @@ export function VideoRoom({
     setOrphans((list) => list.filter((r) => r.recId !== rec.recId));
   }, []);
 
+  /** Google permission from the start of a YouTube recording. */
+  const googleTokenRef = React.useRef<{ token: string; at: number } | null>(null);
   const stopRecording = React.useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder) return;
@@ -937,7 +1111,27 @@ export function VideoRoom({
     setRec('saving');
     announceRecording(false);
     try {
-      setRecResult(await recorder.stop(setRecProgress));
+      const result = await recorder.stop(setRecProgress);
+      if (result.serverRecordingId) {
+        // YouTube via the LMS server: the server sends it with the Google
+        // permission given at the start while it is still fresh (Google's
+        // tokens last an hour); otherwise the host presses «Отправить».
+        const id = result.serverRecordingId;
+        watchServerRecording(id);
+        const g = googleTokenRef.current;
+        let sending = false;
+        if (g && Date.now() - g.at < 50 * 60_000) {
+          sending = await serverRecordings
+            .sendToYoutube(id, g.token)
+            .then(() => true)
+            .catch(() => false);
+        }
+        googleTokenRef.current = null;
+        window.dispatchEvent(new Event('lms-recordings-changed'));
+        setRecResult({ ...result, serverSending: sending });
+      } else {
+        setRecResult(result);
+      }
     } finally {
       setRec('idle');
       setRecProgress(null);
@@ -964,13 +1158,24 @@ export function VideoRoom({
           target,
           useAuthStore.getState().user?.email,
         ).catch(() => null);
-        if (!token) showToast(t('recDriveDenied'), 7000);
+        if (!token && target !== 'youtube') showToast(t('recDriveDenied'), 7000);
       }
+      googleTokenRef.current = token && target === 'youtube' ? { token, at: Date.now() } : null;
       try {
         const recorder = await startCallRecording({
           title: recordingTitle || t('recDefaultTitle'),
           target,
           token,
+          // YouTube: the video streams to the LMS server, which sends the
+          // finished file to YouTube (nothing is kept on this computer).
+          relay:
+            target === 'youtube' && sessionId
+              ? {
+                  create: (title, mimeType) => serverRecordings.create(sessionId, title, mimeType),
+                  putPiece: (id, offset, piece) => serverRecordings.putPiece(id, offset, piece),
+                  complete: (id) => serverRecordings.complete(id),
+                }
+              : null,
           // A light audio copy goes to the server for the AI lesson review.
           audioSink: (mimeType) =>
             sessionId
@@ -1094,6 +1299,7 @@ export function VideoRoom({
   ) : null;
 
   // A recording that never got finished (crash / power cut): offer to save it.
+  const serverRecEl = isHost ? <ServerRecordings /> : null;
   const orphanEl =
     isHost && orphans.length > 0 && rec === 'idle' ? (
       <div
@@ -1143,7 +1349,11 @@ export function VideoRoom({
       </span>
       <div className="min-w-0 flex-1">
         <p className="font-semibold">
-          {recResult.where !== 'download' && !recResult.link && recResult.cloudError
+          {recResult.serverRecordingId
+            ? recResult.serverSending
+              ? t('recSendingYoutube')
+              : t('recServerSaved')
+            : recResult.where !== 'download' && !recResult.link && recResult.cloudError
             ? recResult.cloudError === 'offline'
               ? t('recPending')
               : t('recNotSaved')
@@ -1154,7 +1364,11 @@ export function VideoRoom({
               : t('recSavedDownload')}
         </p>
         <p className="truncate text-xs text-muted-foreground">{recResult.fileName}</p>
-        {recResult.where !== 'download' && recResult.link ? (
+        {recResult.serverRecordingId ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {recResult.serverSending ? t('recSendingHint') : t('recServerHint')}
+          </p>
+        ) : recResult.where !== 'download' && recResult.link ? (
           <>
             <a
               href={recResult.link}
@@ -1202,6 +1416,7 @@ export function VideoRoom({
     return (
       <>
         {orphanEl}
+        {serverRecEl}
         <section
           id="video-room"
           ref={dockRef}
@@ -1303,6 +1518,61 @@ export function VideoRoom({
     >
       <Hand />
     </CtrlButton>
+  );
+  // Offered wherever getDisplayMedia exists (no UA sniffing). Phones and old
+  // browsers get a dimmed button that explains where sharing works.
+  const canShare = screenShareSupported();
+  const shareBtn = (compact = false) =>
+    canShare ? (
+      <CtrlButton
+        compact={compact}
+        on={room.media.screen}
+        label={room.media.screen ? t('stopShare') : t('share')}
+        onClick={() => void room.toggleScreen()}
+      >
+        {room.media.screen ? <MonitorX /> : <MonitorUp />}
+      </CtrlButton>
+    ) : (
+      <CtrlButton
+        compact={compact}
+        label={t('shareUnsupported')}
+        onClick={() => showToast(t('shareUnsupported'), 9000)}
+        className="opacity-50"
+      >
+        <MonitorUp />
+      </CtrlButton>
+    );
+  const reactBtn = (where: 'dock' | 'full') => (
+    <span className="relative" data-react-menu>
+      <CtrlButton
+        on={reactMenu === where}
+        label={t('react')}
+        onClick={() => setReactMenu((cur) => (cur === where ? null : where))}
+      >
+        <SmilePlus />
+      </CtrlButton>
+      {reactMenu === where ? (
+        <span
+          role="menu"
+          aria-label={t('react')}
+          className="absolute bottom-full left-1/2 z-20 mb-2 grid -translate-x-1/2 grid-cols-4 gap-0.5 rounded-2xl border border-white/10 bg-neutral-900/95 p-1 shadow-2xl sm:flex sm:rounded-full"
+        >
+          {RTC_REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              role="menuitem"
+              onClick={() => room.sendReaction(emoji)}
+              title={t('reactSend', { emoji })}
+              aria-label={t('reactSend', { emoji })}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none transition-transform hover:scale-125 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 motion-reduce:transition-none motion-reduce:hover:scale-100"
+            >
+              {emoji}
+            </button>
+          ))}
+        </span>
+      ) : null}
+    </span>
   );
   const fullBtn = (compact = false) => (
     <CtrlButton
@@ -1540,6 +1810,7 @@ export function VideoRoom({
       ))}
 
       {orphanEl}
+      {serverRecEl}
       <section
         id="video-room"
         ref={dockRef}
@@ -1597,6 +1868,11 @@ export function VideoRoom({
             {stageMedia(true)}
             {stageLabel}
             {reconnectPill}
+            <ReactionLayer
+              subscribe={room.subscribeReactions}
+              selfId={room.selfId}
+              youLabel={t('you')}
+            />
             {pip ? (
               <div
                 className={cn(
@@ -1626,7 +1902,9 @@ export function VideoRoom({
             <div className="flex flex-wrap items-center justify-center gap-2 bg-neutral-950 px-3 py-3 sm:gap-3">
               {micBtn()}
               {camBtn()}
+              {shareBtn()}
               {handBtn()}
+              {reactBtn('full')}
               {fullBtn()}
               {leaveBtn()}
             </div>
@@ -1646,6 +1924,7 @@ export function VideoRoom({
               onMute={() => room.moderate(tile.id, 'mute')}
               onLowerHand={() => room.moderate(tile.id, 'lower-hand')}
               labels={tileLabels}
+              subscribeReactions={room.subscribeReactions}
             />
           ))}
         </div>
@@ -1659,15 +1938,9 @@ export function VideoRoom({
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {micBtn()}
           {camBtn()}
-          <CtrlButton
-            on={room.media.screen}
-            label={room.media.screen ? t('stopShare') : t('share')}
-            onClick={() => void room.toggleScreen()}
-            className="hidden sm:inline-flex"
-          >
-            {room.media.screen ? <MonitorX /> : <MonitorUp />}
-          </CtrlButton>
+          {shareBtn()}
           {handBtn()}
+          {reactBtn('dock')}
           {amHost ? (
             <button
               type="button"

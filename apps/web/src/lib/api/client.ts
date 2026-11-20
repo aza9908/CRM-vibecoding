@@ -39,7 +39,7 @@ let refreshPromise: Promise<string | null> | null = null;
  * access + rotated refresh token are stored. Concurrent callers share one
  * in-flight refresh.
  */
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {

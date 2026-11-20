@@ -57,6 +57,9 @@ import {
   type RtcLeavePayload,
   type RtcModeratePayload,
   type RtcPeer,
+  type RtcReactionPayload,
+  RTC_REACTION_LIMIT,
+  isRtcReaction,
   type RtcStatePayload,
   type ServerToClientEvents,
   type SessionJoinPayload,
@@ -77,6 +80,8 @@ type SocketIdentity = AuthUserPayload | ParticipantPayload;
 
 interface LiveSocketData {
   identity?: SocketIdentity;
+  /** Times (ms) of this socket's recent call reactions — rate limit. */
+  reactionTimes?: number[];
 }
 
 type LiveSocket = Socket<
@@ -614,6 +619,40 @@ export class SessionGateway
     const target =
       typeof body.target === 'string' ? this.video.peer(sessionId, body.target) : undefined;
     if (target) this.io.to(target.socketId).emit(WS_EVENTS.rtcModerate, { action });
+  }
+
+  /**
+   * Quick emoji reaction. Only a peer currently in this session's video
+   * room may send one, only from the shared allow-list, and at most one per
+   * 700 ms / 6 per 10 s per socket — extras are dropped silently. Goes to
+   * the whole call, the sender included (one source of truth for the UI).
+   */
+  @SubscribeMessage(WS_EVENTS.rtcReaction)
+  onRtcReaction(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcReactionPayload,
+  ): void {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || body?.sessionId !== me.sessionId || !isRtcReaction(body.emoji)) return;
+    const now = Date.now();
+    const recent = (socket.data.reactionTimes ?? []).filter(
+      (at) => now - at < RTC_REACTION_LIMIT.windowMs,
+    );
+    const last = recent[recent.length - 1];
+    if (
+      (last !== undefined && now - last < RTC_REACTION_LIMIT.minGapMs) ||
+      recent.length >= RTC_REACTION_LIMIT.burst
+    ) {
+      socket.data.reactionTimes = recent;
+      return;
+    }
+    recent.push(now);
+    socket.data.reactionTimes = recent;
+    this.io?.to(rtcRoom(me.sessionId)).emit(WS_EVENTS.rtcReaction, {
+      peerId: me.info.peerId,
+      name: me.info.name,
+      emoji: body.emoji,
+    });
   }
 
   /**

@@ -1,3 +1,4 @@
+import { RecordingsModule } from './recordings/recordings.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
@@ -37,6 +38,7 @@ import { AnalysisModule } from './analysis/analysis.module';
     AdminModule,
     TasksModule,
     AnalysisModule,
+    RecordingsModule,
   ],
 })
 export class AppModule {}

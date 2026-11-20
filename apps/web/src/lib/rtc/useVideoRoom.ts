@@ -11,8 +11,11 @@ import {
   type RtcModerateAction,
   type RtcPeer,
   type RtcProducerInfo,
+  type RtcReactionEmoji,
+  type RtcReactionRelay,
   type RtcSource,
   type ServerToClientEvents,
+  RTC_REACTION_LIMIT,
 } from '@lms/shared';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from '@/lib/ws/url';
 
@@ -78,6 +81,114 @@ export interface UseVideoRoomResult {
   moderatedAt: { action: RtcModerateAction; at: number } | null;
   /** Set when the host ended the call while I was in it (for a toast). */
   endedAt: number | null;
+  /** Last screen-share failure worth telling the user about (for a toast).
+   * A cancelled picker is not reported. */
+  screenError: { code: ScreenShareError; at: number } | null;
+  /** Send a quick emoji reaction to everyone in the call (throttled). */
+  sendReaction: (emoji: RtcReactionEmoji) => void;
+  /** Listen to reactions in the call (mine included); returns unsubscribe.
+   * A listener instead of state, so a burst of reactions does not re-render
+   * the whole room. */
+  subscribeReactions: (cb: (r: RtcReactionRelay) => void) => () => void;
+}
+
+/**
+ * Why screen sharing did not start:
+ *  - `unsupported` — the browser has no getDisplayMedia (phones, old browsers);
+ *  - `os_denied_mac` — macOS blocks screen recording for the browser;
+ *  - `denied` — refused by the system / a policy before any picker appeared;
+ *  - `failed` — capture or sending failed for another reason.
+ */
+export type ScreenShareError = 'unsupported' | 'os_denied_mac' | 'denied' | 'failed';
+
+/** Can this browser share a screen at all? Feature detection, no UA sniffing. */
+export function screenShareSupported(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    !!navigator.mediaDevices &&
+    typeof navigator.mediaDevices.getDisplayMedia === 'function'
+  );
+}
+
+function isMac(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } })
+    .userAgentData;
+  return /mac/i.test(uaData?.platform ?? navigator.platform ?? '');
+}
+
+/** The user closed the picker / pressed «Cancel» — not an error to show. */
+class ScreenShareCancelled extends Error {}
+
+class ScreenShareFailed extends Error {
+  constructor(readonly code: ScreenShareError) {
+    super(code);
+  }
+}
+
+/**
+ * Ask for a screen with the most widely supported options first and fall
+ * back step by step: {video, audio} → {video} . Chromium-only extras
+ * (frame rate, size, content hint) are applied to the track afterwards, so
+ * they can never make the capture itself fail in Yandex / Edge / Firefox /
+ * Safari.
+ */
+async function captureScreen(): Promise<MediaStream> {
+  if (!screenShareSupported()) throw new ScreenShareFailed('unsupported');
+  const md = navigator.mediaDevices;
+  const attempts: DisplayMediaStreamOptions[] = [
+    { video: true, audio: true },
+    { video: true },
+  ];
+  let lastErr: unknown = null;
+  for (const options of attempts) {
+    const startedAt = performance.now();
+    try {
+      return await md.getDisplayMedia(options);
+    } catch (err) {
+      lastErr = err;
+      const name = err instanceof Error ? err.name : '';
+      const message = err instanceof Error ? err.message : '';
+      if (name === 'NotAllowedError') {
+        // Chromium on macOS without the OS permission: «Permission denied by
+        // system», returned at once (no picker). A real cancel takes longer.
+        const bySystem = /system/i.test(message);
+        const immediate = performance.now() - startedAt < 250;
+        if (bySystem || immediate) {
+          throw new ScreenShareFailed(isMac() ? 'os_denied_mac' : 'denied');
+        }
+        throw new ScreenShareCancelled();
+      }
+      if (name === 'InvalidStateError' || name === 'SecurityError') break;
+      // TypeError / NotSupportedError / OverconstrainedError / NotReadableError
+      // (often the audio part) / NotFoundError / AbortError («Error starting
+      // screen capture» in Chromium) → try the plainer request.
+    }
+  }
+  console.warn('[video] screen capture failed', lastErr);
+  const name = lastErr instanceof Error ? lastErr.name : '';
+  if (name === 'NotReadableError' && isMac()) throw new ScreenShareFailed('os_denied_mac');
+  if (name === 'SecurityError') throw new ScreenShareFailed('denied');
+  throw new ScreenShareFailed('failed');
+}
+
+/** Best-effort tuning of a captured screen track; never throws. */
+async function tuneScreenTrack(track: MediaStreamTrack): Promise<void> {
+  try {
+    if ('contentHint' in track) track.contentHint = 'detail';
+  } catch {
+    /* read-only in some browsers */
+  }
+  try {
+    // Captured at up to 30 fps for the recording; sent to viewers at 15.
+    await track.applyConstraints({
+      frameRate: { max: 30 },
+      width: { max: 1920 },
+      height: { max: 1080 },
+    });
+  } catch {
+    /* not supported here — keep the native capture */
+  }
 }
 
 const NO_MEDIA: RtcMediaState = {
@@ -175,6 +286,10 @@ export function useVideoRoom(
   const [moderatedAt, setModeratedAt] =
     useState<UseVideoRoomResult['moderatedAt']>(null);
   const [endedAt, setEndedAt] = useState<number | null>(null);
+  const [screenError, setScreenError] =
+    useState<UseVideoRoomResult['screenError']>(null);
+  const reactionListenersRef = useRef(new Set<(r: RtcReactionRelay) => void>());
+  const reactionTimesRef = useRef<number[]>([]);
 
   const socketRef = useRef<LiveSocket | null>(null);
   const deviceRef = useRef<msc.Device | null>(null);
@@ -463,18 +578,51 @@ export function useVideoRoom(
       if (!sendRef.current || sendRef.current.closed) {
         sendRef.current = await createTransport('send');
       }
+      const transport = sendRef.current;
       const video = track.kind === 'video';
-      const producer = await sendRef.current.produce({
-        track,
-        stopTracks: false,
-        appData: { source },
-        ...(video
-          ? {
-              encodings: source === 'screen' ? SCREEN_ENCODINGS : CAMERA_ENCODINGS,
-              codecOptions: { videoGoogleStartBitrate: 800 },
-            }
-          : { codecOptions: { opusDtx: true, opusFec: true, opusStereo: false } }),
-      });
+      let producer: msc.Producer;
+      if (!video) {
+        producer = await transport.produce({
+          track,
+          stopTracks: false,
+          appData: { source },
+          codecOptions: { opusDtx: true, opusFec: true, opusStereo: false },
+        });
+      } else {
+        // Preferred settings first (simulcast for cameras, a capped single
+        // layer for screens). Some Chromium forks / older engines reject
+        // simulcast, maxFramerate or codec options — then fall back to one
+        // plain encoding, and finally to the browser's defaults.
+        const variants: Omit<msc.ProducerOptions, 'track'>[] = [
+          {
+            encodings: source === 'screen' ? SCREEN_ENCODINGS : CAMERA_ENCODINGS,
+            codecOptions: { videoGoogleStartBitrate: 800 },
+          },
+          {
+            encodings: [{ maxBitrate: source === 'screen' ? 1_500_000 : 800_000 }],
+          },
+          {},
+        ];
+        let lastErr: unknown = null;
+        let made: msc.Producer | null = null;
+        for (const variant of variants) {
+          if (transport.closed || track.readyState !== 'live') break;
+          try {
+            made = await transport.produce({
+              track,
+              stopTracks: false,
+              appData: { source },
+              ...variant,
+            });
+            break;
+          } catch (err) {
+            lastErr = err;
+            console.warn(`[video] produce ${source} failed, trying simpler settings`, err);
+          }
+        }
+        if (!made) throw lastErr ?? new Error('produce_failed');
+        producer = made;
+      }
       producersRef.current.set(source, producer);
       producer.on('transportclose', () => {
         if (producersRef.current.get(source) === producer) {
@@ -772,6 +920,9 @@ export function useVideoRoom(
     socket.on(WS_EVENTS.rtcReset, () => {
       if (wantJoinedRef.current) doJoin();
     });
+    socket.on(WS_EVENTS.rtcReaction, (r) => {
+      for (const cb of reactionListenersRef.current) cb(r);
+    });
     return socket;
   }, [doJoin, leaveInternal, publishState, rebuildStreams, syncConsumers, unpublish]);
 
@@ -927,42 +1078,117 @@ export function useVideoRoom(
   }, [enableVideo, publishState, refreshLocalCamera, unpublish]);
 
   const stopScreen = useCallback(() => {
+    const hadScreen = !!tracksRef.current.screen || mediaRef.current.screen;
     tracksRef.current.screen?.stop();
     tracksRef.current['screen-audio']?.stop();
     unpublish('screen');
     unpublish('screen-audio');
     setLocalScreen(null);
-    publishState({ ...mediaRef.current, screen: false });
+    if (hadScreen) publishState({ ...mediaRef.current, screen: false });
   }, [publishState, unpublish]);
 
+  const screenBusyRef = useRef(false);
   const toggleScreen = useCallback(async () => {
     if (mediaRef.current.screen) {
       stopScreen();
       return;
     }
+    if (screenBusyRef.current) return; // picker already open
+    screenBusyRef.current = true;
+    let s: MediaStream;
     try {
-      const s = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          // Captured at 30 fps for the recording; sent to viewers at 15.
-          frameRate: { ideal: 30, max: 30 },
-          width: { max: 1920 },
-          height: { max: 1080 },
-        },
-        audio: true,
-      });
-      const track = s.getVideoTracks()[0];
-      if (!track) return;
-      if ('contentHint' in track) track.contentHint = 'detail';
-      track.onended = () => stopScreen();
+      s = await captureScreen();
+    } catch (err) {
+      screenBusyRef.current = false;
+      if (err instanceof ScreenShareFailed) {
+        setScreenError({ code: err.code, at: Date.now() });
+      }
+      return; // cancelled → silently
+    }
+    const track = s.getVideoTracks()[0];
+    const audio = s.getAudioTracks()[0];
+    if (!track) {
+      for (const x of s.getTracks()) x.stop();
+      screenBusyRef.current = false;
+      setScreenError({ code: 'failed', at: Date.now() });
+      return;
+    }
+    // The browser's own «Stop sharing» bar (or the shared window closing)
+    // ends the track → clean up everything, but only if it is still ours.
+    track.addEventListener('ended', () => {
+      if (tracksRef.current.screen === track) stopScreen();
+    });
+    audio?.addEventListener('ended', () => {
+      if (tracksRef.current['screen-audio'] === audio) unpublish('screen-audio');
+    });
+    await tuneScreenTrack(track);
+    try {
+      if (track.readyState !== 'live') throw new Error('ended');
       setLocalScreen(new MediaStream([track]));
       publishState({ ...mediaRef.current, screen: true });
       await publish('screen', track);
-      const audio = s.getAudioTracks()[0];
-      if (audio) await publish('screen-audio', audio);
-    } catch {
-      /* user cancelled the picker */
+    } catch (err) {
+      // Ended before it was sent = the user stopped it right away; not an error.
+      const stoppedByUser = track.readyState !== 'live';
+      if (!stoppedByUser) console.warn('[video] screen share failed', err);
+      track.stop();
+      audio?.stop();
+      stopScreen();
+      if (!stoppedByUser) setScreenError({ code: 'failed', at: Date.now() });
+      screenBusyRef.current = false;
+      return;
     }
-  }, [publish, publishState, stopScreen]);
+    screenBusyRef.current = false;
+    if (tracksRef.current.screen !== track) {
+      // Stopped from the browser bar while it was being sent: drop the
+      // producer that finished after the cleanup.
+      if (producersRef.current.get('screen')?.track === track) unpublish('screen');
+      audio?.stop();
+      return;
+    }
+    // Tab/system audio is a bonus: if it cannot be sent, the picture stays.
+    if (audio && audio.readyState === 'live' && tracksRef.current.screen === track) {
+      try {
+        await publish('screen-audio', audio);
+      } catch (err) {
+        console.warn('[video] screen audio failed, sharing video only', err);
+        audio.stop();
+        unpublish('screen-audio');
+      }
+    } else {
+      audio?.stop();
+    }
+  }, [publish, publishState, stopScreen, unpublish]);
+
+  const sendReaction = useCallback((emoji: RtcReactionEmoji) => {
+    const sid = sessionIdRef.current;
+    const socket = socketRef.current;
+    if (!sid || !socket?.connected || !selfIdRef.current) return;
+    // Same limits as the server, so taps it would drop are not sent at all.
+    const now = Date.now();
+    const recent = reactionTimesRef.current.filter(
+      (at) => now - at < RTC_REACTION_LIMIT.windowMs,
+    );
+    const last = recent[recent.length - 1];
+    if (
+      (last !== undefined && now - last < RTC_REACTION_LIMIT.minGapMs) ||
+      recent.length >= RTC_REACTION_LIMIT.burst
+    ) {
+      reactionTimesRef.current = recent;
+      return;
+    }
+    recent.push(now);
+    reactionTimesRef.current = recent;
+    socket.emit(WS_EVENTS.rtcReaction, { sessionId: sid, emoji });
+  }, []);
+
+  const subscribeReactions = useCallback((cb: (r: RtcReactionRelay) => void) => {
+    const set = reactionListenersRef.current;
+    set.add(cb);
+    return () => {
+      set.delete(cb);
+    };
+  }, []);
 
   const toggleHand = useCallback(() => {
     publishState({ ...mediaRef.current, hand: !mediaRef.current.hand });
@@ -1012,5 +1238,8 @@ export function useVideoRoom(
     setStage,
     moderatedAt,
     endedAt,
+    screenError,
+    sendReaction,
+    subscribeReactions,
   };
 }

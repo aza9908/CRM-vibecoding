@@ -17,17 +17,13 @@ interface RawUserClaims {
 }
 
 /**
- * Pull the access token from either the `Authorization: Bearer` header or the
- * `access_token` httpOnly cookie. The web client reads tokens from the response
- * body and sends the bearer header, but supporting the cookie keeps SSR and
- * cookie-only flows working.
+ * The access token comes only from the `Authorization: Bearer` header. No
+ * cookie is accepted: a browser attaches cookies to requests other sites
+ * trigger (CSRF) and a sibling subdomain could plant one; a header is only
+ * ever set by our own client code.
  */
 function extractToken(req: Request): string | null {
-  const fromHeader = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
-  if (fromHeader) return fromHeader;
-  const cookies = (req as Request & { cookies?: Record<string, string> })
-    .cookies;
-  return cookies?.access_token ?? null;
+  return ExtractJwt.fromAuthHeaderAsBearerToken()(req);
 }
 
 /**
