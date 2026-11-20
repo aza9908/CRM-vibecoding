@@ -440,6 +440,59 @@ export async function listUnfinishedRecordings(): Promise<SavedRecording[]> {
   }
 }
 
+/** Everything this browser holds about lesson recordings (for the recovery tool). */
+export interface BrowserRecordingFind {
+  recId: string;
+  meta: SavedRecording | null;
+  chunks: number;
+  bytes: number;
+}
+
+/**
+ * Look through the browser's recording database without assumptions: every
+ * bookkeeping record and every stored piece of video, also pieces whose
+ * record is gone. Used to find a lesson after something went wrong.
+ */
+export async function scanBrowserRecordings(): Promise<BrowserRecordingFind[]> {
+  if (typeof indexedDB === 'undefined') return [];
+  try {
+    const db = await openDb();
+    const metas =
+      (await tx<SavedRecording[]>(db, [META], 'readonly', (t) => t.objectStore(META).getAll())) ?? [];
+    const keys =
+      ((await tx<IDBValidKey[]>(db, [CHUNKS], 'readonly', (t) => t.objectStore(CHUNKS).getAllKeys())) ??
+        []) as string[];
+    const found = new Map<string, BrowserRecordingFind>();
+    for (const m of metas) found.set(m.recId, { recId: m.recId, meta: m, chunks: 0, bytes: 0 });
+    for (const k of keys) {
+      const recId = String(k).split(':')[0] ?? String(k);
+      const f = found.get(recId) ?? { recId, meta: null, chunks: 0, bytes: 0 };
+      f.chunks += 1;
+      found.set(recId, f);
+    }
+    for (const f of found.values()) {
+      if (f.chunks > 0) {
+        const blobs = await readChunks(f.recId, db);
+        f.bytes = blobs.reduce((n, b) => n + b.size, 0);
+      } else {
+        f.bytes = f.meta?.bytes ?? 0;
+      }
+    }
+    return [...found.values()].sort((a, b) => (b.meta?.createdAt ?? 0) - (a.meta?.createdAt ?? 0));
+  } catch {
+    return [];
+  }
+}
+
+/** Save the video pieces this browser holds for a recording as one file. */
+export async function downloadBrowserRecording(recId: string, fileName: string): Promise<number> {
+  const blobs = await readChunks(recId);
+  const type = blobs.find((b) => b.type)?.type || 'video/webm';
+  const file = new Blob(blobs, { type });
+  if (file.size > 0) downloadBlob(file, fileName);
+  return file.size;
+}
+
 export async function discardSavedRecording(recId: string): Promise<void> {
   await removeSavedRecording(recId).catch(() => undefined);
 }
@@ -1299,6 +1352,7 @@ export async function recoverRecording(
   if (rec.sessionUrl && (rec.target === 'youtube' || rec.target === 'drive')) {
     try {
       const upload = new ResumableUpload(rec.sessionUrl);
+      upload.authToken = authToken ?? null;
       const st = await upload.status(null);
       const done = st.done ? st : await uploadWhole(upload, file, onProgress, 6);
       if (done.id) {

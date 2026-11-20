@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ChevronDown, FolderOpen, Plus, Search, X } from 'lucide-react';
+import { FolderOpen, Plus, Search, X } from 'lucide-react';
 import { LESSON_CATEGORY_PRESETS } from '@lms/shared';
 import { useCurriculum, useLessons, useLiveSessions } from '@/lib/api/hooks';
 import type { Lesson, LiveSessionSummary } from '@/lib/api/types';
@@ -15,6 +15,8 @@ import { CreateLessonDialog } from './create-lesson-dialog';
 
 /** Group key for lessons without a category. */
 const NONE = '__none__';
+/** Remembered category tab. */
+const CATEGORY_KEY = 'lms-lessons-category';
 
 type OrderedLesson = Lesson & { moduleOrder: number };
 
@@ -48,7 +50,6 @@ export function LessonsView() {
   const [dialogCategory, setDialogCategory] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState('');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const dateFormatter = useLessonDateFormatter();
 
   const archivedCount = lessons?.filter((l) => l.archived).length ?? 0;
@@ -102,8 +103,6 @@ export function LessonsView() {
     return [...presets, ...[...own].sort((a, b) => a.localeCompare(b))];
   }, [lessons]);
 
-  const usesCategories = (lessons ?? []).some((l) => l.category);
-
   const groups = useMemo<Group[]>(() => {
     const q = query.trim().toLowerCase();
     const matches = orderedLessons.filter(
@@ -123,17 +122,42 @@ export function LessonsView() {
       // category, so "Pingwin" has a place before its first lesson exists.
       // (An org's own category with nothing visible — e.g. only archived
       // lessons — is not shown as an empty column.)
-      const preset = (LESSON_CATEGORY_PRESETS as readonly string[]).includes(c);
-      if (list || (usesCategories && !q && preset)) {
+      // Only categories that have lessons get a tab (an empty company is
+      // still offered when creating a lesson).
+      if (list) {
         result.push({ key: c, label: c, lessons: list ?? [] });
       }
     }
     const none = byKey.get(NONE);
     if (none) result.push({ key: NONE, label: t('categoryNone'), lessons: none });
     return result;
-  }, [orderedLessons, query, categoryOptions, usesCategories, t]);
+  }, [orderedLessons, query, categoryOptions, t]);
 
   const hasLessons = (lessons?.length ?? 0) > 0;
+
+  // The chosen category (remembered in this browser). Falls back to the
+  // first category that has lessons.
+  const [chosen, setChosen] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setChosen(window.localStorage.getItem(CATEGORY_KEY));
+    } catch {
+      /* preference only */
+    }
+  }, []);
+  function choose(key: string) {
+    setChosen(key);
+    try {
+      window.localStorage.setItem(CATEGORY_KEY, key);
+    } catch {
+      /* preference only */
+    }
+  }
+  const current =
+    groups.find((g) => g.key === chosen && (g.lessons.length > 0 || !query)) ??
+    groups.find((g) => g.lessons.length > 0) ??
+    groups[0] ??
+    null;
 
   function openCreate(category: string | null) {
     setDialogCategory(category);
@@ -249,75 +273,66 @@ export function LessonsView() {
           }
         />
       ) : (
-        // One column per category: stacked collapsible sections on phones; from
-        // `lg` up a board whose columns wrap to the next row, so nothing is
-        // ever cut off at the right edge.
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] lg:items-start">
-          {groups.map((g) => {
-            const isCollapsed = collapsed[g.key] ?? false;
-            const addTo = g.key === NONE ? null : g.key;
-            return (
-              <section
-                key={g.key}
-                aria-label={g.label}
-                className="flex min-w-0 flex-col rounded-xl border bg-muted/40"
-              >
-                <div className="flex items-center gap-2 px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCollapsed((c) => ({ ...c, [g.key]: !isCollapsed }))
-                    }
-                    aria-expanded={!isCollapsed}
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:pointer-events-none"
-                  >
-                    <ChevronDown
-                      className={cn(
-                        'h-4 w-4 shrink-0 text-muted-foreground transition-transform lg:hidden',
-                        isCollapsed && '-rotate-90',
-                      )}
-                      aria-hidden
-                    />
-                    <h2 className="truncate text-sm font-semibold">{g.label}</h2>
-                    <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
-                      {g.lessons.length}
-                    </span>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-muted-foreground"
-                    onClick={() => openCreate(addTo)}
-                    aria-label={`${t('newLesson')} — ${g.label}`}
-                    title={t('newLesson')}
-                  >
-                    <Plus />
-                  </Button>
-                </div>
-                <div
+        <>
+          {/* Categories (companies) as tabs; only the chosen one's lessons below. */}
+          <div
+            role="tablist"
+            aria-label={t('category')}
+            className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+          >
+            {groups.map((g) => {
+              const active = g.key === current?.key;
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => choose(g.key)}
                   className={cn(
-                    'flex-col gap-3 px-3 pb-3',
-                    isCollapsed ? 'hidden lg:flex' : 'flex',
+                    'inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    active
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'bg-background text-foreground hover:bg-accent',
                   )}
                 >
-                  {/* «Add a lesson» always comes first in a column. */}
-                  <button
-                    type="button"
-                    onClick={() => openCreate(addTo)}
+                  {g.label}
+                  <span
                     className={cn(
-                      'flex items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      g.lessons.length > 0 ? 'py-3' : 'py-6',
+                      'rounded-full px-1.5 text-xs tabular-nums',
+                      active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    <Plus className="h-4 w-4" />
-                    {t('categoryEmptyAdd')}
-                  </button>
-                  {cards(g.lessons)}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+                    {g.lessons.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {current ? (
+            <section role="tabpanel" aria-label={current.label}>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">
+                  {current.label}{' '}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    · {t('lessonsCount', { count: current.lessons.length })}
+                  </span>
+                </h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => openCreate(current.key === NONE ? null : current.key)}
+                  className="flex min-h-[8rem] items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('categoryEmptyAdd')}
+                </button>
+                {cards(current.lessons)}
+              </div>
+            </section>
+          ) : null}
+        </>
       )}
 
       <CreateLessonDialog
