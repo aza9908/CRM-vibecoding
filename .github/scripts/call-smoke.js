@@ -28,7 +28,7 @@ const api = async (path, init = {}) => {
       ?? (await api('/lessons', { method: 'POST', body: JSON.stringify({ title: TITLE }) }));
     session = await api('/sessions', { method: 'POST', body: JSON.stringify({ lessonId: lesson.id }) });
     ok(!!session.code, 'service lesson + live session ready');
-    browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required'] });
+    browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required', '--auto-select-desktop-capture-source=Entire screen', '--enable-usermedia-screen-capturing'] });
     const tctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await tctx.addInitScript(([token, user]) => {
       localStorage.setItem('lms-auth', JSON.stringify({ state: { accessToken: token, refreshToken: null, user, participantToken: null, sessionId: null }, version: 0 }));
@@ -60,6 +60,22 @@ const api = async (path, init = {}) => {
     await sp.waitForTimeout(3000);
     const t2 = await sp.evaluate(() => [...document.querySelectorAll('#video-room video')].map((v) => v.currentTime));
     ok(t2.some((t, i) => t > (t1[i] ?? 0) + 1), 'video keeps playing for 3 s');
+
+    // Screen sharing: the teacher shares, the student must receive it as a
+    // second video next to the camera.
+    {
+      await tp.locator('#video-room button[aria-label="Показать экран"]').first().click({ timeout: 15000 });
+      const started = await tp.locator('#video-room button[aria-label="Остановить показ экрана"]').first().waitFor({ timeout: 20000 }).then(() => true).catch(() => false);
+      const toast = started ? '' : (await tp.locator('[role=status],[role=alert]').allInnerTexts().catch(() => [])).join(' | ');
+      ok(started, 'teacher starts screen sharing' + (toast ? ' · ' + toast.slice(0, 160) : ''));
+      let videos = 0;
+      for (let i = 0; i < 40 && videos < 2; i++) {
+        videos = await sp.evaluate(() => [...document.querySelectorAll('#video-room video')].filter((v) => v.videoWidth > 0).length);
+        if (videos < 2) await sp.waitForTimeout(500);
+      }
+      ok(videos >= 2, `student receives the shared screen (${videos} live videos: camera + screen)`);
+      if (started) await tp.locator('#video-room button[aria-label="Остановить показ экрана"]').first().click().catch(() => undefined);
+    }
 
     // Recording for YouTube goes through the server: pieces in, then the
     // server talks to YouTube itself. A fake Google token must come back as

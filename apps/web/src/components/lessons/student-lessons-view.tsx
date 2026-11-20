@@ -1,7 +1,9 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { BookOpen, KeyRound, PlayCircle } from 'lucide-react';
+import { BookOpen, FolderOpen, KeyRound, PlayCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Link } from '@/i18n/routing';
 import { useCurriculum } from '@/lib/api/hooks';
 import { KIND_BADGE_VARIANT, KIND_LABEL_KEY } from '@/lib/lesson-kind';
@@ -46,6 +48,26 @@ export function StudentLessonsView({
       ? l.sessionStatus === 'ended'
       : l.sessionStatus !== 'ended',
   );
+
+  // Company tiles: nothing below them until one is pressed (with a single
+  // company its lessons are shown right away).
+  const NONE = '__none__';
+  const groups = useMemo(() => {
+    const map = new Map<string, typeof lessons>();
+    for (const l of lessons) {
+      const key = l.category ?? NONE;
+      const list = map.get(key);
+      if (list) list.push(l);
+      else map.set(key, [l]);
+    }
+    return [...map.entries()]
+      .map(([key, list]) => ({ key, label: key === NONE ? t('categoryNone') : key, lessons: list }))
+      .sort((a, b) => (a.key === NONE ? 1 : b.key === NONE ? -1 : a.label.localeCompare(b.label)));
+  }, [lessons, t]);
+  const [picked, setPicked] = useState<string | null>(null);
+  const single = groups.length === 1;
+  const current = single ? groups[0] : groups.find((g) => g.key === picked) ?? null;
+  const shown = current ? current.lessons : [];
 
   return (
     <div className="space-y-6">
@@ -97,9 +119,47 @@ export function StudentLessonsView({
         </Card>
       )}
 
-      {!isLoading && !isError && lessons.length > 0 && (
+      {!isLoading && !isError && lessons.length > 0 && !single && (
+        <div role="tablist" aria-label={t('category')} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {groups.map((g) => {
+            const active = current?.key === g.key;
+            return (
+              <button
+                key={g.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setPicked((cur) => (cur === g.key ? null : g.key))}
+                className={cn(
+                  'flex min-h-[5.5rem] flex-col items-start justify-between gap-2 rounded-xl border-2 p-4 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                  active
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card text-foreground hover:border-primary/60 hover:bg-primary/5',
+                )}
+              >
+                <span className="flex w-full items-center gap-2">
+                  <FolderOpen className={cn('h-5 w-5 shrink-0', active ? 'text-primary-foreground' : 'text-primary')} aria-hidden />
+                  <span className="truncate text-base font-semibold">{g.label}</span>
+                </span>
+                <span className={cn('text-sm tabular-nums', active ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
+                  {t('lessonsCount', { count: g.lessons.length })}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {!isLoading && !isError && lessons.length > 0 && !current && (
+        <p className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+          {t('pickCompany')}
+        </p>
+      )}
+
+      {!isLoading && !isError && shown.length > 0 && (
         <div className="grid gap-3">
-          {lessons.map((lesson) => (
+          {!single && current ? <h2 className="text-xl font-semibold">{current.label}</h2> : null}
+          {shown.map((lesson) => (
             <Card key={lesson.id}>
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-2">
                 <div className="min-w-0">

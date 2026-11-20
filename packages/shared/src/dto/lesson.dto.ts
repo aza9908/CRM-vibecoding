@@ -131,6 +131,8 @@ export type CurriculumLesson = {
   title: string;
   type: z.infer<typeof lessonTypeEnum>;
   kind: LessonKind | null;
+  /** Company / category the lesson is filed under (e.g. «Кайзен»), or null. */
+  category: string | null;
   order: number;
   /** ISO datetime of the class, or null if the teacher hasn't scheduled it yet. */
   scheduledAt: string | null;
