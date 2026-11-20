@@ -64,16 +64,28 @@ const api = async (path, init = {}) => {
     // Screen sharing: the teacher shares, the student must receive it as a
     // second video next to the camera.
     {
+      const liveVideos = () => sp.evaluate(() => [...document.querySelectorAll('#video-room video')].filter((v) => v.videoWidth > 0).length);
+      const before = await liveVideos();
+      // The screen also takes over the stage, so look for a video whose
+      // stream carries the screen track (a second stream from the teacher).
+      const screenSeen = async () => sp.evaluate(() => {
+        return [...new Set([...document.querySelectorAll('#video-room video')].filter((v) => v.videoWidth > 0 && v.srcObject).map((v) => v.srcObject.id))];
+      });
+      const streamsBefore = await screenSeen();
       await tp.locator('#video-room button[aria-label="Показать экран"]').first().click({ timeout: 15000 });
       const started = await tp.locator('#video-room button[aria-label="Остановить показ экрана"]').first().waitFor({ timeout: 20000 }).then(() => true).catch(() => false);
       const toast = started ? '' : (await tp.locator('[role=status],[role=alert]').allInnerTexts().catch(() => [])).join(' | ');
       ok(started, 'teacher starts screen sharing' + (toast ? ' · ' + toast.slice(0, 160) : ''));
       let videos = 0;
-      for (let i = 0; i < 40 && videos < 2; i++) {
-        videos = await sp.evaluate(() => [...document.querySelectorAll('#video-room video')].filter((v) => v.videoWidth > 0).length);
-        if (videos < 2) await sp.waitForTimeout(500);
+      let streams = streamsBefore;
+      for (let i = 0; i < 40; i++) {
+        videos = await liveVideos();
+        streams = await screenSeen();
+        if (streams.some((id) => !streamsBefore.includes(id))) break;
+        await sp.waitForTimeout(500);
       }
-      ok(videos >= 2, `student receives the shared screen (${videos} live videos: camera + screen)`);
+      const fresh = streams.filter((id) => !streamsBefore.includes(id)).length;
+      ok(fresh > 0, `student receives the shared screen as a new video stream (${fresh} new; videos ${before}→${videos})`);
       if (started) await tp.locator('#video-room button[aria-label="Остановить показ экрана"]').first().click().catch(() => undefined);
     }
 
