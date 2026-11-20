@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { FolderOpen, Plus, Search, X } from 'lucide-react';
+import { ChevronDown, FolderOpen, Plus, Search, X } from 'lucide-react';
 import { LESSON_CATEGORY_PRESETS } from '@lms/shared';
 import { useCurriculum, useLessons, useLiveSessions } from '@/lib/api/hooks';
 import type { Lesson, LiveSessionSummary } from '@/lib/api/types';
@@ -13,10 +13,9 @@ import { cn } from '@/lib/utils';
 import { LessonCard } from './lesson-card';
 import { CreateLessonDialog } from './create-lesson-dialog';
 
-/** Group key for lessons without a category. */
+/** Filter value for "every category" / "lessons without a category". */
+const ALL = '__all__';
 const NONE = '__none__';
-/** Remembered category tab. */
-const CATEGORY_KEY = 'lms-lessons-category';
 
 type OrderedLesson = Lesson & { moduleOrder: number };
 
@@ -29,8 +28,8 @@ interface Group {
 
 /**
  * Teacher lessons dashboard: lessons grouped into one column per category
- * (usually the client company), with search and per-lesson actions. The
- * by-category board is the only view — there is no flat «all lessons» list.
+ * (usually the client company), with search, a category filter and
+ * per-lesson actions.
  *
  * `GET /lessons` (guarded server-side to teacher/methodist/admin, unlike
  * `/curriculum`) is the primary — and access-gating — data source;
@@ -49,7 +48,9 @@ export function LessonsView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogCategory, setDialogCategory] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [filter, setFilter] = useState<string>(ALL);
   const [query, setQuery] = useState('');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const dateFormatter = useLessonDateFormatter();
 
   const archivedCount = lessons?.filter((l) => l.archived).length ?? 0;
@@ -103,6 +104,8 @@ export function LessonsView() {
     return [...presets, ...[...own].sort((a, b) => a.localeCompare(b))];
   }, [lessons]);
 
+  const usesCategories = (lessons ?? []).some((l) => l.category);
+
   const groups = useMemo<Group[]>(() => {
     const q = query.trim().toLowerCase();
     const matches = orderedLessons.filter(
@@ -122,42 +125,21 @@ export function LessonsView() {
       // category, so "Pingwin" has a place before its first lesson exists.
       // (An org's own category with nothing visible — e.g. only archived
       // lessons — is not shown as an empty column.)
-      // Only categories that have lessons get a tab (an empty company is
-      // still offered when creating a lesson).
-      if (list) {
+      const preset = (LESSON_CATEGORY_PRESETS as readonly string[]).includes(c);
+      if (list || (usesCategories && !q && preset)) {
         result.push({ key: c, label: c, lessons: list ?? [] });
       }
     }
     const none = byKey.get(NONE);
     if (none) result.push({ key: NONE, label: t('categoryNone'), lessons: none });
     return result;
-  }, [orderedLessons, query, categoryOptions, t]);
+  }, [orderedLessons, query, categoryOptions, usesCategories, t]);
 
+  const shownGroups =
+    filter === ALL ? groups : groups.filter((g) => g.key === filter);
+  const totalShown = shownGroups.reduce((n, g) => n + g.lessons.length, 0);
   const hasLessons = (lessons?.length ?? 0) > 0;
-
-  // The chosen category (remembered in this browser). Falls back to the
-  // first category that has lessons.
-  const [chosen, setChosen] = useState<string | null>(null);
-  useEffect(() => {
-    try {
-      setChosen(window.localStorage.getItem(CATEGORY_KEY));
-    } catch {
-      /* preference only */
-    }
-  }, []);
-  function choose(key: string) {
-    setChosen(key);
-    try {
-      window.localStorage.setItem(CATEGORY_KEY, key);
-    } catch {
-      /* preference only */
-    }
-  }
-  const current =
-    groups.find((g) => g.key === chosen && (g.lessons.length > 0 || !query)) ??
-    groups.find((g) => g.lessons.length > 0) ??
-    groups[0] ??
-    null;
+  const board = filter === ALL && usesCategories;
 
   function openCreate(category: string | null) {
     setDialogCategory(category);
@@ -197,7 +179,9 @@ export function LessonsView() {
               {archivedCount})
             </Button>
           ) : null}
-          <Button onClick={() => openCreate(null)}>
+          <Button
+            onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
+          >
             <Plus />
             {t('newLesson')}
           </Button>
@@ -205,7 +189,7 @@ export function LessonsView() {
       </div>
 
       {hasLessons ? (
-        <div className="mb-6">
+        <div className="mb-6 flex flex-col gap-3">
           <div className="relative max-w-md">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -230,6 +214,25 @@ export function LessonsView() {
               </button>
             ) : null}
           </div>
+          {groups.length > 1 || filter !== ALL ? (
+            <div
+              className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+              role="tablist"
+              aria-label={t('category')}
+            >
+              {/* No «All» chip: the board already shows everything. A chip
+                  narrows to one company; pressing it again shows all. */}
+              {groups.map((g) => (
+                <FilterChip
+                  key={g.key}
+                  active={filter === g.key}
+                  onClick={() => setFilter((cur) => (cur === g.key ? ALL : g.key))}
+                  label={g.label}
+                  count={g.lessons.length}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -253,86 +256,107 @@ export function LessonsView() {
             </Button>
           }
         />
-      ) : groups.length === 0 ? (
-        // Nothing matches the search (or every lesson is archived and the
-        // archive is hidden).
+      ) : totalShown === 0 && !board ? (
         <EmptyState
-          title={query ? t('nothingFound') : t('noLessons')}
-          hint={query ? t('nothingFoundHint') : t('noLessonsHint')}
+          title={query ? t('nothingFound') : t('categoryEmpty')}
+          hint={query ? t('nothingFoundHint') : undefined}
           action={
             query ? (
               <Button variant="outline" onClick={() => setQuery('')}>
                 {t('clearSearch')}
               </Button>
             ) : (
-              <Button onClick={() => openCreate(null)}>
+              <Button
+                onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
+              >
                 <Plus />
                 {t('newLesson')}
               </Button>
             )
           }
         />
-      ) : (
-        <>
-          {/* Categories (companies) as tabs; only the chosen one's lessons below. */}
-          <div
-            role="tablist"
-            aria-label={t('category')}
-            className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
-          >
-            {groups.map((g) => {
-              const active = g.key === current?.key;
-              return (
-                <button
-                  key={g.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => choose(g.key)}
+      ) : board ? (
+        // One column per category: stacked collapsible sections on phones; from
+        // `lg` up a board whose columns wrap to the next row, so nothing is
+        // ever cut off at the right edge.
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[repeat(auto-fill,minmax(19rem,1fr))] lg:items-start">
+          {shownGroups.map((g) => {
+            const isCollapsed = collapsed[g.key] ?? false;
+            const addTo = g.key === NONE ? null : g.key;
+            return (
+              <section
+                key={g.key}
+                aria-label={g.label}
+                className="flex min-w-0 flex-col rounded-xl border bg-muted/40"
+              >
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsed((c) => ({ ...c, [g.key]: !isCollapsed }))
+                    }
+                    aria-expanded={!isCollapsed}
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:pointer-events-none"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 shrink-0 text-muted-foreground transition-transform lg:hidden',
+                        isCollapsed && '-rotate-90',
+                      )}
+                      aria-hidden
+                    />
+                    <h2 className="truncate text-sm font-semibold">{g.label}</h2>
+                    <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                      {g.lessons.length}
+                    </span>
+                  </button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 text-muted-foreground"
+                    onClick={() => openCreate(addTo)}
+                    aria-label={`${t('newLesson')} — ${g.label}`}
+                    title={t('newLesson')}
+                  >
+                    <Plus />
+                  </Button>
+                </div>
+                <div
                   className={cn(
-                    'inline-flex h-10 shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                    active
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'bg-background text-foreground hover:bg-accent',
+                    'flex-col gap-3 px-3 pb-3',
+                    isCollapsed ? 'hidden lg:flex' : 'flex',
                   )}
                 >
-                  {g.label}
-                  <span
+                  {/* «Add a lesson» always comes first in a column. */}
+                  <button
+                    type="button"
+                    onClick={() => openCreate(addTo)}
                     className={cn(
-                      'rounded-full px-1.5 text-xs tabular-nums',
-                      active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground',
+                      'flex items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      g.lessons.length > 0 ? 'py-3' : 'py-6',
                     )}
                   >
-                    {g.lessons.length}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {current ? (
-            <section role="tabpanel" aria-label={current.label}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">
-                  {current.label}{' '}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    · {t('lessonsCount', { count: current.lessons.length })}
-                  </span>
-                </h2>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={() => openCreate(current.key === NONE ? null : current.key)}
-                  className="flex min-h-[8rem] items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Plus className="h-4 w-4" />
-                  {t('categoryEmptyAdd')}
-                </button>
-                {cards(current.lessons)}
-              </div>
-            </section>
-          ) : null}
-        </>
+                    <Plus className="h-4 w-4" />
+                    {t('categoryEmptyAdd')}
+                  </button>
+                  {cards(g.lessons)}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => openCreate(filter !== ALL && filter !== NONE ? filter : null)}
+            className="flex min-h-[8rem] items-center justify-center gap-2 rounded-lg border border-dashed bg-background/60 px-3 py-6 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Plus className="h-4 w-4" />
+            {t('categoryEmptyAdd')}
+          </button>
+          {cards(shownGroups.flatMap((g) => g.lessons))}
+        </div>
       )}
 
       <CreateLessonDialog
@@ -342,6 +366,43 @@ export function LessonsView() {
         defaultCategory={dialogCategory}
       />
     </>
+  );
+}
+
+function FilterChip({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'bg-background text-foreground hover:bg-accent',
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          'text-xs tabular-nums',
+          active ? 'text-primary-foreground/80' : 'text-muted-foreground',
+        )}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
