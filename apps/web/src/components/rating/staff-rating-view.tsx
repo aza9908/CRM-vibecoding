@@ -148,6 +148,7 @@ export function StaffRatingView() {
                       <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t('colLessons')}</th>
                       <th className="hidden px-3 py-2 text-right font-medium sm:table-cell">{t('colAnswered')}</th>
                       <th className="hidden px-3 py-2 text-right font-medium md:table-cell">{t('colRequired')}</th>
+                      <th className="hidden px-3 py-2 text-left font-medium lg:table-cell">{t('colProject')}</th>
                       <th className="hidden px-3 py-2 text-right font-medium md:table-cell">{t('colLast')}</th>
                     </tr>
                   </thead>
@@ -162,6 +163,15 @@ export function StaffRatingView() {
                         <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.lessons}</td>
                         <td className="hidden px-3 py-2 text-right tabular-nums sm:table-cell">{r.answered}</td>
                         <td className="hidden px-3 py-2 text-right tabular-nums md:table-cell">{r.requiredDone}</td>
+                        <td className="hidden px-3 py-2 text-left text-xs lg:table-cell">
+                          {r.projectStage != null ? (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                              {r.projectStage} · {r.projectStageTitle ?? ''}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
                         <td className="hidden whitespace-nowrap px-3 py-2 text-right text-muted-foreground md:table-cell">
                           {r.lastActivity
                             ? format.dateTime(new Date(r.lastActivity), { day: 'numeric', month: 'short' })

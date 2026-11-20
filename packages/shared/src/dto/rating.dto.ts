@@ -18,6 +18,12 @@ export const STUDENT_RATING_POINTS = {
   allRequiredBonus: 20,
   /** Each lesson the student joined (attended a live session of). */
   lessonAttended: 2,
+  /**
+   * Each project stage reached on a lesson's status board (the teacher ticks
+   * it), counted from the first stage: stage 0 «Идея» = 0, stage 5 = 50.
+   * The best stage per board counts once.
+   */
+  projectStage: 10,
 } as const;
 
 /**
@@ -56,6 +62,10 @@ export type StudentRatingRow = {
   answered: number;
   /** Distinct required blocks completed. */
   requiredDone: number;
+  /** Highest project stage reached on a status board (0-based), or null. */
+  projectStage: number | null;
+  /** Title of that stage (e.g. «MVP работает»), or null. */
+  projectStageTitle: string | null;
   /** ISO time of the latest join or answer; null when unknown. */
   lastActivity: string | null;
 };

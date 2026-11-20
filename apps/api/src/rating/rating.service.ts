@@ -16,6 +16,7 @@ import {
 
 import { DRIZZLE, type Db } from '../db/db.module';
 import {
+  blockBoards,
   lessonBlocks,
   lessons,
   liveSessions,
@@ -34,6 +35,11 @@ interface StudentTotals {
   answered: Set<string>;
   requiredDone: Set<string>;
   lastActivity: number;
+  /** Best stage per status board (blockId → stage index). */
+  stages: Map<string, number>;
+  /** Highest stage and its title, for display. */
+  bestStage: number;
+  bestStageTitle: string | null;
 }
 
 /** A computed rating: ranked rows plus the lookups needed to find «me». */
@@ -140,6 +146,18 @@ function isRequiredDone(
 }
 
 /** Competition ranking: equal points share a place (1, 1, 3…). */
+/** Name for matching board rows to attendees: lowercase, ё→е, words sorted. */
+function nameKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(' ');
+}
+
 function rankRows(totals: Iterable<StudentTotals>): {
   rows: StudentRatingRow[];
   rowByKey: Map<string, StudentRatingRow>;
@@ -158,6 +176,8 @@ function rankRows(totals: Iterable<StudentTotals>): {
       lessons: s.lessons.size,
       answered: s.answered.size,
       requiredDone: s.requiredDone.size,
+      projectStage: s.bestStage >= 0 ? s.bestStage : null,
+      projectStageTitle: s.bestStage >= 0 ? s.bestStageTitle : null,
       lastActivity: s.lastActivity > 0 ? new Date(s.lastActivity).toISOString() : null,
     };
     rows.push(row);
@@ -412,6 +432,41 @@ export class RatingService {
       }
     }
 
+    // 4b. Project status boards of these lessons: the teacher ticks one
+    // stage per named row. A row is matched to a student by name (word order
+    // and case ignored) among the people who attended that lesson.
+    const boardBlocks = blockRows.filter((b) => b.type === 'status_board' && b.lessonId);
+    const boardStates = boardBlocks.length
+      ? await this.db
+          .select({ blockId: blockBoards.blockId, state: blockBoards.state, updatedAt: blockBoards.updatedAt })
+          .from(blockBoards)
+          .where(inArray(blockBoards.blockId, boardBlocks.map((b) => b.id)))
+      : [];
+    const stateByBlock = new Map(boardStates.map((b) => [b.blockId, b]));
+    const boards: Array<{
+      blockId: string;
+      lessonId: string;
+      cells: Array<{ name: string; stage: number; title: string | null }>;
+      at: number;
+    }> = [];
+    for (const b of boardBlocks) {
+      const st = stateByBlock.get(b.id);
+      if (!st) continue;
+      if (since && (st.updatedAt?.getTime() ?? 0) < since.getTime()) continue;
+      const o = readOptions(b.options) as { rows?: Array<{ label?: unknown }>; columns?: Array<{ title?: unknown; label?: unknown }> };
+      const rowsOpt = Array.isArray(o.rows) ? o.rows : [];
+      const colsOpt = Array.isArray(o.columns) ? o.columns : [];
+      const cells: Array<{ name: string; stage: number; title: string | null }> = [];
+      for (const [row, col] of Object.entries((st.state ?? {}) as Record<string, unknown>)) {
+        const r = rowsOpt[Number(row)];
+        if (!r || typeof r.label !== 'string' || typeof col !== 'number' || col < 0) continue;
+        const c = colsOpt[col];
+        const title = c && typeof c.title === 'string' ? c.title : c && typeof c.label === 'string' ? c.label : null;
+        cells.push({ name: r.label, stage: col, title });
+      }
+      if (cells.length) boards.push({ blockId: b.id, lessonId: b.lessonId!, cells, at: st.updatedAt?.getTime() ?? 0 });
+    }
+
     // 5. Answers of these participants.
     const studentIds = students.map((p) => p.id);
     const resp = studentIds.length
@@ -447,6 +502,9 @@ export class RatingService {
             answered: new Set(),
             requiredDone: new Set(),
             lastActivity: 0,
+            stages: new Map(),
+            bestStage: -1,
+            bestStageTitle: null,
           };
           totals.set(key, t);
         }
@@ -481,6 +539,34 @@ export class RatingService {
         if (isRequiredDone(block, r)) t.requiredDone.add(r.blockId);
         touch(t, r.updatedAt?.getTime() ?? 0, p.name);
       }
+      // Project stages: board rows ↔ attendees of that lesson, by name.
+      if (boards.length) {
+        const byLessonName = new Map<string, Set<string>>();
+        for (const p of students) {
+          if (!p.sessionId || !inScope(p.sessionId)) continue;
+          const lessonId = lessonOf.get(p.sessionId);
+          if (!lessonId) continue;
+          const k = `${lessonId}|${nameKey(p.name)}`;
+          let set = byLessonName.get(k);
+          if (!set) byLessonName.set(k, (set = new Set()));
+          set.add(keyByParticipant.get(p.id)!);
+        }
+        for (const board of boards) {
+          for (const cell of board.cells) {
+            const keys = byLessonName.get(`${board.lessonId}|${nameKey(cell.name)}`);
+            // Only an unambiguous match earns the bonus.
+            if (!keys || keys.size !== 1) continue;
+            const t = get([...keys][0]!);
+            const prev = t.stages.get(board.blockId) ?? -1;
+            if (cell.stage > prev) t.stages.set(board.blockId, cell.stage);
+            if (cell.stage > t.bestStage) {
+              t.bestStage = cell.stage;
+              t.bestStageTitle = cell.title;
+            }
+            if (board.at > t.lastActivity) t.lastActivity = board.at;
+          }
+        }
+      }
       for (const t of totals.values()) {
         let points =
           t.lessons.size * STUDENT_RATING_POINTS.lessonAttended +
@@ -492,6 +578,7 @@ export class RatingService {
             points += STUDENT_RATING_POINTS.allRequiredBonus;
           }
         }
+        for (const stage of t.stages.values()) points += stage * STUDENT_RATING_POINTS.projectStage;
         t.points = points;
         if (!t.name) t.name = '—';
       }

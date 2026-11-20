@@ -32,6 +32,7 @@ export function PointsRules({ className }: { className?: string }) {
     t('ruleRequired', { points: STUDENT_RATING_POINTS.requiredBlock }),
     t('ruleAllRequired', { points: STUDENT_RATING_POINTS.allRequiredBonus }),
     t('ruleLesson', { points: STUDENT_RATING_POINTS.lessonAttended }),
+    t('ruleProject', { points: STUDENT_RATING_POINTS.projectStage, max: STUDENT_RATING_POINTS.projectStage * 5 }),
   ];
   return (
     <div className={cn('rounded-xl border bg-muted/40 p-4', className)}>
