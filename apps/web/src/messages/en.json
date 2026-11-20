@@ -208,7 +208,7 @@
     "renameFailed": "Could not rename lesson",
     "blocks": "Blocks",
     "outcomes": "Learning outcomes",
-    "staffHint": "Lessons are grouped by company. Pick a category to see only its lessons.",
+    "staffHint": "Press a company to open its lessons.",
     "category": "Category",
     "lessonsCount": "{count, plural, one {# lesson} other {# lessons}}",
     "categoryAll": "All",

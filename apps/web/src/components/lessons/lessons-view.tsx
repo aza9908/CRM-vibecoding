@@ -215,9 +215,9 @@ export function LessonsView() {
               </button>
             ) : null}
           </div>
-          {groups.length > 1 || filter !== ALL ? (
+          {groups.length > 0 ? (
             <div
-              className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0"
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
               role="tablist"
               aria-label={t('category')}
             >
@@ -281,6 +281,12 @@ export function LessonsView() {
           {t('pickCompany')}
         </p>
       ) : (
+        <>
+        {filter !== ALL ? (
+          <h2 className="mb-3 text-xl font-semibold">
+            {filter === NONE ? t('categoryNone') : filter}
+          </h2>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <button
             type="button"
@@ -292,6 +298,7 @@ export function LessonsView() {
           </button>
           {cards(shownGroups.flatMap((g) => g.lessons))}
         </div>
+        </>
       )}
 
       <CreateLessonDialog
@@ -315,6 +322,7 @@ function FilterChip({
   label: string;
   count: number;
 }) {
+  const t = useTranslations('lessons');
   return (
     <button
       type="button"
@@ -322,20 +330,18 @@ function FilterChip({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'flex min-h-[5.5rem] flex-col items-start justify-between gap-2 rounded-xl border-2 p-4 text-left shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         active
           ? 'border-primary bg-primary text-primary-foreground'
-          : 'bg-background text-foreground hover:bg-accent',
+          : 'border-border bg-card text-foreground hover:border-primary/60 hover:bg-primary/5',
       )}
     >
-      {label}
-      <span
-        className={cn(
-          'text-xs tabular-nums',
-          active ? 'text-primary-foreground/80' : 'text-muted-foreground',
-        )}
-      >
-        {count}
+      <span className="flex w-full items-center gap-2">
+        <FolderOpen className={cn('h-5 w-5 shrink-0', active ? 'text-primary-foreground' : 'text-primary')} aria-hidden />
+        <span className="truncate text-base font-semibold">{label}</span>
+      </span>
+      <span className={cn('text-sm tabular-nums', active ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
+        {t('lessonsCount', { count })}
       </span>
     </button>
   );

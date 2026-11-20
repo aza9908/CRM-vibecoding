@@ -208,7 +208,7 @@
     "renameFailed": "Dars nomini oʻzgartirib boʻlmadi",
     "blocks": "Bloklar",
     "outcomes": "Taʼlim natijalari",
-    "staffHint": "Darslar kompaniyalar bo‘yicha ajratilgan. Faqat kerakli darslarni ko‘rish uchun toifani tanlang.",
+    "staffHint": "Darslarini ochish uchun kompaniyani bosing.",
     "category": "Toifa",
     "lessonsCount": "{count} ta dars",
     "categoryAll": "Barchasi",

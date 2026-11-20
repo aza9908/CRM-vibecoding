@@ -14,9 +14,9 @@ export default async function TeacherLessonsPage({
   return (
     <AppShell>
       <main className="container py-8">
-        <ServerRecordings className="mb-4 block max-w-2xl" />
-        <RecordingFinder className="mb-6 block max-w-2xl" />
         <LessonsView />
+        <ServerRecordings className="mt-10 block max-w-2xl" />
+        <RecordingFinder className="mt-4 block max-w-2xl" />
       </main>
     </AppShell>
   );
