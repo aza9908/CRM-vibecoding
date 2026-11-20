@@ -20,5 +20,6 @@ export * from './dto/task.dto.js';
 export * from './dto/promo-code.dto.js';
 export * from './dto/analysis.dto.js';
 export * from './dto/recording.dto.js';
+export * from './dto/rating.dto.js';
 export * from './sections.js';
 export * from './ws-events.js';

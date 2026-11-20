@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Ticket,
+  Trophy,
   Wrench,
 } from 'lucide-react';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const t = useTranslations('nav');
   const ta = useTranslations('admin');
   const tt = useTranslations('tour');
+  const tr = useTranslations('rating');
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -74,6 +76,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             icon: BookOpen,
             tourId: 'lessons',
             tourText: tt('lessonsStudent'),
+          },
+        ]),
+    // Student rating: staff see the whole table, students their own place
+    // (team_lead has neither endpoint).
+    ...(role === 'team_lead'
+      ? []
+      : [
+          {
+            href: isTeacher ? '/teacher/rating' : '/rating',
+            label: tr('navLabel'),
+            icon: Trophy,
+            tourId: 'rating',
+            tourText: isTeacher ? tr('tourStaff') : tr('tourStudent'),
           },
         ]),
     {

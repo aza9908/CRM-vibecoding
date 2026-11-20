@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { CurriculumTimeline } from './curriculum-timeline';
 import { PromoCodeEmptyState } from './promo-code-empty-state';
+import { MyRatingCard } from '@/components/rating/my-rating-card';
 
 /** Thin horizontal progress bar (0–100). */
 function ProgressBar({ value }: { value: number }) {
@@ -203,6 +204,9 @@ export function CabinetView() {
               value={String(stats.modules.length)}
             />
           </div>
+
+          {/* Student rating: my points, my place, top 10 */}
+          {user.role === 'student' ? <MyRatingCard /> : null}
 
           {/* Continue learning */}
           {stats.inProgress.length > 0 && (

@@ -29,4 +29,9 @@ export const queryKeys = {
   promoCodes: ['admin', 'promo-codes'] as const,
   platformCompanies: ['platform', 'companies'] as const,
   tasks: ['tasks'] as const,
+  // Student rating («Рейтинг»).
+  rating: (category: string | null, period: string) =>
+    ['rating', category ?? '', period] as const,
+  myRating: ['rating', 'me'] as const,
+  sessionRating: (sessionId: string) => ['sessions', sessionId, 'rating'] as const,
 };

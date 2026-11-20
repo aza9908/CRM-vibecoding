@@ -14,3 +14,4 @@ export * from './use-admin';
 export * from './use-promo-codes';
 export * from './use-platform';
 export * from './use-tasks';
+export * from './use-rating';

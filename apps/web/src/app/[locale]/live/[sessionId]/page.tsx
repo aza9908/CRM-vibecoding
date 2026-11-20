@@ -736,6 +736,8 @@ export default function StudentLivePage() {
             questions={questions}
             onAsk={askQuestion}
             onVote={voteQuestion}
+            sessionId={sessionId}
+            ratingAsParticipant={useParticipantToken}
             className="h-auto min-h-[24rem]"
           />
         </aside>

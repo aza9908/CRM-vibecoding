@@ -9,6 +9,7 @@ import {
   Bot,
   MessagesSquare,
   MessageCircleQuestion,
+  Trophy,
 } from 'lucide-react';
 import type { Block } from '@/lib/api/types';
 import type { ChatMessagePayload, QaQuestion } from '@lms/shared';
@@ -19,8 +20,9 @@ import { NotesTab } from './NotesTab';
 import { TutorTab } from './TutorTab';
 import { GroupChatTab } from './GroupChatTab';
 import { QaPanel } from './QaPanel';
+import { SessionRatingTab } from '@/components/rating/session-rating-tab';
 
-type TabId = 'navigation' | 'qa' | 'chat' | 'materials' | 'notes' | 'tutor';
+type TabId = 'navigation' | 'qa' | 'chat' | 'materials' | 'notes' | 'tutor' | 'rating';
 
 const TABS: { id: TabId; labelKey: string; Icon: typeof ListChecks }[] = [
   { id: 'chat', labelKey: 'tabChat', Icon: MessagesSquare },
@@ -30,6 +32,9 @@ const TABS: { id: TabId; labelKey: string; Icon: typeof ListChecks }[] = [
   { id: 'notes', labelKey: 'tabNotes', Icon: NotebookPen },
   { id: 'tutor', labelKey: 'tabTutor', Icon: Bot },
 ];
+
+/** Shown only when the panel knows the session (student live page). */
+const RATING_TAB = { id: 'rating' as const, labelKey: 'tab', Icon: Trophy };
 
 export interface RightPanelProps {
   lessonId: string | undefined;
@@ -49,6 +54,10 @@ export interface RightPanelProps {
   questions?: QaQuestion[];
   onAsk?: (text: string) => void;
   onVote?: (questionId: string) => void;
+  /** Live session id — enables the «Рейтинг» tab. */
+  sessionId?: string;
+  /** Read the rating with the participant token (else the user token). */
+  ratingAsParticipant?: boolean;
   className?: string;
 }
 
@@ -71,9 +80,13 @@ export function RightPanel({
   questions = [],
   onAsk,
   onVote,
+  sessionId,
+  ratingAsParticipant = true,
   className,
 }: RightPanelProps) {
   const t = useTranslations('rightPanel');
+  const tr = useTranslations('rating');
+  const tabs = sessionId ? [...TABS, RATING_TAB] : TABS;
   const [active, setActive] = React.useState<TabId>('chat');
   const openQuestions = questions.filter((q) => q.status !== 'answered').length;
 
@@ -89,7 +102,7 @@ export function RightPanel({
         aria-label={t('title')}
         className="flex shrink-0 border-b"
       >
-        {TABS.map(({ id, labelKey, Icon }) => {
+        {tabs.map(({ id, labelKey, Icon }) => {
           const selected = active === id;
           return (
             <button
@@ -113,7 +126,7 @@ export function RightPanel({
                   </span>
                 ) : null}
               </span>
-              <span className="truncate">{t(labelKey)}</span>
+              <span className="truncate">{id === 'rating' ? tr(labelKey) : t(labelKey)}</span>
             </button>
           );
         })}
@@ -162,6 +175,9 @@ export function RightPanel({
             </p>
           ))}
         {active === 'notes' && <NotesTab lessonId={lessonId} />}
+        {active === 'rating' && sessionId && (
+          <SessionRatingTab sessionId={sessionId} asParticipant={ratingAsParticipant} />
+        )}
         {active === 'tutor' && (
           <TutorTab
             lessonId={lessonId}
