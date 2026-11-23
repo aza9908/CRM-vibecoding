@@ -62,5 +62,14 @@ jobs:
             https)  script=enable-https.sh ;;
             *) echo "unknown mode"; exit 1 ;;
           esac
+          # The server keeps a clone of the landing repo: bring it to the latest main
+          # (restarting the site if it changed) and run the script from there. Only the
+          # very first setup, before the clone exists, downloads the script directly.
           url="https://raw.githubusercontent.com/aza9908/landing/main/deploy/vps/$script"
-          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "curl -fsSL '$url?t=$(date +%s)' | bash"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "
+            if [ -x /usr/local/bin/airl-landing-update ] && [ -d /opt/airl-landing/.git ]; then
+              /usr/local/bin/airl-landing-update || true
+              bash /opt/airl-landing/deploy/vps/$script
+            else
+              curl -fsSL '$url' | bash
+            fi"
