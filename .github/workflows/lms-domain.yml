@@ -69,10 +69,17 @@ jobs:
           done
           echo "== certificates"; certbot certificates 2>/dev/null | grep -E 'Certificate Name|Domains|Expiry' | sed 's/^ *//'
           echo "== DNS: lms-api.airl.kz → $( (getent ahostsv4 lms-api.airl.kz || true) | awk '{print $1}' | sort -u | tr '\n' ' ')· lms-api.magauin.kz → $( (getent ahostsv4 lms-api.magauin.kz || true) | awk '{print $1}' | sort -u | tr '\n' ' ')"
-          echo "== sessions by status"
-          docker exec lms-db-1 psql -U lms -d lms -tAc "select status || ': ' || count(*) from sessions group by status order by 1" 2>&1 | sed 's/^/  /'
-          echo "== people connected to live lessons right now (websocket connections to the API)"
-          echo "  $(docker exec lms-api-1 sh -c 'cat /proc/net/tcp 2>/dev/null | wc -l' 2>/dev/null || echo '?') open TCP sockets in the API container"
+          echo "== live lessons (times and counts only)"
+          docker exec lms-db-1 psql -U lms -d lms -tAc "
+            select 'started ' || to_char(coalesce(s.start_time, s.created_at) at time zone 'Asia/Almaty', 'DD Mon HH24:MI') ||
+                   ' Astana (' || round(extract(epoch from now() - coalesce(s.start_time, s.created_at)) / 3600) || ' h ago) · joined: ' ||
+                   (select count(*) from participants p where p.session_id = s.id) ||
+                   ' · last join: ' || coalesce((select to_char(max(p.created_at) at time zone 'Asia/Almaty', 'DD Mon HH24:MI') from participants p where p.session_id = s.id), '—') ||
+                   ' · last answer: ' || coalesce((select to_char(max(r.updated_at) at time zone 'Asia/Almaty', 'DD Mon HH24:MI') from responses r join participants p on p.id = r.participant_id where p.session_id = s.id), '—')
+            from live_sessions s where s.status = 'live' order by 1" 2>&1 | sed 's/^/  /'
+          echo "== connections to the LMS API right now"
+          echo "  nginx → API (open requests and sockets): $(ss -Htn state established '( dport = :3002 )' 2>/dev/null | wc -l)"
+          echo "  video room media (UDP/TCP 44444-44445) packets in the last 5 s: $(timeout 6 sh -c 'a=$(cat /proc/net/snmp | awk "/^Udp:/ {getline; print \$2; exit}"); sleep 5; b=$(cat /proc/net/snmp | awk "/^Udp:/ {getline; print \$2; exit}"); echo $((b-a))' 2>/dev/null || echo '?') UDP datagrams server-wide"
           echo "== where the old host name is stored in the database (counts only)"
           docker exec -i lms-db-1 psql -U lms -d lms -tA 2>&1 <<'SQL' | sed 's/^/  /'
           do $$ declare r record; n bigint; begin
