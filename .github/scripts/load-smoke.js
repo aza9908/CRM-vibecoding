@@ -28,7 +28,11 @@ const req = async (path, init = {}, token = TOKEN) => {
 };
 const until = async (cond, ms) => { const t = Date.now(); while (Date.now() - t < ms) { if (cond()) return true; await sleep(100); } return cond(); };
 const connect = (token) => new Promise((resolve, reject) => {
-  const s = io(API + '/live', { auth: { token }, transports: ['websocket'], reconnection: true });
+  // API may live under a path (https://airl.kz/lms-api): Socket.IO takes the path of
+  // its URL for the namespace, so the prefix goes into the Engine.IO path instead.
+  const api = new URL(API);
+  const s = io(api.origin + '/live', { path: api.pathname.replace(/\/+$/, '') + '/socket.io',
+    auth: { token }, transports: ['websocket'], reconnection: true });
   const timer = setTimeout(() => reject(new Error('socket timeout')), 20000);
   s.once('connect', () => { clearTimeout(timer); resolve(s); });
   s.once('connect_error', (e) => { clearTimeout(timer); reject(e); });

@@ -4,8 +4,18 @@ name: LMS on airl.kz names
 # onto airl.kz ones. The server and containers stay the same; only the public
 # names change.
 #
-#   audit — read-only report: public settings, nginx sites, where the old host
-#           name is stored in the database (counts only), live sessions now.
+#   audit    — read-only report: public settings, nginx sites, where the old host
+#              name is stored in the database (counts only), live sessions now.
+#   switch   — point the LMS at https://airl.kz/lms-api (API, sockets) and
+#              https://airl.kz/lms-storage (lesson files): edits the server's env
+#              file and rewrites the picture links stored in lessons. Both are
+#              backed up first. Then run "Deploy LMS to VPS" (mode deploy) to
+#              rebuild the app with the new addresses.
+#   rollback — put the env file and the picture links back, then deploy again.
+#
+# The nginx routes /lms, /lms-api/ and /lms-storage/ of airl.kz are created by
+# the landing repo (deploy/vps/setup.sh); switch refuses to run without them.
+# The old names keep working for as long as their DNS does.
 #
 # Uses the same VPS_* secrets as deploy-vps.yml. Logs are public: no secret
 # values are printed.
@@ -13,10 +23,14 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: audit (read-only)
+        description: audit (read-only), switch or rollback
         type: choice
-        options: [audit]
+        options: [audit, switch, rollback]
         default: audit
+      force:
+        description: switch/rollback — go on even if people are connected to the LMS right now
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-vps
@@ -91,4 +105,90 @@ jobs:
           end $$;
           SQL
           echo "== files bucket: $(docker exec lms-minio-1 sh -c 'ls /data 2>/dev/null | tr "\n" " "')"
+          REMOTE
+
+      - name: Switch to airl.kz names / roll back
+        if: inputs.mode == 'switch' || inputs.mode == 'rollback'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          MODE: ${{ inputs.mode }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "MODE='$MODE' FORCE='$FORCE' bash -s" <<'REMOTE'
+          set -euo pipefail
+          OLD_API=https://lms-api.magauin.kz
+          NEW_API=https://airl.kz/lms-api
+          NEW_WS=wss://airl.kz/lms-api
+          NEW_FILES=https://airl.kz
+          ENVF=$(docker inspect lms-web-1 --format '{{ index .Config.Labels "com.docker.compose.project.environment_file" }}' </dev/null)
+          [ -f "$ENVF" ] || { echo "LMS env file not found"; exit 1; }
+          # This script itself arrives on stdin (bash -s), so nothing below may read stdin
+          # by accident: one-line queries get /dev/null, multi-line ones get a heredoc.
+          sql() {
+            if [ "$#" -gt 0 ]; then docker exec lms-db-1 psql -U lms -d lms -v ON_ERROR_STOP=1 -tA "$@" </dev/null
+            else docker exec -i lms-db-1 psql -U lms -d lms -v ON_ERROR_STOP=1 -tA; fi
+          }
+          c() { curl -s -o /dev/null --max-time 25 -w '%{http_code}' "$@" </dev/null; }
+          show() { grep -E '^(NEXT_PUBLIC_API_URL|NEXT_PUBLIC_WS_URL|API_PUBLIC_URL|S3_PUBLIC_URL|WEB_ORIGIN)=' "$ENVF" | sed 's/^/  /'; }
+          pictures() { echo "  pictures on the old name: $(sql -c "select count(*) from lesson_blocks where image_url like '%magauin.kz%'") · on airl.kz: $(sql -c "select count(*) from lesson_blocks where image_url like 'https://airl.kz/%'")"; }
+
+          busy=$(ss -Htn state established '( dport = :3002 )' 2>/dev/null </dev/null | wc -l)
+          echo "== connections to the LMS API right now: $busy"
+          if [ "$busy" -gt 2 ] && [ "$FORCE" != "true" ]; then
+            echo "People seem to be using the LMS — nothing changed. Run again later, or with force."; exit 1
+          fi
+          echo "== before"; show; pictures
+
+          if [ "$MODE" = "switch" ]; then
+            # The new addresses must already answer like the old ones.
+            R="--resolve airl.kz:443:127.0.0.1"; O="--resolve lms-api.magauin.kz:443:127.0.0.1"
+            api_new=$(c $R https://airl.kz/lms-api/lessons); api_old=$(c $O https://lms-api.magauin.kz/lessons)
+            sio=$(curl -s $R --max-time 25 'https://airl.kz/lms-api/socket.io/?EIO=4&transport=polling' </dev/null | cut -c1-7)
+            key=$(sql -c "select substring(image_url from '/lms-storage/.*') from lesson_blocks where image_url like '$OLD_API/lms-storage/%' limit 1" | head -1)
+            pic=200; [ -z "$key" ] || pic=$(c $R "https://airl.kz$key")
+            web=$(c $R https://airl.kz/lms/ru/login)
+            echo "== new addresses on this server: api $api_new (old $api_old) · sockets $sio · a lesson picture $pic · pages $web"
+            if [ "$api_new" != "$api_old" ] || [ "$sio" != '0{"sid"' ] || [ "$pic" != 200 ] || { [ "$web" != 200 ] && [ "$web" != 307 ]; }; then
+              echo "The airl.kz routes are not ready (run setup of the landing repo first) — nothing changed."; exit 1
+            fi
+            grep -q '^WEB_ORIGIN=.*https://airl\.kz' "$ENVF" || { echo "WEB_ORIGIN does not allow https://airl.kz — nothing changed."; exit 1; }
+
+            stamp=$(date +%Y%m%d%H%M%S)
+            cp -p "$ENVF" "$ENVF.before-airl-names.$stamp"; chmod 600 "$ENVF.before-airl-names.$stamp"
+            mkdir -p /root/lms-backups
+            sql -c "\\copy (select id, image_url from lesson_blocks where image_url like '%magauin.kz%') to stdout with csv" > "/root/lms-backups/lesson_blocks_image_url.before-airl-names.$stamp.csv"
+            echo "== backups: env file copy and $(wc -l < "/root/lms-backups/lesson_blocks_image_url.before-airl-names.$stamp.csv") picture links saved"
+
+            setkv() { if grep -q "^$1=" "$ENVF"; then sed -i "s#^$1=.*#$1=$2#" "$ENVF"; else printf '%s=%s\n' "$1" "$2" >> "$ENVF"; fi; }
+            setkv NEXT_PUBLIC_API_URL "$NEW_API"
+            setkv NEXT_PUBLIC_WS_URL "$NEW_WS"
+            setkv API_PUBLIC_URL "$NEW_API"
+            setkv S3_PUBLIC_URL "$NEW_FILES"
+            sql <<SQL
+          begin;
+          update lesson_blocks set image_url = replace(image_url, '$OLD_API/lms-storage/', '$NEW_FILES/lms-storage/') where image_url like '$OLD_API/lms-storage/%';
+          update lesson_blocks set image_url = replace(image_url, '$OLD_API/', '$NEW_API/') where image_url like '$OLD_API/%';
+          commit;
+          SQL
+            key=$(sql -c "select substring(image_url from '/lms-storage/.*') from lesson_blocks where image_url like '$NEW_FILES/lms-storage/%' limit 1" | head -1)
+            [ -z "$key" ] || echo "== a rewritten picture link answers: $(c $R "https://airl.kz$key")"
+            echo "== after"; show; pictures
+            echo "Now run: Deploy LMS to VPS (mode deploy) — it rebuilds the app with these addresses."
+          else
+            last=$(ls -1t "$ENVF".before-airl-names.* 2>/dev/null | head -1)
+            [ -n "$last" ] || { echo "No backup of the env file — nothing to roll back."; exit 1; }
+            cp -p "$ENVF" "$ENVF.before-rollback.$(date +%Y%m%d%H%M%S)"
+            cp -p "$last" "$ENVF"
+            sql <<SQL
+          begin;
+          update lesson_blocks set image_url = replace(image_url, '$NEW_FILES/lms-storage/', '$OLD_API/lms-storage/') where image_url like '$NEW_FILES/lms-storage/%';
+          update lesson_blocks set image_url = replace(image_url, '$NEW_API/', '$OLD_API/') where image_url like '$NEW_API/%';
+          commit;
+          SQL
+            echo "== after (restored from $(basename "$last"))"; show; pictures
+            echo "Now run: Deploy LMS to VPS (mode deploy) — it rebuilds the app with the old addresses."
+          fi
           REMOTE

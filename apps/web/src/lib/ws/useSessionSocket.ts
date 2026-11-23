@@ -25,7 +25,7 @@ import {
   type ParticipantRemovedPayload,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from './url';
+import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocket } from './url';
 import { PulseChannel } from './pulse-channel';
 
 
@@ -160,8 +160,9 @@ export function useSessionSocket(
     setQuestions([]);
     joinRetries.current = 0;
 
-    const url = resolveLiveSocketUrl();
-    const socket: LiveSocket = io(url, {
+    const live = resolveLiveSocket();
+    const socket: LiveSocket = io(live.url, {
+      path: live.path,
       transports: LIVE_SOCKET_TRANSPORTS,
       auth: { token: authToken },
       query: { token: authToken },

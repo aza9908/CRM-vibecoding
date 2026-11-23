@@ -72,7 +72,9 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_REGION: ${S3_REGION}
-      S3_PUBLIC_URL: https://lms-api.magauin.kz
+      # Public origin of lesson files ({origin}/{bucket}/{key}); nginx maps the
+      # bucket path to MinIO unchanged. Production: https://airl.kz.
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-https://lms-api.magauin.kz}
       # Video room: media server (SFU) inside the API. Browsers send/receive
       # media on RTC_PORT.. (one UDP+TCP port per worker), reached at the
       # server's public IP.
@@ -97,7 +99,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
-        # /lms → the app lives at https://airl.kz/lms/ (landing proxies it)
+        # /lms → the app lives at https://airl.kz/lms/ (nginx of airl.kz serves it)
         NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
         # Google OAuth client id (public): call recordings → the host's Drive
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}

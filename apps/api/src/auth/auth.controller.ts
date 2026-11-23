@@ -43,15 +43,31 @@ const REFRESH_COOKIE = 'refresh_token';
 /** 30 days in milliseconds — matches the refresh token TTL. */
 const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * Path the refresh cookie is scoped to. With a host of its own the API uses
+ * "/". When it is served under a path of a site shared with other apps
+ * (API_PUBLIC_URL=https://airl.kz/lms-api) the cookie must travel only with
+ * API requests, not with every request to that site.
+ */
+function refreshCookiePath(publicUrl: string | undefined): string {
+  try {
+    return new URL(publicUrl ?? '').pathname.replace(/\/+$/, '') || '/';
+  } catch {
+    return '/';
+  }
+}
+
 @Controller('auth')
 export class AuthController {
   private readonly isProd: boolean;
+  private readonly cookiePath: string;
 
   constructor(
     private readonly auth: AuthService,
     config: ConfigService,
   ) {
     this.isProd = config.get<string>('NODE_ENV') === 'production';
+    this.cookiePath = refreshCookiePath(config.get<string>('API_PUBLIC_URL'));
   }
 
   /**
@@ -181,7 +197,7 @@ export class AuthController {
     await this.auth.resetPassword(dto);
 
     // A completed reset should not leave an old session alive on this device.
-    res.clearCookie(REFRESH_COOKIE, { path: '/' });
+    res.clearCookie(REFRESH_COOKIE, { path: this.cookiePath });
 
     return { message: 'password_reset_ok' };
   }
@@ -199,7 +215,7 @@ export class AuthController {
       httpOnly: true,
       secure: this.isProd,
       sameSite: 'lax',
-      path: '/',
+      path: this.cookiePath,
       maxAge: REFRESH_COOKIE_MAX_AGE,
     });
   }

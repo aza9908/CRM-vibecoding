@@ -11,11 +11,11 @@ import type { PublicUser } from '@lms/shared';
  * - `participantToken` + `sessionId`: lightweight participant session (join by code),
  *   aud=participant. A guest who joined by code only has these.
  *
- * The API also sets the refresh token as an httpOnly cookie on its own domain.
- * When the app is served from another site (https://airl.kz/lms while the API
- * is on lms-api.magauin.kz) browsers treat that cookie as third-party and do
- * not send it, so the refresh token from the auth response is kept here too
- * and sent in the body of POST /auth/refresh (which the API accepts).
+ * The API also sets the refresh token as an httpOnly cookie. When the app and
+ * the API are on different sites, browsers treat that cookie as third-party
+ * and do not send it, so the refresh token from the auth response is kept
+ * here too and sent in the body of POST /auth/refresh (which the API accepts).
+ * In production both are on one site (https://airl.kz/lms and /lms-api).
  */
 export interface AuthState {
   accessToken: string | null;

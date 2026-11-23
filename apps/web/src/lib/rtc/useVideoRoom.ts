@@ -17,7 +17,7 @@ import {
   type ServerToClientEvents,
   RTC_REACTION_LIMIT,
 } from '@lms/shared';
-import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocketUrl } from '@/lib/ws/url';
+import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocket } from '@/lib/ws/url';
 
 /**
  * Video room for a live session — our own meeting room inside the LMS.
@@ -811,7 +811,9 @@ export function useVideoRoom(
     if (socketRef.current) return socketRef.current;
     const auth = tokenRef.current;
     if (!auth) return null;
-    const socket: LiveSocket = io(resolveLiveSocketUrl(), {
+    const live = resolveLiveSocket();
+    const socket: LiveSocket = io(live.url, {
+      path: live.path,
       transports: LIVE_SOCKET_TRANSPORTS,
       auth: { token: auth },
       query: { token: auth },

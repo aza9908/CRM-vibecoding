@@ -53,7 +53,7 @@ on:
         default: false
       public_url:
         description: URL checked after the deploy
-        default: https://lms.magauin.kz
+        default: https://airl.kz
 
 concurrency:
   group: deploy-vps
@@ -166,15 +166,15 @@ jobs:
           echo "JS chunk $chunk → $(curl -s -o /dev/null -w '%{http_code}' "https://airl.kz$chunk")"
           echo "== CORS from each origin (login preflight + bad-password POST)"
           for o in https://airl.kz https://www.airl.kz https://lms.magauin.kz; do
-            pre=$(curl -s -o /dev/null -D - -X OPTIONS https://lms-api.magauin.kz/auth/login -H "Origin: $o" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' | grep -i '^access-control-allow-origin' | tr -d '\r')
-            post=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://lms-api.magauin.kz/auth/login -H "Origin: $o" -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}')
+            pre=$(curl -s -o /dev/null -D - -X OPTIONS https://airl.kz/lms-api/auth/login -H "Origin: $o" -H 'Access-Control-Request-Method: POST' -H 'Access-Control-Request-Headers: content-type' | grep -i '^access-control-allow-origin' | tr -d '\r')
+            post=$(curl -s -o /dev/null -w '%{http_code}' -X POST https://airl.kz/lms-api/auth/login -H "Origin: $o" -H 'content-type: application/json' -d '{"email":"nobody@example.com","password":"wrong-password-1"}')
             echo "$o → preflight [$pre] · bad login → $post"
           done
           echo "== realtime (Socket.IO) through nginx"
-          echo "polling handshake → $(curl -s -o /dev/null -w '%{http_code}' 'https://lms-api.magauin.kz/socket.io/?EIO=4&transport=polling') $(curl -s 'https://lms-api.magauin.kz/socket.io/?EIO=4&transport=polling' | head -c 40)"
-          echo "websocket upgrade → $(curl -s -o /dev/null -w '%{http_code}' --http1.1 -m 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 'https://lms-api.magauin.kz/socket.io/?EIO=4&transport=websocket') (101 = WebSocket passes)"
+          echo "polling handshake → $(curl -s -o /dev/null -w '%{http_code}' 'https://airl.kz/lms-api/socket.io/?EIO=4&transport=polling') $(curl -s 'https://airl.kz/lms-api/socket.io/?EIO=4&transport=polling' | head -c 40)"
+          echo "websocket upgrade → $(curl -s -o /dev/null -w '%{http_code}' --http1.1 -m 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 'https://airl.kz/lms-api/socket.io/?EIO=4&transport=websocket') (101 = WebSocket passes)"
           echo "== refresh cookie attributes (from a failed refresh)"
-          curl -s -D - -o /dev/null -X POST https://lms-api.magauin.kz/auth/refresh -H 'Origin: https://airl.kz' | grep -i 'set-cookie\|^HTTP' | sed -E 's/=[A-Za-z0-9._-]{20,}/=<token>/'
+          curl -s -D - -o /dev/null -X POST https://airl.kz/lms-api/auth/refresh -H 'Origin: https://airl.kz' | grep -i 'set-cookie\|^HTTP' | sed -E 's/=[A-Za-z0-9._-]{20,}/=<token>/'
           echo "== database (counts only)"
           $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i -w /app/apps/api lms-api-1 node -" <<'NODE'
           const { Pool } = require('pg');
@@ -502,7 +502,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PORT: ${{ secrets.VPS_PORT }}
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
-          API: https://lms-api.magauin.kz
+          API: https://airl.kz/lms-api
           WEB: https://airl.kz/lms
         run: |
           set +e -u
@@ -529,7 +529,7 @@ jobs:
           sort /tmp/flood.txt | uniq -c | sed 's/^/  /'; echo "  took $(echo "$end - $start" | bc) s"
           echo "  a normal request right after: $(curl -s -m 15 -o /dev/null -w '%{http_code} in %{time_total}s' $API/lessons)"
           echo "== 7. TLS"
-          for v in tls1 tls1_1 tls1_2 tls1_3; do r=$(echo | timeout 8 openssl s_client -connect lms-api.magauin.kz:443 -servername lms-api.magauin.kz -$v 2>/dev/null | grep -c 'BEGIN CERTIFICATE'); echo "  $v: $([ "$r" -gt 0 ] && echo accepted || echo refused)"; done
+          for v in tls1 tls1_1 tls1_2 tls1_3; do r=$(echo | timeout 8 openssl s_client -connect airl.kz:443 -servername airl.kz -$v 2>/dev/null | grep -c 'BEGIN CERTIFICATE'); echo "  $v: $([ "$r" -gt 0 ] && echo accepted || echo refused)"; done
           echo "== 9. CSRF: a request another site makes the browser send (cookies only, no Authorization header)"
           echo "  forged cookie access_token → /auth/me: $(curl -s -m 10 -o /dev/null -w '%{http_code}' -H 'Origin: https://evil.example' -H 'Cookie: access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.x' $API/auth/me) (401 = cookies are never accepted as login)"
           echo "  cross-site form POST (text/plain) → /sessions: $(curl -s -m 10 -o /dev/null -w '%{http_code}' -X POST -H 'Origin: https://evil.example' -H 'content-type: text/plain' -d 'x' $API/sessions) (401 = refused)"
@@ -942,8 +942,8 @@ jobs:
           REMOTE
 
       - name: Verify the site answers under the base path
-        # lms.magauin.kz redirects visitors to airl.kz/lms; only requests that
-        # carry the landing proxy's header are served, so the check sends it.
+        # The app is served at https://airl.kz/lms. (The old lms.magauin.kz only
+        # serves requests carrying this header and redirects everyone else.)
         if: inputs.mode == 'deploy' || inputs.mode == 'verify'
         env:
           PUBLIC_URL: ${{ inputs.public_url }}
@@ -1036,7 +1036,7 @@ jobs:
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
           EMAIL_SHA256: ${{ inputs.email_sha256 }}
           CODE: ${{ inputs.lesson_spec }}
-          API: https://lms-api.magauin.kz
+          API: https://airl.kz/lms-api
           WEB: https://airl.kz/lms
         run: |
           set -euo pipefail
@@ -1074,7 +1074,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
           EMAIL_SHA256: ${{ inputs.email_sha256 }}
-          API: https://lms-api.magauin.kz
+          API: https://airl.kz/lms-api
           WEB: https://airl.kz/lms
         run: |
           set -euo pipefail
@@ -1110,7 +1110,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
           EMAIL_SHA256: ${{ inputs.email_sha256 }}
-          API: https://lms-api.magauin.kz
+          API: https://airl.kz/lms-api
           WEB: https://airl.kz/lms
         run: |
           set -euo pipefail
@@ -1156,7 +1156,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
           EMAIL_SHA256: ${{ inputs.email_sha256 }}
-          API: https://lms-api.magauin.kz
+          API: https://airl.kz/lms-api
           WEB: https://airl.kz/lms
         run: |
           set -euo pipefail
@@ -1206,7 +1206,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           SSHPASS: ${{ secrets.VPS_PASSWORD }}
           EMAIL_SHA256: ${{ inputs.email_sha256 }}
-          API: https://lms-api.magauin.kz
+          API: https://airl.kz/lms-api
           LESSON_SPEC: ${{ inputs.lesson_spec }}
           FORCE: ${{ inputs.force }}
           WEB: https://airl.kz/lms
