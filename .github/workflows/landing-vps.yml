@@ -1,0 +1,66 @@
+name: Landing on VPS
+
+# airl.kz landing (repo aza9908/landing) on the same VPS as the LMS.
+# The scripts live in that repo under deploy/vps/; this workflow only runs them
+# over SSH, reusing this repo's VPS_* secrets (see deploy-vps.yml).
+#
+#   status — read-only report (container, nginx, DNS, certificate, HTTP checks)
+#   setup  — install/refresh the container, nginx site and the auto-deploy timer
+#   https  — issue the Let's Encrypt certificate (only after airl.kz DNS → VPS)
+#
+# After setup, every push to landing/main is live within ~1 minute (timer on the VPS).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: status, setup or https
+        type: choice
+        options: [status, setup, https]
+        default: status
+
+concurrency:
+  group: landing-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Set up SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          [ -n "$VPS_HOST" ] || { echo "::error::VPS_HOST secret missing"; exit 1; }
+          install -m 700 -d ~/.ssh
+          ssh-keyscan -p "${VPS_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          if [ -n "$VPS_SSH_KEY" ]; then
+            printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+            chmod 600 ~/.ssh/id_deploy
+            echo 'SSH=ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o ServerAliveInterval=30' >> "$GITHUB_ENV"
+          else
+            sudo apt-get install -y -qq sshpass >/dev/null
+            echo 'SSH=sshpass -e ssh -o PubkeyAuthentication=no -o ServerAliveInterval=30' >> "$GITHUB_ENV"
+          fi
+
+      - name: Run ${{ inputs.mode }}
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          case "$MODE" in
+            status) script=status.sh ;;
+            setup)  script=setup.sh ;;
+            https)  script=enable-https.sh ;;
+            *) echo "unknown mode"; exit 1 ;;
+          esac
+          url="https://raw.githubusercontent.com/aza9908/landing/main/deploy/vps/$script"
+          $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "curl -fsSL '$url?t=$(date +%s)' | bash"
