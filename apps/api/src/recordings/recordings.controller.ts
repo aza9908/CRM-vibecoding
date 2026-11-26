@@ -15,9 +15,11 @@ import {
 import type { Request } from 'express';
 import {
   createServerRecordingSchema,
+  sendRecordingToDriveSchema,
   sendRecordingToYoutubeSchema,
   type AuthUserPayload,
   type CreateServerRecordingDto,
+  type SendRecordingToDriveDto,
   type SendRecordingToYoutubeDto,
 } from '@lms/shared';
 import { ZodBody } from '../common/zod-body.decorator';
@@ -27,7 +29,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RecordingsService } from './recordings.service';
 
-/** Call recordings kept on the server until they are on YouTube. Staff only, org-scoped. */
+/**
+ * Call recordings kept on the server until they are on YouTube / Google
+ * Drive. Staff only, org-scoped: any staff member of the organisation may
+ * send, download or continue a recording (handover when the host drops out).
+ */
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('teacher', 'methodist', 'admin')
@@ -70,6 +76,23 @@ export class RecordingsController {
     @ZodBody(sendRecordingToYoutubeSchema) dto: SendRecordingToYoutubeDto,
   ) {
     return this.recordings.sendToYoutube(user.orgId, id, dto.accessToken);
+  }
+
+  @Post('recordings/:rid/drive')
+  @HttpCode(200)
+  drive(
+    @CurrentUser() user: AuthUserPayload,
+    @Param('rid', new ParseUUIDPipe()) id: string,
+    @ZodBody(sendRecordingToDriveSchema) dto: SendRecordingToDriveDto,
+  ) {
+    return this.recordings.sendToDrive(user.orgId, id, dto.accessToken);
+  }
+
+  /** The recording was sent while its recorder was offline: the rest goes to a new file. */
+  @Post('recordings/:rid/continue')
+  @HttpCode(200)
+  continueRecording(@CurrentUser() user: AuthUserPayload, @Param('rid', new ParseUUIDPipe()) id: string) {
+    return this.recordings.continueRecording(user.orgId, user.sub, id);
   }
 
   @Get('recordings/pending')

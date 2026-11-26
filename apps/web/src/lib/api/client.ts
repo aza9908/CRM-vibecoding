@@ -52,6 +52,10 @@ export async function refreshAccessToken(): Promise<string | null> {
         body: JSON.stringify(stored ? { refreshToken: stored } : {}),
       });
       if (!res.ok) {
+        // Server trouble (a deploy / restart → 502, a rate limit): keep the
+        // sign-in, a later call refreshes again. Logging out here would
+        // e.g. stall a lesson recording that streams to the server.
+        if (res.status >= 500 || res.status === 429 || res.status === 408) return null;
         // Never wipe participant live session on teacher refresh failure —
         // only drop the user access token so polls can retry later.
         useAuthStore.setState({ accessToken: null, refreshToken: null, user: null });

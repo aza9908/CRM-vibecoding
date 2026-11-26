@@ -1102,8 +1102,8 @@ export function VideoRoom({
     setOrphans((list) => list.filter((r) => r.recId !== rec.recId));
   }, []);
 
-  /** Google permission from the start of a YouTube recording. */
-  const googleTokenRef = React.useRef<{ token: string; at: number } | null>(null);
+  /** Google permission from the start of a YouTube / Drive recording. */
+  const googleTokenRef = React.useRef<{ token: string; at: number; target: 'youtube' | 'drive' } | null>(null);
   const stopRecording = React.useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder) return;
@@ -1113,16 +1113,16 @@ export function VideoRoom({
     try {
       const result = await recorder.stop(setRecProgress);
       if (result.serverRecordingId) {
-        // YouTube via the LMS server: the server sends it with the Google
-        // permission given at the start while it is still fresh (Google's
-        // tokens last an hour); otherwise the host presses «Отправить».
+        // YouTube / Drive via the LMS server: the server sends it with the
+        // Google permission given at the start while it is still fresh
+        // (Google's tokens last an hour); otherwise «Отправить» in the list.
         const id = result.serverRecordingId;
         watchServerRecording(id);
         const g = googleTokenRef.current;
         let sending = false;
-        if (g && Date.now() - g.at < 50 * 60_000) {
+        if (g && g.target === result.where && Date.now() - g.at < 50 * 60_000) {
           sending = await serverRecordings
-            .sendToYoutube(id, g.token)
+            .send(id, g.target, g.token)
             .then(() => true)
             .catch(() => false);
         }
@@ -1158,22 +1158,36 @@ export function VideoRoom({
           target,
           useAuthStore.getState().user?.email,
         ).catch(() => null);
-        if (!token && target !== 'youtube') showToast(t('recDriveDenied'), 7000);
+        // Without a server copy (no session) Drive needs the permission now.
+        if (!token && target === 'drive' && !sessionId) showToast(t('recDriveDenied'), 7000);
       }
-      googleTokenRef.current = token && target === 'youtube' ? { token, at: Date.now() } : null;
+      googleTokenRef.current =
+        token && target !== 'download' ? { token, at: Date.now(), target } : null;
       try {
         const recorder = await startCallRecording({
           title: recordingTitle || t('recDefaultTitle'),
           target,
           token,
-          // YouTube: the video streams to the LMS server, which sends the
-          // finished file to YouTube (nothing is kept on this computer).
+          // YouTube / Drive: the video streams to the LMS server, which
+          // sends the finished file (nothing is kept on this computer; a
+          // dropped connection or a host who leaves loses nothing — a
+          // colleague can send it or record «часть 2»).
           relay:
-            target === 'youtube' && sessionId
+            target !== 'download' && sessionId
               ? {
-                  create: (title, mimeType) => serverRecordings.create(sessionId, title, mimeType),
+                  create: async (title, mimeType) => {
+                    const created = await serverRecordings.create(sessionId, title, mimeType, target);
+                    if (created.part > 1) showToast(t('recContinuation', { n: created.part }), 9000);
+                    return created;
+                  },
                   putPiece: (id, offset, piece) => serverRecordings.putPiece(id, offset, piece),
                   complete: (id) => serverRecordings.complete(id),
+                  continueAfter: async (id) => {
+                    const next = await serverRecordings.continueAfter(id);
+                    watchServerRecording(next.id);
+                    showToast(t('recContinuation', { n: next.part }), 9000);
+                    return next;
+                  },
                 }
               : null,
           // A light audio copy goes to the server for the AI lesson review.
@@ -1202,7 +1216,7 @@ export function VideoRoom({
         setRecSince(Date.now());
         setRec('on');
         announceRecording(true);
-        if (token && recorder.target === 'download') showToast(t('recCloudFailed'), 7000);
+        if (target !== 'download' && recorder.target === 'download') showToast(t('recCloudFailed'), 7000);
       } catch {
         setRec('idle');
         showToast(t('recFailed'), 6000);
@@ -1252,6 +1266,12 @@ export function VideoRoom({
     if (room.localCamera) streams.push(room.localCamera);
     recorderRef.current?.setAudio(streams);
   }, [rec, room.peers, room.localCamera]);
+
+  // Back in the call after a drop: the server forgot who records (it ended
+  // with the old connection) — mark it again so everyone sees «REC».
+  React.useEffect(() => {
+    if (room.status === 'joined' && rec === 'on') announceRecording(true);
+  }, [room.status, rec, announceRecording]);
 
   // Leaving the call (or the call ending) closes the file properly.
   React.useEffect(() => {
@@ -1351,7 +1371,9 @@ export function VideoRoom({
         <p className="font-semibold">
           {recResult.serverRecordingId
             ? recResult.serverSending
-              ? t('recSendingYoutube')
+              ? recResult.where === 'drive'
+                ? t('recSendingDrive')
+                : t('recSendingYoutube')
               : t('recServerSaved')
             : recResult.where !== 'download' && !recResult.link && recResult.cloudError
             ? recResult.cloudError === 'offline'
@@ -1366,7 +1388,11 @@ export function VideoRoom({
         <p className="truncate text-xs text-muted-foreground">{recResult.fileName}</p>
         {recResult.serverRecordingId ? (
           <p className="mt-1 text-xs text-muted-foreground">
-            {recResult.serverSending ? t('recSendingHint') : t('recServerHint')}
+            {recResult.serverSending
+              ? t('recSendingHint')
+              : recResult.where === 'drive'
+                ? t('recServerHintDrive')
+                : t('recServerHint')}
           </p>
         ) : recResult.where !== 'download' && recResult.link ? (
           <>

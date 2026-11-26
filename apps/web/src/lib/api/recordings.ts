@@ -1,16 +1,24 @@
-import type { ServerRecording } from '@lms/shared';
+import type { ServerRecording, ServerRecordingTarget } from '@lms/shared';
 import { getAccessToken } from '@/lib/store/auth-store';
 import { api, API_URL, ApiError, refreshAccessToken } from '@/lib/api/client';
 
-/** Call recordings kept on the LMS server until they are on YouTube. */
+/** Call recordings kept on the LMS server until they are on YouTube / Google Drive. */
 export const serverRecordings = {
-  create: (sessionId: string, title: string, mimeType: string) =>
-    api.post<ServerRecording>(`/sessions/${sessionId}/recordings`, { title, mimeType }),
+  create: (sessionId: string, title: string, mimeType: string, target: ServerRecordingTarget) =>
+    api.post<ServerRecording>(`/sessions/${sessionId}/recordings`, { title, mimeType, target }),
+  /** The rest of a recording that was sent while its recorder was offline. */
+  continueAfter: (id: string) => api.post<ServerRecording>(`/recordings/${id}/continue`),
   complete: (id: string) => api.post<ServerRecording>(`/recordings/${id}/complete`),
   get: (id: string) => api.get<ServerRecording>(`/recordings/${id}`),
   pending: () => api.get<ServerRecording[]>('/recordings/pending'),
   sendToYoutube: (id: string, accessToken: string) =>
     api.post<ServerRecording>(`/recordings/${id}/youtube`, { accessToken }),
+  sendToDrive: (id: string, accessToken: string) =>
+    api.post<ServerRecording>(`/recordings/${id}/drive`, { accessToken }),
+  send: (id: string, target: ServerRecordingTarget, accessToken: string) =>
+    target === 'drive'
+      ? serverRecordings.sendToDrive(id, accessToken)
+      : serverRecordings.sendToYoutube(id, accessToken),
   remove: (id: string) => api.del<void>(`/recordings/${id}`),
   /** Start a browser download of the server copy (signed 15-minute link). */
   async download(id: string): Promise<void> {

@@ -13,8 +13,12 @@
  *   - Google Drive, folder «Уроки LMS»;
  *   - a file downloaded to the computer.
  *
- * YouTube / Drive: the video goes straight to the cloud while the lesson
- * runs, through a resumable upload session, 8 MiB at a time. Nothing of the
+ * YouTube / Drive (current): the video streams to the LMS server while the
+ * lesson runs (RelayUpload); the server sends the finished file to Google,
+ * so a dropped connection or a host who leaves does not lose the lesson —
+ * a colleague can send it. Older direct mode, still used for recovery of
+ * recordings started before: the video goes straight to the cloud while
+ * the lesson runs, through a resumable upload session, 8 MiB at a time. Nothing of the
  * video is stored on the host's computer: only the piece not yet accepted by
  * the server is held in memory (a few seconds; longer while the internet is
  * down — then it is sent as soon as the connection is back, from where the
@@ -28,7 +32,9 @@
  * the file is saved at the end.
  */
 
-export const DRIVE_FOLDER_NAME = 'Уроки LMS';
+import { RECORDING_DRIVE_FOLDER_NAME } from '@lms/shared';
+
+export const DRIVE_FOLDER_NAME = RECORDING_DRIVE_FOLDER_NAME;
 const SCOPES = {
   drive: 'https://www.googleapis.com/auth/drive.file',
   youtube: 'https://www.googleapis.com/auth/youtube.upload',
@@ -84,9 +90,9 @@ export interface RecordingResult {
   privacy?: string;
   /** Why the chosen cloud target was not used (shown to the host). */
   cloudError?: string;
-  /** YouTube via the LMS server: the recording waiting there to be sent. */
+  /** YouTube / Drive via the LMS server: the recording waiting there to be sent. */
   serverRecordingId?: string;
-  /** The server is already sending it to YouTube. */
+  /** The server is already sending it. */
   serverSending?: boolean;
 }
 
@@ -789,12 +795,21 @@ function newRecId(): string {
  * `requestGoogleToken`) the file is streamed to the cloud during the lesson;
  * otherwise it is downloaded when recording stops.
  */
-/** How the recorder talks to the LMS server (YouTube target). */
+/** How the recorder talks to the LMS server (YouTube / Drive targets). */
 export interface RecordingRelay {
   create(title: string, mimeType: string): Promise<{ id: string }>;
   putPiece(id: string, offset: number, piece: Blob): Promise<{ size: number }>;
   complete(id: string): Promise<unknown>;
+  /**
+   * The server copy was sent away while this computer was offline (a
+   * colleague took over): the rest of the stream goes into a new server
+   * recording («часть N»). Returns its id.
+   */
+  continueAfter?(id: string): Promise<{ id: string }>;
 }
+
+/** Even a quiet picture (a static slide, low bitrate) reaches the server this often. */
+const RELAY_FLUSH_MS = 30_000;
 
 /**
  * Streams the recording to the LMS server while the lesson runs. Pieces stay
@@ -804,6 +819,7 @@ export interface RecordingRelay {
 class RelayUpload {
   private pending: Blob[] = [];
   private pendingBytes = 0;
+  private lastFlush = Date.now();
   /** Bytes the server has confirmed. */
   confirmed = 0;
   /** Bytes handed to the queue (confirmed + in flight + pending). */
@@ -813,7 +829,8 @@ class RelayUpload {
   onFail: ((err: Error) => void) | null = null;
   constructor(
     readonly relay: RecordingRelay,
-    readonly id: string,
+    /** Server recording id (changes if the rest continues in a new file). */
+    public id: string,
   ) {}
   get backlog(): number {
     return this.queued + this.pendingBytes - this.confirmed;
@@ -822,9 +839,12 @@ class RelayUpload {
     if (this.failed) return;
     this.pending.push(blob);
     this.pendingBytes += blob.size;
-    if (this.pendingBytes >= flushBytes()) this.flush();
+    // By size, and by time: the server marks a recording whose pieces stop
+    // for a few minutes as abandoned, so never sit on data too long.
+    if (this.pendingBytes >= flushBytes() || Date.now() - this.lastFlush > RELAY_FLUSH_MS) this.flush();
   }
   private flush(): void {
+    this.lastFlush = Date.now();
     if (!this.pendingBytes) return;
     const piece = new Blob(this.pending);
     const start = this.queued;
@@ -852,10 +872,27 @@ class RelayUpload {
         if (size < from) throw new Error('lost_bytes');
       } catch (err) {
         const gap = err as { size?: number; status?: number; message?: string };
-        if (typeof gap.size === 'number') {
+        if (typeof gap.size === 'number' && /not_recording/.test(gap.message ?? '')) {
+          // Someone already sent the server copy (this computer was offline
+          // for a while): keep recording into a continuation file.
+          if (!this.relay.continueAfter) throw new Error('not_recording');
+          this.confirmed = Math.max(this.confirmed, gap.size);
+          if (gap.size < start) throw new Error('lost_bytes');
+          try {
+            const next = await this.relay.continueAfter(this.id);
+            this.id = next.id;
+            failures = 0;
+            continue;
+          } catch (e2) {
+            const st = (e2 as { status?: number }).status;
+            if (st && st >= 400 && st < 500 && ![401, 408, 429].includes(st)) {
+              throw e2 instanceof Error ? e2 : new Error('not_recording');
+            }
+            // Network trouble: try again below.
+          }
+        } else if (typeof gap.size === 'number') {
           if (gap.size < start) throw new Error('lost_bytes');
           this.confirmed = Math.max(this.confirmed, gap.size);
-          if (/not_recording/.test(gap.message ?? '')) throw new Error('not_recording');
           continue;
         }
         // A 4xx other than auth/limits is final; everything else is retried.
@@ -893,7 +930,7 @@ export async function startCallRecording(opts: {
    * send to the server piece by piece) — the input of the AI lesson review.
    */
   audioSink?: (mimeType: string) => AudioOnlySink | null;
-  /** YouTube target: stream to the LMS server, which sends it to YouTube. */
+  /** YouTube / Drive targets: stream to the LMS server, which sends the finished file. */
   relay?: RecordingRelay | null;
 }): Promise<CallRecorder> {
   const mimeType = pickMimeType();
@@ -908,24 +945,27 @@ export async function startCallRecording(opts: {
   let cloudError: string | undefined;
   let sessionUrl: string | null = null;
   let relayed: RelayUpload | null = null;
-  if (cloud === 'youtube' && opts.relay) {
+  if (cloud && opts.relay) {
     try {
       const rec = await opts.relay.create(title, baseType);
       relayed = new RelayUpload(opts.relay, rec.id);
     } catch (err) {
       cloudError = err instanceof Error ? err.message : 'server_failed';
     }
-  } else if (cloud && opts.token) {
+  }
+  // No server copy possible: stream straight to Google (older mode).
+  if (cloud && !relayed && opts.token) {
     try {
       sessionUrl = await openUploadSession(cloud, opts.token, {
         fileName,
         title,
         mimeType: baseType,
       });
+      cloudError = undefined;
     } catch (err) {
       cloudError = err instanceof Error ? err.message : 'cloud_failed';
     }
-  } else if (cloud) {
+  } else if (cloud && !relayed && !cloudError) {
     cloudError = 'google_denied';
   }
   const live: LiveUpload | null = sessionUrl
@@ -1132,7 +1172,7 @@ export async function startCallRecording(opts: {
   let stopped: Promise<RecordingResult> | null = null;
   const api: CallRecorder = {
     get target() {
-      if (relayed) return 'youtube';
+      if (relayed && cloud) return cloud;
       return live && cloud ? cloud : 'download';
     },
     onError: null,
@@ -1196,15 +1236,15 @@ export async function startCallRecording(opts: {
           return res;
         };
 
-        if (relayed) {
+        if (relayed && cloud) {
           if (activeRecId === recId) activeRecId = null;
           try {
             await relayed.finish();
-            return { where: 'youtube', fileName, bytes, serverRecordingId: relayed.id };
+            return { where: cloud, fileName, bytes, serverRecordingId: relayed.id };
           } catch (err) {
             // What arrived is kept on the server and can still be sent.
             return {
-              where: 'youtube',
+              where: cloud,
               fileName,
               bytes: relayed.confirmed,
               serverRecordingId: relayed.confirmed > 0 ? relayed.id : undefined,

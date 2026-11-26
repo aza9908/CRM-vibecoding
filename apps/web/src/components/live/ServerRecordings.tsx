@@ -2,8 +2,9 @@
 
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
-import { Download, ExternalLink, Trash2, Upload, Youtube } from 'lucide-react';
-import type { ServerRecording } from '@lms/shared';
+import { Download, ExternalLink, HardDrive, Trash2, Upload, Video, Youtube } from 'lucide-react';
+import type { ServerRecording, ServerRecordingTarget } from '@lms/shared';
+import { ApiError } from '@/lib/api/client';
 import { serverRecordings } from '@/lib/api/recordings';
 import {
   googleClientId,
@@ -16,12 +17,23 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-/** Ask Google for a fresh upload permission and hand it to the server. Call from a click. */
-export async function sendRecordingToYoutube(id: string): Promise<ServerRecording> {
+/**
+ * Ask Google for a fresh upload permission of whoever clicks (any staff
+ * member — not necessarily the one who recorded) and hand it to the
+ * server. Call from a click.
+ */
+export async function sendServerRecording(
+  id: string,
+  target: ServerRecordingTarget,
+): Promise<ServerRecording> {
   const clientId = googleClientId();
   if (!clientId) throw new Error('google_not_configured');
-  const token = await requestGoogleToken(clientId, 'youtube', useAuthStore.getState().user?.email);
-  return serverRecordings.sendToYoutube(id, token);
+  const token = await requestGoogleToken(clientId, target, useAuthStore.getState().user?.email);
+  return serverRecordings.send(id, target, token);
+}
+
+export function sendRecordingToYoutube(id: string): Promise<ServerRecording> {
+  return sendServerRecording(id, 'youtube');
 }
 
 const RECENT_KEY = 'lms-recordings-recent';
@@ -55,9 +67,10 @@ const mb = (n: number) =>
   n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} ГБ` : `${Math.max(1, Math.round(n / 1024 ** 2))} МБ`;
 
 /**
- * Lesson recordings waiting on the LMS server to go to YouTube, with their
- * progress, a «send to YouTube» button (needs the host's Google sign-in) and
- * the link once YouTube has the video. Staff only.
+ * Lesson recordings waiting on the LMS server to go to YouTube or Google
+ * Drive, with their progress, a «send» button (needs a Google sign-in of
+ * whoever clicks — a colleague can send a recording of a host who dropped
+ * out) and the link once the video is there. Staff only.
  */
 export function ServerRecordings({ className }: { className?: string }) {
   const t = useTranslations('videoRoom');
@@ -141,11 +154,21 @@ export function ServerRecordings({ className }: { className?: string }) {
     setError(null);
     try {
       watchServerRecording(r.id);
-      await sendRecordingToYoutube(r.id);
+      await sendServerRecording(r.id, r.target);
       await load();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
-      setError({ id: r.id, text: /popup|denied|closed/i.test(msg) ? t('srvGoogleDenied') : t('srvSendFailed') });
+      setError({
+        id: r.id,
+        text:
+          err instanceof ApiError && err.status === 409 && msg === 'still_recording'
+            ? t('srvStillRecording')
+            : /popup|denied|closed/i.test(msg)
+              ? r.target === 'drive'
+                ? t('srvGoogleDeniedDrive')
+                : t('srvGoogleDenied')
+              : t('srvSendFailed'),
+      });
     } finally {
       setBusy(null);
     }
@@ -153,10 +176,10 @@ export function ServerRecordings({ className }: { className?: string }) {
 
   if (!staff || (items.length === 0 && local.length === 0 && !localMsg)) return null;
   return (
-    <section className={className} aria-label={t('srvTitle')}>
+    <section className={className} aria-label={t('srvTitleAll')}>
       <div className="rounded-xl border bg-card p-3 text-sm shadow-sm">
         <p className="mb-2 flex items-center gap-2 font-semibold">
-          <Youtube className="h-4 w-4 text-red-600" aria-hidden /> {t('srvTitle')}
+          <Video className="h-4 w-4 text-primary" aria-hidden /> {t('srvTitleAll')}
         </p>
         {local.length > 0 || localMsg ? (
           <ul className="mb-2 space-y-2">
@@ -185,31 +208,53 @@ export function ServerRecordings({ className }: { className?: string }) {
           </ul>
         ) : null}
         <ul className="space-y-2">
-          {items.map((r) => (
+          {items.map((r) => {
+            const drive = r.target === 'drive';
+            // Pieces still arrive: nobody may send or delete it yet.
+            const live = r.status === 'recording' && !r.stale;
+            return (
             <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{r.title}</p>
+                <p className="flex min-w-0 items-center gap-1.5 font-medium">
+                  {drive ? (
+                    <HardDrive className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={t('srvTargetDrive')} />
+                  ) : (
+                    <Youtube className="h-3.5 w-3.5 shrink-0 text-red-600" aria-label={t('srvTargetYoutube')} />
+                  )}
+                  <span className="truncate">{r.title}</span>
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  {mb(r.bytes)} ·{' '}
-                  {r.status === 'recording'
+                  {drive ? t('srvTargetDrive') : t('srvTargetYoutube')} · {mb(r.bytes)} ·{' '}
+                  {live
                     ? t('srvRecording')
                     : r.status === 'uploading'
-                      ? `${t('srvUploading')} ${Math.round((r.progress ?? 0) * 100)}%`
+                      ? `${drive ? t('srvUploadingDrive') : t('srvUploading')} ${Math.round((r.progress ?? 0) * 100)}%`
                       : r.status === 'done'
-                        ? t('srvDone')
+                        ? drive
+                          ? t('srvDoneDrive')
+                          : t('srvDone')
                         : r.status === 'failed'
-                          ? t('srvFailed')
+                          ? drive
+                            ? t('srvFailedDrive')
+                            : t('srvFailed')
                           : r.error === 'google_signin_expired'
                             ? t('srvSigninAgain')
-                            : t('srvReady')}
+                            : drive
+                              ? t('srvReadyDrive')
+                              : t('srvReady')}
                 </p>
+                {r.stale && r.status !== 'done' && r.status !== 'uploading' ? (
+                  <p className="mt-1 rounded bg-warning/15 px-1.5 py-0.5 text-xs">{t('srvStale')}</p>
+                ) : null}
                 {r.status === 'uploading' ? (
                   <div className="mt-1 h-1.5 w-full overflow-hidden rounded bg-muted">
                     <div className="h-full bg-red-600 transition-all" style={{ width: `${Math.round((r.progress ?? 0) * 100)}%` }} />
                   </div>
                 ) : null}
                 {r.status === 'done' && r.fileKept ? (
-                  <p className="mt-1 text-xs text-muted-foreground">{t('srvTooLongHint')}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {drive ? t('srvKeptHint') : t('srvTooLongHint')}
+                  </p>
                 ) : null}
                 {r.status === 'done' && r.privacy === 'private' ? (
                   <p className="mt-1 text-xs text-muted-foreground">{t('recYoutubePrivate')}</p>
@@ -219,17 +264,17 @@ export function ServerRecordings({ className }: { className?: string }) {
                 ) : null}
                 {error?.id === r.id ? <p className="mt-1 text-xs text-destructive">{error.text}</p> : null}
               </div>
-              {r.status === 'done' && r.youtubeId ? (
+              {r.status === 'done' && (r.link || r.youtubeId) ? (
                 <a
-                  href={`https://youtu.be/${r.youtubeId}`}
+                  href={r.link ?? `https://youtu.be/${r.youtubeId}`}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
                 >
-                  {t('recOpenYoutube')} <ExternalLink className="h-3.5 w-3.5" />
+                  {drive ? t('recOpenDrive') : t('recOpenYoutube')} <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               ) : null}
-              {r.fileKept && r.status !== 'uploading' ? (
+              {r.fileKept && r.status !== 'uploading' && !live ? (
                 <Button size="sm" variant="outline" onClick={() => void serverRecordings.download(r.id).catch(() => undefined)}>
                   <Download className="mr-1 h-3.5 w-3.5" />
                   {t('findDownload')}
@@ -238,7 +283,7 @@ export function ServerRecordings({ className }: { className?: string }) {
               {r.status === 'done' && r.fileKept ? (
                 <Button size="sm" variant="outline" onClick={() => void send(r)} disabled={busy === r.id}>
                   <Upload className="mr-1 h-3.5 w-3.5" />
-                  {t('srvSendAgain')}
+                  {drive ? t('srvSendAgainDrive') : t('srvSendAgain')}
                 </Button>
               ) : null}
               {r.status === 'done' ? (
@@ -252,11 +297,11 @@ export function ServerRecordings({ className }: { className?: string }) {
                 >
                   {t('srvHide')}
                 </button>
-              ) : r.status !== 'uploading' ? (
+              ) : r.status !== 'uploading' && !live ? (
                 <>
                   <Button size="sm" onClick={() => void send(r)} disabled={busy === r.id}>
                     <Upload className="mr-1 h-3.5 w-3.5" />
-                    {t('srvSend')}
+                    {drive ? t('srvSendDrive') : t('srvSend')}
                   </Button>
                   <button
                     type="button"
@@ -270,13 +315,14 @@ export function ServerRecordings({ className }: { className?: string }) {
                 </>
               ) : null}
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
       <ConfirmDialog
         open={!!confirmDel}
         title={t('srvDeleteTitle')}
-        description={t('srvDeleteText')}
+        description={t('srvDeleteTextAll')}
         confirmLabel={t('srvDelete')}
         destructive
         onCancel={() => setConfirmDel(null)}
