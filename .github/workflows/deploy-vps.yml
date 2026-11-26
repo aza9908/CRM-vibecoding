@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check, staff-check, promote-trainer, account-check]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check, staff-check, promote-trainer, account-check, trainer-password]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -827,6 +827,53 @@ jobs:
           echo "== encrypted password (RSA-OAEP, base64):"
           printf '%s' "$NEWPW" | openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep | base64 -w0; echo
           unset NEWPW
+
+      - name: New temporary password for a trainer of the owner's organization (by full name; result encrypted)
+        if: inputs.mode == 'trainer-password'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          PUBKEY_B64: ${{ inputs.pubkey_b64 }}
+          TARGET_NAME: ${{ inputs.target_name }}
+        run: |
+          set -euo pipefail
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          [[ "$TARGET_NAME" =~ ^[[:alpha:][:space:].-]{3,80}$ ]] || { echo "::error::target_name: letters and spaces only"; exit 1; }
+          printf '%s' "$PUBKEY_B64" | base64 -d > pub.pem
+          openssl pkey -pubin -in pub.pem -noout
+          NEWPW=$(LC_ALL=C tr -dc 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789' </dev/urandom | head -c 14 || true)
+          [ ${#NEWPW} -eq 14 ] || { echo "::error::password generation failed"; exit 1; }
+          echo "::add-mask::$NEWPW"
+          # Name and password go over SSH stdin only; the e-mail comes back
+          # only inside the encrypted block.
+          OUT=$(printf '%s\n%s\n%s\n' "$EMAIL_SHA256" "$TARGET_NAME" "$NEWPW" | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" \
+            "docker exec -i -w /app/apps/api lms-api-1 node -e '
+              const rl = require(\"fs\").readFileSync(0, \"utf8\").split(\"\\n\");
+              const [eh, name, pw] = [rl[0].trim(), rl[1].trim(), rl[2]];
+              const argon2 = require(\"argon2\");
+              const { Pool } = require(\"pg\");
+              const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+              (async () => {
+                const t = await pool.query(
+                  \"select u.id, u.email from users u where u.full_name = \$1 and u.role in (\x27teacher\x27,\x27methodist\x27,\x27admin\x27) and u.organization_id = (select organization_id from users where encode(sha256(lower(email)::bytea), \x27hex\x27) = \$2)\",
+                  [name, eh]);
+                if (t.rowCount !== 1) { console.error(\"trainers matched: \" + t.rowCount); process.exit(2); }
+                const hash = await argon2.hash(pw);
+                await pool.query(\"update users set password_hash = \$1 where id = \$2\", [hash, t.rows[0].id]);
+                const ok = await argon2.verify((await pool.query(\"select password_hash from users where id = \$1\", [t.rows[0].id])).rows[0].password_hash, pw);
+                if (!ok) { console.error(\"verify failed\"); process.exit(3); }
+                process.stdout.write(t.rows[0].email);
+                await pool.end();
+              })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
+            '")
+          echo "::add-mask::$OUT"
+          echo "password updated for 1 trainer"
+          echo "== encrypted login and password (RSA-OAEP, base64):"
+          printf '%s\n%s' "$OUT" "$NEWPW" | openssl pkeyutl -encrypt -pubin -inkey pub.pem -pkeyopt rsa_padding_mode:oaep | base64 -w0; echo
+          unset NEWPW OUT
 
       - name: Add the Orzu Medical lesson to an account's company
         if: inputs.mode == 'seed-orzu'
