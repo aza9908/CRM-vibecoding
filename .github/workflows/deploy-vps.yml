@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check, staff-check, promote-trainer]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check, staff-check, promote-trainer, account-check]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -40,6 +40,9 @@ on:
         default: ''
       lesson_spec:
         description: create-lesson — spec file name in .github/scripts/lessons (without .json)
+        default: ''
+      target_sha256:
+        description: account-check — sha256 of the account's lower-case e-mail
         default: ''
       target_name:
         description: promote-trainer — full name of a student (owner's organization or none yet) to make a teacher there
@@ -476,6 +479,34 @@ jobs:
               await pool.end();
             })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
           '"
+
+      - name: One account (by e-mail hash) — role, organization, what it can see
+        if: inputs.mode == 'account-check'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+          TARGET_SHA256: ${{ inputs.target_sha256 }}
+        run: |
+          set +e
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ && "$TARGET_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::hashes must be 64 hex chars"; exit 1; }
+          {
+            echo "\\set h '$EMAIL_SHA256'"
+            echo "\\set t '$TARGET_SHA256'"
+            cat <<'SQL'
+          select 'account' as what, u.full_name, u.role, coalesce(u.is_platform_admin, false) as platform_admin,
+                 (u.organization_id = o.organization_id) as owner_org,
+                 (select name from organizations where id = u.organization_id) as org,
+                 (select count(*) from lessons l where l.organization_id = u.organization_id and not l.archived) as lessons,
+                 (select count(*) from lessons l where l.organization_id = u.organization_id and not l.archived and l.category = 'Master Coffee') as master_coffee
+            from users u,
+                 (select organization_id from users where encode(sha256(lower(email)::bytea), 'hex') = :'h') o
+           where encode(sha256(lower(u.email)::bytea), 'hex') = :'t';
+          select 'accounts with this e-mail' as what, count(*) from users where encode(sha256(lower(email)::bytea), 'hex') = :'t';
+          SQL
+          } | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-db-1 psql -U lms -d lms -At -F ' | '"
 
       - name: Make a student of the owner's organization a teacher (by full name)
         if: inputs.mode == 'promote-trainer'

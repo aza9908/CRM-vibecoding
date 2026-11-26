@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
 import { useAuthStore } from '@/lib/store/auth-store';
+import { refreshAccessToken } from '@/lib/api/client';
 import { useCompleteTour } from '@/lib/api/hooks/use-auth';
 import { Brand } from '@/components/brand';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -30,7 +31,22 @@ import { cn } from '@/lib/utils';
  * Chrome for every authenticated screen: top bar + left nav rail.
  * Nav is role-aware so students never hit teacher-only 403 pages.
  */
+/**
+ * Once per page load: refresh the login so the role and organization come
+ * from the server, not from what this browser remembered. A trainer promoted
+ * from student (or moved into a company) sees the new menu and lessons at
+ * once, without logging out and in.
+ */
+let accountSynced = false;
+
 export function AppShell({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    if (accountSynced) return;
+    accountSynced = true;
+    const { accessToken, refreshToken, user } = useAuthStore.getState();
+    if (user && (accessToken || refreshToken)) void refreshAccessToken();
+  }, []);
+
   const t = useTranslations('nav');
   const ta = useTranslations('admin');
   const tt = useTranslations('tour');
