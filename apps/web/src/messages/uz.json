@@ -432,6 +432,7 @@
     "removeBody": "Oʻquvchi darsdan va videoaloqadan darhol chiqadi va roʻyxatlardan yoʻqoladi. Javoblari saqlanadi. Qayta faqat sessiya kodi bilan kira oladi.",
     "removeAction": "Chiqarish",
     "removeFailed": "Chiqarib boʻlmadi. Qayta urinib koʻring.",
+    "selfDownload": "Jadvalni yuklab olish (Excel)",
     "selfHint": "Oʻz qatoringizni toʻldiring: trener uni umumiy jadvalda darhol koʻradi.",
     "selfFilled": "Toʻldirdi: {filled} / {total}",
     "selfParticipant": "Ishtirokchi",

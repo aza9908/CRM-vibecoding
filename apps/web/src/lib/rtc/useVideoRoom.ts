@@ -136,10 +136,14 @@ class ScreenShareFailed extends Error {
 async function captureScreen(): Promise<MediaStream> {
   if (!screenShareSupported()) throw new ScreenShareFailed('unsupported');
   const md = navigator.mediaDevices;
-  const attempts: DisplayMediaStreamOptions[] = [
-    { video: true, audio: true },
-    { video: true },
-  ];
+  // Tab/system audio exists only in Chromium browsers (Chrome, Edge, Yandex,
+  // Opera…). Safari and Firefox get the plain request first: after a refusal
+  // Safari no longer counts a second request as coming from the click.
+  const ua = navigator.userAgent;
+  const chromium = /Chrome\/|Chromium\/|Edg\/|YaBrowser\/|OPR\//.test(ua) && !/Firefox\//.test(ua);
+  const attempts: DisplayMediaStreamOptions[] = chromium
+    ? [{ video: true, audio: true }, { video: true }]
+    : [{ video: true }];
   let lastErr: unknown = null;
   for (const options of attempts) {
     const startedAt = performance.now();

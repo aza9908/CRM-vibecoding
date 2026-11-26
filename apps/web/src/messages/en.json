@@ -432,6 +432,7 @@
     "removeBody": "They leave the lesson and the video call at once and drop out of the lists. Their answers are kept. They can come back only with the session code.",
     "removeAction": "Remove",
     "removeFailed": "Could not remove. Try again.",
+    "selfDownload": "Download the table (Excel)",
     "selfHint": "Fill in your row: the trainer sees it in the shared table at once.",
     "selfFilled": "Filled in: {filled} of {total}",
     "selfParticipant": "Participant",

@@ -1,0 +1,450 @@
+{
+  "title": "Урок 3 · Готовим проект к передаче в клинику · 3-dars · Loyihani klinikaga topshirish",
+  "category": "Orzu Medical",
+  "blocks": [
+    {
+      "type": "text",
+      "blockRole": "section",
+      "content": "Статус и новости · Holat va yangiliklar"
+    },
+    {
+      "type": "text",
+      "blockRole": "welcome",
+      "content": "Приветствуем, {{name}}! · Xush kelibsiz!\nOrzu Medical × AIRL · урок 3 · 90 минут\n\n**Что сегодня · Bugun nima qilamiz**\n\nMVP уже работает. Сегодня у каждого появится свой репозиторий, а проект пройдёт проверку перед передачей разработчику клиники.\nMVP ishlayapti. Bugun har biringizda shaxsiy repozitoriy paydo boʻladi va loyiha klinika dasturchisiga topshirishdan oldin tekshiruvdan oʻtadi.\n\n**Как устроен урок · Dars qanday oʻtadi**\n\nСтатус, новости, два упражнения и демо. Все отметки вы ставите здесь, тренер видит их сразу.\nHolat, yangiliklar, ikki mashq va demo. Barcha belgilarni shu yerda qoʻyasiz, trener ularni darhol koʻradi.\n\n**Если застряли · Qiyinchilik boʻlsa**\n\nНапишите в чат и включите показ экрана. Chatga yozing va ekranni koʻrsating."
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-01.f5b39673a6.w2560.jpg",
+      "content": "Урок 3 · Готовим проект к передаче в клинику: свой репозиторий, доступ, проверка",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-02.f41c470a1d.w2560.jpg",
+      "content": "Синхронный перевод Tilmoch: наведите камеру на QR-код · Sinxron tarjima",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-03.3814a1fd0c.w2560.jpg",
+      "content": "План урока · 90 минут: статус, новости, упражнение 1, упражнение 2",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Как дела и как прогресс? · Ishlar qalay, natija qanday?**\n\nОбсуждаем по кругу, 1 минута на человека. Navbat bilan, har biriga 1 daqiqa.\n\n1. Что уже работает в вашем проекте. Loyihangizda nima ishlayapti.\n\n2. Что сделали с прошлого урока. Oʻtgan darsdan beri nima qildingiz.\n\n3. Что мешает прямо сейчас. Hozir nima xalaqit beryapti.\n\nНиже коротко напишите это же: тренер увидит ответ сразу. Quyida qisqacha yozing: trener javobni darhol koʻradi.",
+      "options": {
+        "icon": "handshake"
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Мой статус в 3 строках · Holatim 3 qatorda**\nЧто работает · что сделал · что мешает. Nima ishlayapti · nima qildim · nima xalaqit beryapti.",
+      "options": {
+        "icon": "pen",
+        "required": true
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-04.e361870afe.w2560.jpg",
+      "content": "Шаг 1 · Обсуждение статуса: каждый показывает свой MVP, 1 минута",
+      "blockRole": "slide"
+    },
+    {
+      "type": "status_board",
+      "blockRole": "task",
+      "content": "**Где мой проект сейчас · Loyiham hozir qayerda**\nОтметьте у себя. Тренер видит общую таблицу сразу, её можно скачать файлом. Oʻzingizda belgilang: trener umumiy jadvalni darhol koʻradi.",
+      "options": {
+        "self": true,
+        "required": true,
+        "icon": "checklist",
+        "rowField": "who",
+        "summaryField": "status",
+        "fields": [
+          {
+            "key": "who",
+            "title": "Кто я и мой проект · Men va loyiham",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "Мейлиева Феруза",
+                "label": "Мейлиева Феруза · LMS"
+              },
+              {
+                "value": "Нурмухамедова Мохира",
+                "label": "Нурмухамедова Мохира · Посещаемость"
+              },
+              {
+                "value": "Акбарова Наргиза",
+                "label": "Акбарова Наргиза · Ежедневный отчёт"
+              },
+              {
+                "value": "Низамова Севинч",
+                "label": "Низамова Севинч · Gemba Walk"
+              },
+              {
+                "value": "Ахамова Севара",
+                "label": "Ахамова Севара · Чек-лист медперсонала"
+              },
+              {
+                "value": "Абдусамадов Абдулазиз",
+                "label": "Абдусамадов Абдулазиз · Ассистенты врачей, Кайдзен-картирование"
+              },
+              {
+                "value": "Рустамова Нодира",
+                "label": "Рустамова Нодира · История болезни"
+              },
+              {
+                "value": "Джорабаева Зарина",
+                "label": "Джорабаева Зарина · Бронирование Bnovo, Отдел продаж"
+              },
+              {
+                "value": "Хайдаралыева Сугдиёна",
+                "label": "Хайдаралыева Сугдиёна · Электронная очередь, Smart Fitobar"
+              },
+              {
+                "value": "Махкамова Асел",
+                "label": "Махкамова Асел · Материальный отчёт"
+              },
+              {
+                "value": "Бахтиёр",
+                "label": "Бахтиёр · Помощник на Алисе"
+              },
+              {
+                "value": "Файзиева Малика",
+                "label": "Файзиева Малика · График отпусков"
+              },
+              {
+                "value": "Жиенкулова Айсулу",
+                "label": "Жиенкулова Айсулу · Кадровые документы"
+              },
+              {
+                "value": "Ахмедов Мадияр",
+                "label": "Ахмедов Мадияр · Подача предложения"
+              }
+            ]
+          },
+          {
+            "key": "stage",
+            "title": "Стадия · Bosqich",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "0",
+                "label": "0 · Идея · Gʻoya",
+                "tone": "muted"
+              },
+              {
+                "value": "1",
+                "label": "1 · MVP начат · boshlangan",
+                "tone": "warn"
+              },
+              {
+                "value": "2",
+                "label": "2 · MVP работает · ishlaydi",
+                "tone": "ok"
+              },
+              {
+                "value": "3",
+                "label": "3 · На GitHub · GitHubda",
+                "tone": "ok"
+              },
+              {
+                "value": "4",
+                "label": "4 · Есть ссылка · Havola bor",
+                "tone": "ok"
+              },
+              {
+                "value": "5",
+                "label": "5 · Пользуются · Foydalanishmoqda",
+                "tone": "ok"
+              }
+            ]
+          },
+          {
+            "key": "mvp",
+            "title": "MVP работает · MVP ishlaydi",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "yes",
+                "label": "Да · Ha",
+                "tone": "ok"
+              },
+              {
+                "value": "almost",
+                "label": "Почти · Deyarli",
+                "tone": "warn"
+              },
+              {
+                "value": "no",
+                "label": "Нет · Yoʻq",
+                "tone": "bad"
+              }
+            ]
+          },
+          {
+            "key": "repo",
+            "title": "Свой репозиторий · Shaxsiy repozitoriy",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "yes",
+                "label": "Есть · Bor",
+                "tone": "ok"
+              },
+              {
+                "value": "no",
+                "label": "Ещё нет · Hali yoʻq",
+                "tone": "muted"
+              }
+            ]
+          },
+          {
+            "key": "access",
+            "title": "Доступ дан · Ruxsat berilgan",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "yes",
+                "label": "Да · Ha",
+                "tone": "ok"
+              },
+              {
+                "value": "no",
+                "label": "Ещё нет · Hali yoʻq",
+                "tone": "muted"
+              }
+            ]
+          },
+          {
+            "key": "review",
+            "title": "Проверка пройдена · Tekshiruvdan oʻtdi",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "yes",
+                "label": "Да · Ha",
+                "tone": "ok"
+              },
+              {
+                "value": "doing",
+                "label": "Идёт · Jarayonda",
+                "tone": "warn"
+              },
+              {
+                "value": "no",
+                "label": "Нет · Yoʻq",
+                "tone": "muted"
+              }
+            ]
+          },
+          {
+            "key": "status",
+            "title": "Статус · Holat",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "plan",
+                "label": "По плану · Reja boʻyicha",
+                "tone": "ok"
+              },
+              {
+                "value": "risk",
+                "label": "Есть риск · Xavf bor",
+                "tone": "warn"
+              },
+              {
+                "value": "late",
+                "label": "Отстаю · Ortda qolyapman",
+                "tone": "bad"
+              }
+            ]
+          },
+          {
+            "key": "blocker",
+            "title": "Что мешает · Nima xalaqit beradi",
+            "kind": "text"
+          }
+        ]
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-07.a001c71e91.w2560.jpg",
+      "content": "Шаг 2 · Новости: встретились с разработчиком клиники",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-08.a42a1dd33d.w2560.jpg",
+      "content": "4 шага до запуска в клинике: сегодня делаем 1, 2 и 3",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "section",
+      "content": "Упражнения и демо · Mashqlar va demo"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-09.9bf4907759.w2560.jpg",
+      "content": "Перед упражнениями: 2 новых навыка, /airl-context и /airl-code-review",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Обновите навыки · Koʻnikmalarni yangilang** · 5 минут\n\nНажмите «Копировать», вставьте в Claude Code и отправьте. «Nusxalash»ni bosing, Claude Code ga qoʻying va yuboring.\n\nПРОМПТ · Обновить навыки\nОбнови навыки из github.com/aza9908/orzu-medical-skills: скопируй папки из skills в ~/.claude/skills с заменой.\n\nПотом перезапустите Claude Code и наберите /: в списке должны быть /airl-context и /airl-code-review.\nKeyin Claude Code ni qayta ishga tushiring va / yozing: roʻyxatda /airl-context va /airl-code-review boʻlishi kerak.",
+      "options": {
+        "icon": "download"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Навыки готовы · Koʻnikmalar tayyor**",
+      "options": {
+        "items": [
+          "Оба навыка в списке: /airl-context и /airl-code-review · Ikkala koʻnikma roʻyxatda"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-10.686f1982ba.w2560.jpg",
+      "content": "Упражнение 1 · 25 минут: свой репозиторий и доступ",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Упражнение 1 · Свой репозиторий и доступ · Shaxsiy repozitoriy va ruxsat** · 25 минут\n\n1. Откройте папку своего проекта в Claude Code (ту, где лежит MVP). Loyiha papkangizni Claude Code da oching.\n\n2. Нажмите «Копировать» и отправьте. Agent savol beradi: javob berish uchun bitta harf yetarli.\n\nПРОМПТ · Упражнение 1\n/airl-context начать проект\n\n3. Агент попросит создать репозиторий: github.com → «+» → New repository → имя проекта → Private → Create. Agent repozitoriy yaratishni soʻraydi.\n\n4. Проверьте, что файлы и CLAUDE.md видны на GitHub. Fayllar va CLAUDE.md GitHubda koʻrinishini tekshiring.\n\n5. Дайте доступ: Settings → Collaborators → Add people → логин разработчика клиники и aza9908. Ruxsat bering.",
+      "options": {
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Упражнение 1 готово · 1-mashq tayyor**",
+      "options": {
+        "items": [
+          "Папка проекта открыта в Claude Code · Loyiha papkasi ochildi",
+          "/airl-context пройден, ответил на вопросы · /airl-context bajarildi",
+          "Приватный репозиторий создан · Shaxsiy repozitoriy yaratildi",
+          "Файлы и CLAUDE.md видны на GitHub · Fayllar GitHubda koʻrinadi",
+          "Доступ дан разработчику клиники и aza9908 · Ruxsat berildi"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Ссылка на мой репозиторий · Repozitoriyim havolasi**\nНапример github.com/имя/проект. Masalan github.com/ism/loyiha.",
+      "options": {
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-11.1168eac38f.w2560.jpg",
+      "content": "Упражнение 2 · 30 минут: проверка перед передачей разработчику",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Упражнение 2 · Проверка кода · Kodni tekshirish** · 30 минут\n\n1. Откройте новый чат в той же папке: Claude сам прочитает CLAUDE.md. Oʻsha papkada yangi chat oching.\n\n2. Нажмите «Копировать» и отправьте. Agent kodni katta dasturchi kabi tekshiradi.\n\nПРОМПТ · Упражнение 2\n/airl-code-review\n\n3. Прочитайте замечания: что не так и чем грозит. Izohlarni oʻqing.\n\n4. На вопрос «исправить?» ответьте «да». «Tuzataymi?» savoliga «ha» deb javob bering.\n\n5. Агент сохранит REVIEW.md на GitHub: это отчёт для разработчика. Agent REVIEW.md ni GitHubga saqlaydi.",
+      "options": {
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Упражнение 2 готово · 2-mashq tayyor**",
+      "options": {
+        "items": [
+          "Запустил /airl-code-review в новом чате · /airl-code-review ishga tushirildi",
+          "Важные замечания исправлены · Muhim izohlar tuzatildi",
+          "REVIEW.md на GitHub, ключей и паролей в коде нет · REVIEW.md GitHubda"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Где застряли? · Qayerda qiyin boʻldi?**\nНапишите упражнение и что ответил Claude. Mashqni va Claude javobini yozing.",
+      "options": {
+        "icon": "alert"
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Демо · 1 минута на человека · Demo · har biriga 1 daqiqa**\n\nВключите показ экрана и покажите: 1) свой репозиторий на GitHub, 2) REVIEW.md, 3) как работает MVP.\nEkranni yoqing va koʻrsating: 1) GitHubdagi repozitoriy, 2) REVIEW.md, 3) MVP qanday ishlashi.",
+      "options": {
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-12.15891dacda.w2560.jpg",
+      "content": "Обсуждаем вместе: какой проект запускаем первым?",
+      "blockRole": "slide"
+    },
+    {
+      "type": "input_select",
+      "blockRole": "exercise",
+      "content": "**Какой проект запускаем первым? · Qaysi loyihani birinchi ishga tushiramiz?**\nКритерии: MVP работает, понятно какие данные нужны, коллеги ждут. Mezonlar: MVP ishlaydi, kerakli maʼlumotlar aniq, hamkasblar kutmoqda.",
+      "options": {
+        "icon": "question",
+        "choices": [
+          "Мейлиева Феруза · LMS",
+          "Нурмухамедова Мохира · Посещаемость",
+          "Акбарова Наргиза · Ежедневный отчёт",
+          "Низамова Севинч · Gemba Walk",
+          "Ахамова Севара · Чек-лист медперсонала",
+          "Абдусамадов Абдулазиз · Ассистенты врачей, Кайдзен-картирование",
+          "Рустамова Нодира · История болезни",
+          "Джорабаева Зарина · Бронирование Bnovo, Отдел продаж",
+          "Хайдаралыева Сугдиёна · Электронная очередь, Smart Fitobar",
+          "Махкамова Асел · Материальный отчёт",
+          "Бахтиёр · Помощник на Алисе",
+          "Файзиева Малика · График отпусков",
+          "Жиенкулова Айсулу · Кадровые документы",
+          "Ахмедов Мадияр · Подача предложения"
+        ]
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/orzu3/oz3-13.7f644d4557.w2560.jpg",
+      "content": "До следующего урока: исправить замечания, проверить доступ, каждую задачу в новом чате",
+      "blockRole": "slide"
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**До следующего урока · Keyingi darsgacha**\nЗастряли? Пишите в чат группы сразу. Qiyin boʻlsa, guruh chatiga darhol yozing.",
+      "options": {
+        "items": [
+          "Исправил оставшиеся замечания из REVIEW.md · Qolgan izohlar tuzatildi",
+          "Разработчик клиники и aza9908 есть в Collaborators · Ruxsat tekshirildi",
+          "Каждую задачу начинаю в новом чате · Har bir vazifa yangi chatda"
+        ],
+        "icon": "checklist"
+      }
+    }
+  ]
+}

@@ -56,6 +56,10 @@ const nextConfig: NextConfig = {
         source: '/workbook/orzu2/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
+      {
+        source: '/workbook/orzu3/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
   transpilePackages: ['@lms/shared'],

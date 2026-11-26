@@ -89,6 +89,25 @@ export function SelfStatusBoard({
       return fa - fb || (a.data[rowField ?? ''] ?? '').localeCompare(b.data[rowField ?? ''] ?? '') || a.name.localeCompare(b.name);
     });
     const filled = rows.filter((r) => Object.keys(r.data).length > 0).length;
+    // Save the table as a file (opens in Excel: CSV with a BOM and «;»).
+    const download = () => {
+      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+      const head = [t('selfParticipant'), ...fields.map((f) => f.title)];
+      const lines = [head, ...rows.map((r) => [r.name, ...fields.map((f) => labelOf(f, r.data[f.key]))])];
+      const csv = '\ufeff' + lines.map((l) => l.map(esc).join(';')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const title = (block.content ?? 'status').replace(/\*/g, '').split('\n')[0]!.trim().slice(0, 60) || 'status';
+      const d = new Date();
+      const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      a.href = url;
+      a.download = `${title} — ${stamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    };
     const sumField = fields.find((f) => f.key === o.summaryField);
     const labelOf = (f: SelfField, v: string | undefined) => f.choices?.find((c) => c.value === v)?.label ?? v ?? '';
     return (
@@ -104,6 +123,13 @@ export function SelfStatusBoard({
               </span>
             );
           })}
+          <button
+            type="button"
+            onClick={download}
+            className="ml-auto rounded-md border bg-background px-2.5 py-1 font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {t('selfDownload')}
+          </button>
         </div>
         <div className="-mx-1 overflow-x-auto px-1">
           <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
