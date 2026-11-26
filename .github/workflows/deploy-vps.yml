@@ -42,7 +42,7 @@ on:
         description: create-lesson — spec file name in .github/scripts/lessons (without .json)
         default: ''
       target_name:
-        description: promote-trainer — full name of a student in the owner's organization to make a teacher
+        description: promote-trainer — full name of a student (owner's organization or none yet) to make a teacher there
         default: ''
       peers:
         description: call-smoke — how many extra students join the test call (0–80)
@@ -494,10 +494,11 @@ jobs:
             echo "\\set h '$EMAIL_SHA256'"
             echo "\\set n '$TARGET_NAME'"
             cat <<'SQL'
-          update users u set role = 'teacher'
+          update users u set role = 'teacher', organization_id = o.organization_id
             from (select organization_id from users where encode(sha256(lower(email)::bytea), 'hex') = :'h') o
-           where u.organization_id = o.organization_id and u.full_name = :'n' and u.role = 'student'
-          returning u.full_name, u.role;
+           where (u.organization_id = o.organization_id or u.organization_id is null)
+             and u.full_name = :'n' and u.role = 'student'
+          returning u.full_name, u.role, (u.organization_id = o.organization_id) as in_owner_org;
           SQL
           } | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-db-1 psql -U lms -d lms -At -F ' | '"
 
