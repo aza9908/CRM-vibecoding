@@ -224,8 +224,9 @@ export default function StudentLivePage() {
           <ClassTimerBanner timer={wsTimer ?? sessionQuery.data?.timer} />
         </>
       ),
+      followId: focusedBlockId,
     }),
-    [pulse, wsTimer, sessionQuery.data?.timer],
+    [pulse, wsTimer, sessionQuery.data?.timer, focusedBlockId],
   );
 
   // Local answer state per block, mirrored to the server via saveResponse.

@@ -73,6 +73,20 @@ export function ZoomableImage({
     setOpen(false);
   }, []);
 
+  // Student in fullscreen: follow the teacher's focus. React only to a change
+  // of focus (not on opening), so a student can still look at a slide on
+  // their own until the teacher moves on.
+  const followId = slideshow.followId;
+  const lastFollow = React.useRef(followId);
+  React.useEffect(() => {
+    if (followId === lastFollow.current) return;
+    lastFollow.current = followId;
+    if (!open || !followId || onSlide) return;
+    const at = gallery ? gallery.findIndex((g) => g.id === followId) : -1;
+    if (at >= 0) setPos(at);
+    else if (current.id !== followId) close();
+  }, [followId, open, onSlide, gallery, current.id, close]);
+
   React.useEffect(() => {
     setMounted(true);
   }, []);

@@ -14,6 +14,12 @@ import * as React from 'react';
 export interface SlideshowContextValue {
   onSlide?: (blockId: string) => void;
   overlay?: React.ReactNode;
+  /**
+   * Student page: the block the teacher has in focus. A student watching in
+   * fullscreen follows it — the viewer pages to that slide, or closes when
+   * the teacher moves to something that is not a slide (a task, a question).
+   */
+  followId?: string | null;
 }
 
 export const SlideshowContext = React.createContext<SlideshowContextValue>({});
