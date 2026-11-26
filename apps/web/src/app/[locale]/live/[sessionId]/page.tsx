@@ -29,6 +29,7 @@ import { PulsePrompt } from '@/components/live/PulsePrompt';
 import { PulseRain } from '@/components/live/PulseRain';
 import { SlideshowContext } from '@/components/live/slideshow-context';
 import { BoardContext } from '@/components/live/board-context';
+import { isSelfStatusBoard } from '@/components/live/SelfStatusBoard';
 import { useScrollAlong } from '@/lib/hooks/use-scroll-along';
 import { VideoRoom } from '@/components/live/VideoRoom';
 import { SessionMetricsPanel } from '@/components/live/SessionMetricsPanel';
@@ -683,7 +684,7 @@ export default function StudentLivePage() {
               block={block}
               focused={block.id === focusedBlockId}
               done={answered.has(block.id)}
-              value={isInputBlock(block.type) ? answers[block.id] ?? '' : ''}
+              value={isInputBlock(block.type) || isSelfStatusBoard(block) ? answers[block.id] ?? '' : ''}
               onAnswerChange={handleAnswer}
               onAnswerSubmit={handleSubmit}
               onFileUpload={handleFileUpload}

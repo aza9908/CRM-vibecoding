@@ -145,7 +145,7 @@ export default function TeacherLivePage() {
     },
     [sessionId, boards],
   );
-  const boardCtx = React.useMemo(() => ({ boards, onSet: setBoardCell }), [boards, setBoardCell]);
+
 
   // Remove a participant from the session (duplicate / test entry / wrong person).
   const queryClient = useQueryClient();
@@ -208,6 +208,19 @@ export default function TeacherLivePage() {
     }
     return merged;
   }, [responsesQuery.data, liveResponses]);
+
+  // Status boards: the teacher ticks shared ones; self-reported ones are read
+  // from every participant's answer, live.
+  const boardCtx = React.useMemo(
+    () => ({
+      boards,
+      onSet: setBoardCell,
+      people: participants.map((p) => ({ participantId: p.participantId, name: p.name })),
+      answerOf: (participantId: string, blockId: string) =>
+        responses[`${participantId}:${blockId}`]?.answerText,
+    }),
+    [boards, setBoardCell, participants, responses],
+  );
 
   const blocks: Block[] = sessionQuery.data?.blocks ?? [];
 
