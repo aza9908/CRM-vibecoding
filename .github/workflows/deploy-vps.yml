@@ -24,7 +24,7 @@ on:
       mode:
         description: inspect (read-only report), deploy, or verify (HTTP checks only)
         type: choice
-        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check]
+        options: [inspect, deploy, verify, diagnose, retire-old-domain, reset-password, seed-orzu, call-smoke, organize-lessons, analysis-smoke, create-lesson, load-smoke, session-export, end-session, db-to-vps, promote-owner, neon-to-vps, security-scan, harden, recording-check, staff-check]
         default: inspect
       base_path:
         description: Sub-path the web app is served under
@@ -473,6 +473,29 @@ jobs:
               await pool.end();
             })().catch((e) => { console.error(\"db error: \" + e.message); process.exit(1); });
           '"
+
+      - name: Trainers' accounts (names, roles, same organization as the owner; e-mails masked)
+        if: inputs.mode == 'staff-check'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          SSHPASS: ${{ secrets.VPS_PASSWORD }}
+          EMAIL_SHA256: ${{ inputs.email_sha256 }}
+        run: |
+          set +e
+          [[ "$EMAIL_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "::error::email_sha256 must be 64 hex chars"; exit 1; }
+          {
+            echo "\\set h '$EMAIL_SHA256'"
+            cat <<'SQL'
+          select u.full_name, u.role, (u.organization_id = o.organization_id) as same_org_as_owner,
+                 regexp_replace(u.email, '^(.{2}).*(@.*)$', '\1***\2') as email
+            from users u,
+                 (select organization_id from users where encode(sha256(lower(email)::bytea), 'hex') = :'h') o
+           where u.full_name ~* '(бахтияр|бахтиёр|bakhtiyar|bahtiyar|baha|баха|оспанов|ospanov|жанибек|zhanibek|janibek|серкулов|serkulov)'
+           order by 1;
+          SQL
+          } | $SSH -p "${VPS_PORT:-22}" "$VPS_USER@$VPS_HOST" "docker exec -i lms-db-1 psql -U lms -d lms -At -F ' | '"
 
       - name: What is left of recent lesson recordings (sizes and states only)
         if: inputs.mode == 'recording-check'

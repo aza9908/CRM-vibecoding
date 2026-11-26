@@ -1,0 +1,454 @@
+{
+  "title": "Урок 2 Master Coffee · 1С и общий репозиторий",
+  "category": "Master Coffee",
+  "blocks": [
+    {
+      "type": "text",
+      "blockRole": "section",
+      "content": "Заходим, прогресс и теория"
+    },
+    {
+      "type": "text",
+      "blockRole": "welcome",
+      "content": "Приветствуем, {{name}}!\nMaster Coffee × AIRL · урок 2 · 1С и общий репозиторий\n\n**Что сегодня**\n\nВаша программа начинает читать данные из 1С и переезжает в общий репозиторий компании.\n\n**Как устроен урок**\n\n10 минут теории, 4 упражнения на вашем проекте, потом демо: каждый показывает свой экран.\n\n**Что нужно**\n\nНоутбук, приложение Claude с вкладкой Code, ваш проект с первого урока.\n\n**Если застряли**\n\nНапишите в чат созвона и включите показ экрана: тренер разберёт вместе с вами."
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-01.3342e830b0.w2560.jpg",
+      "content": "Урок 2 · 1С и общий репозиторий: теория, 4 упражнения, демо",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-02.33f9111b5e.w2560.jpg",
+      "content": "Что было и что делаем сегодня: от беты v0 к настоящим данным и v0.1",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-03.9ca7d71d31.w2560.jpg",
+      "content": "Полтора часа: план урока",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-04.1314470eb7.w2560.jpg",
+      "content": "Мы ведём вас до результата: тренеры в созвоне, чат команды, статус проекта",
+      "blockRole": "slide"
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Как дела.** Что получилось с прошлого урока и что мешает? Две-три строки.",
+      "options": {
+        "icon": "pen",
+        "required": true
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-05.9fb77b5d74.w2560.jpg",
+      "content": "Отмечаем прогресс и статус проекта",
+      "blockRole": "slide"
+    },
+    {
+      "type": "status_board",
+      "blockRole": "task",
+      "content": "**Статус моего проекта**\nЗаполните свою строку. Тренер сразу видит её в общей таблице, руководитель видит таблицу целиком.",
+      "options": {
+        "self": true,
+        "required": true,
+        "icon": "checklist",
+        "rowField": "dept",
+        "summaryField": "status",
+        "fields": [
+          {
+            "key": "dept",
+            "title": "Отдел",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "Продажи и склад · Алматы",
+                "label": "Продажи и склад · Алматы"
+              },
+              {
+                "value": "Распределительный центр",
+                "label": "Распределительный центр"
+              },
+              {
+                "value": "Контроль качества",
+                "label": "Контроль качества"
+              },
+              {
+                "value": "Обжарка",
+                "label": "Обжарка"
+              },
+              {
+                "value": "Закупки",
+                "label": "Закупки"
+              },
+              {
+                "value": "Маркетинг",
+                "label": "Маркетинг"
+              },
+              {
+                "value": "Управление · Астана",
+                "label": "Управление · Астана"
+              }
+            ]
+          },
+          {
+            "key": "version",
+            "title": "Версия программы",
+            "kind": "text",
+            "placeholder": "например, v0 или v0.1"
+          },
+          {
+            "key": "repo",
+            "title": "В репозитории",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "no",
+                "label": "Ещё нет",
+                "tone": "muted"
+              },
+              {
+                "value": "branch",
+                "label": "В моей ветке",
+                "tone": "warn"
+              },
+              {
+                "value": "main",
+                "label": "В main",
+                "tone": "ok"
+              }
+            ]
+          },
+          {
+            "key": "data1c",
+            "title": "Данные из 1С",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "no",
+                "label": "Пока тестовые",
+                "tone": "muted"
+              },
+              {
+                "value": "try",
+                "label": "Подключаю",
+                "tone": "warn"
+              },
+              {
+                "value": "yes",
+                "label": "Читает из 1С",
+                "tone": "ok"
+              }
+            ]
+          },
+          {
+            "key": "colleagues",
+            "title": "Кто из коллег уже пробовал",
+            "kind": "text",
+            "placeholder": "имена или «пока никто»"
+          },
+          {
+            "key": "status",
+            "title": "Статус",
+            "kind": "choice",
+            "choices": [
+              {
+                "value": "plan",
+                "label": "По плану",
+                "tone": "ok"
+              },
+              {
+                "value": "risk",
+                "label": "Есть риск",
+                "tone": "warn"
+              },
+              {
+                "value": "late",
+                "label": "Отстаёт",
+                "tone": "bad"
+              }
+            ]
+          },
+          {
+            "key": "done",
+            "title": "Что сделано с прошлого урока",
+            "kind": "text"
+          },
+          {
+            "key": "blocker",
+            "title": "Что мешает прямо сейчас",
+            "kind": "text"
+          }
+        ]
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-06.40e9717f78.w2560.jpg",
+      "content": "Теория · 1С и Git: откуда программа берёт данные и где живёт её код",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-07.119199fe49.w2560.jpg",
+      "content": "Как программа подключается к 1С: тестовая копия и OData только для чтения",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-08.3e88987e04.w2560.jpg",
+      "content": "Что лежит в вашей 1С: 724 объекта, отделу хватит 3–5",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-09.96fcb37dcc.w2560.jpg",
+      "content": "Что из 1С пригодится вашему отделу: найдите свою строку",
+      "blockRole": "slide"
+    },
+    {
+      "type": "test",
+      "blockRole": "exercise",
+      "content": "**Проверка · 1С.** Куда подключается ваша программа на этом этапе?",
+      "options": {
+        "icon": "question",
+        "choices": [
+          "Прямо в боевую 1С компании",
+          "К тестовой копии 1С через OData, только чтение",
+          "К Excel-выгрузке из 1С"
+        ],
+        "correctIndex": 1
+      }
+    },
+    {
+      "type": "test",
+      "blockRole": "exercise",
+      "content": "**Проверка · .env.** Где лежат адрес и пароль от тестовой 1С?",
+      "options": {
+        "icon": "question",
+        "choices": [
+          "В коде программы, чтобы не потерять",
+          "В README репозитория",
+          "В файле .env, который не попадает в Git"
+        ],
+        "correctIndex": 2
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-10.c671a91b04.w2560.jpg",
+      "content": "Зачем нужен общий репозиторий: у каждого отдела своя папка, подключение к 1С одно на всех",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-11.0649e2b990.w2560.jpg",
+      "content": "Git за пять слов: репозиторий, коммит, ветка, push и pull, pull request",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-12.3cbd7f8969.w2560.jpg",
+      "content": "Один круг работы и три правила",
+      "blockRole": "slide"
+    },
+    {
+      "type": "test",
+      "blockRole": "exercise",
+      "content": "**Проверка · Git.** Как ваша работа попадает в общую версию main?",
+      "options": {
+        "icon": "question",
+        "choices": [
+          "Пишу напрямую в main",
+          "Через свою ветку и pull request, который смотрит тренер",
+          "Отправляю архив тренеру в чат"
+        ],
+        "correctIndex": 1
+      }
+    },
+    {
+      "type": "input_select",
+      "blockRole": "exercise",
+      "content": "**Мои объекты 1С.** Найдите свой отдел на слайде «Что из 1С пригодится вашему отделу» и выберите строку: эти названия понадобятся в упражнениях 3 и 4.",
+      "options": {
+        "icon": "database",
+        "choices": [
+          "Продажи: ЗаказКлиента, РеализацияТоваровУслуг, РасчетыСКлиентами",
+          "Закупки: ЗаказПоставщику, ПриобретениеТоваровУслуг, РасчетыСПоставщиками",
+          "Склад и РЦ: ПеремещениеТоваров, ТоварыНаСкладах, СвободныеОстатки",
+          "Обжарка и качество: СборкаТоваров, ПартииПроизводственныхЗатрат",
+          "Финансы: ПоступлениеБезналичныхДенежныхСредств, ДенежныеСредстваБезналичные",
+          "Маркетинг: УстановкаЦенНоменклатуры, ЦеныНоменклатуры, ВыручкаИСебестоимостьПродаж"
+        ]
+      }
+    },
+    {
+      "type": "text",
+      "blockRole": "section",
+      "content": "Упражнения, демо и итог"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-13.b3dd03d7ee.w2560.jpg",
+      "content": "Упражнения · 20 минут: четыре шага на своём проекте",
+      "blockRole": "slide"
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-14.aaaf795341.w2560.jpg",
+      "content": "Упражнение 1 из 4 · Забрать общий репозиторий",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Упражнение 1 · Забрать общий репозиторий**\n\nНажмите «Копировать», вставьте в Claude Code, замените слова в квадратных скобках и отправьте.\n\nПРОМПТ · Упражнение 1\nСклонируй репозиторий master-coffee, ссылка: [ссылка на репозиторий из чата урока]. Покажи, какие в нём папки, и скажи, какая из них для моего отдела.\n\nClaude сделает за вас: git clone, показать папки.\n\n**Готово, когда:** Вы видите папку своего отдела.\n\nСсылку на репозиторий тренер отправит в чат урока.",
+      "options": {
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Упражнение 1 готово**",
+      "options": {
+        "items": [
+          "Репозиторий у меня на ноутбуке"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-15.04ce6f1aac.w2560.jpg",
+      "content": "Упражнение 2 из 4 · Положить свой проект в свою ветку",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Упражнение 2 · Положить свой проект в свою ветку**\n\nНажмите «Копировать», вставьте в Claude Code, замените слова в квадратных скобках и отправьте.\n\nПРОМПТ · Упражнение 2\nСоздай ветку [отдел]/v0-1. Скопируй мой проект в папку моего отдела. Проверь, что .env, пароли и данные клиентов не попадут в Git. Сделай коммит «[Отдел]: первая версия» и отправь ветку.\n\nClaude сделает за вас: git checkout -b, .gitignore, git add, git commit, git push.\n\n**Готово, когда:** Ваша ветка видна в репозитории на GitHub.\n\nЕсли Claude нашёл в проекте пароль или ключ, сначала уберите его в .env, потом коммит.",
+      "options": {
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Упражнение 2 готово**",
+      "options": {
+        "items": [
+          "Мой проект в моей ветке на GitHub"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-16.d2208cdee8.w2560.jpg",
+      "content": "Упражнение 3 из 4 · Выбрать свои данные в 1С",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Упражнение 3 · Выбрать свои данные в 1С**\n\nНажмите «Копировать», вставьте в Claude Code, замените слова в квадратных скобках и отправьте.\n\nПРОМПТ · Упражнение 3\nОткрой BUSINESS-ARCHITECTURE.md и допиши в раздел «Системы-источники»: из 1С нам нужны [2–3 названия из таблицы]. Для каждого напиши, зачем он нам. Сделай коммит.\n\nClaude сделает за вас: правка файла, git commit.\n\n**Готово, когда:** В файле названы 2–3 объекта 1С и зачем они.\n\nНазвания берите из своей строки выше («Мои объекты 1С»).",
+      "options": {
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Упражнение 3 готово**",
+      "options": {
+        "items": [
+          "В файле архитектуры названы мои объекты 1С"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-17.ec53c52c8a.w2560.jpg",
+      "content": "Упражнение 4 из 4 · Первый запрос в 1С и pull request",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Упражнение 4 · Первый запрос в 1С и pull request**\n\nНажмите «Копировать», вставьте в Claude Code, замените слова в квадратных скобках и отправьте.\n\nПРОМПТ · Упражнение 4\nПодключись к тестовой 1С по OData, доступ возьми из .env. Покажи таблицей 5 последних записей [название из упражнения 3] за октябрь. Ничего не записывай в 1С. Потом открой pull request в main.\n\nClaude сделает за вас: запрос OData, таблица, git push, pull request.\n\n**Готово, когда:** Вы видите 5 строк из 1С, и pull request открыт.\n\nДоступ к тестовой 1С только на чтение. Если запрос не прошёл, покажите ошибку тренеру.",
+      "options": {
+        "icon": "tools"
+      }
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**Упражнение 4 готово**",
+      "options": {
+        "items": [
+          "Вижу данные из 1С, pull request открыт"
+        ],
+        "required": true,
+        "icon": "checklist"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-18.79eb28971f.w2560.jpg",
+      "content": "Проверьте себя: четыре галочки",
+      "blockRole": "slide"
+    },
+    {
+      "type": "input_text",
+      "blockRole": "exercise",
+      "content": "**Где застряли?** Если какое-то упражнение не получилось, напишите какое и что ответил Claude. Тренер поможет в чате.",
+      "options": {
+        "icon": "alert"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-19.d137e42bb4.w2560.jpg",
+      "content": "Демо: показываем свои программы, около 4 минут на отдел",
+      "blockRole": "slide"
+    },
+    {
+      "type": "text",
+      "blockRole": "task",
+      "content": "**Демо · 3 шага**\n\n1. Что изменилось с пятницы: что добавили, что исправили. Одна минута.\n\n2. Показать вживую: откройте программу и пройдите главный сценарий.\n\n3. Что мешает: один вопрос к тренерам или к коллегам из другого отдела.",
+      "options": {
+        "icon": "rocket"
+      }
+    },
+    {
+      "type": "image",
+      "imageUrl": "/workbook/master-coffee/mc2-20.9beb13d7e4.w2560.jpg",
+      "content": "Три задачи до следующего урока",
+      "blockRole": "slide"
+    },
+    {
+      "type": "checklist",
+      "blockRole": "task",
+      "content": "**До следующего урока**\nКаждый день пишите в чат три строки: что сделал, что сделаю, что мешает.",
+      "options": {
+        "items": [
+          "Влил работу в общую версию: исправил замечания тренера к pull request",
+          "Главный экран показывает цифры из 1С за октябрь, тестовый файл убран",
+          "Показал программу 2–3 коллегам, записал замечания и выпустил v0.1"
+        ],
+        "icon": "checklist"
+      }
+    }
+  ]
+}

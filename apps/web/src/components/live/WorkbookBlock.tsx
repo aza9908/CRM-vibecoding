@@ -41,6 +41,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { RichBlockText } from './RichBlockText';
 import { ZoomableImage, type ZoomableImageSibling } from './ZoomableImage';
 import { BoardContext } from './board-context';
+import { isSelfStatusBoard, SelfStatusBoard } from './SelfStatusBoard';
 
 /** Convention for `input_file` answers stored as plain text in `answerText`. */
 const FILE_ANSWER_PREFIX = 'file:';
@@ -546,6 +547,9 @@ function BlockBody({
       );
 
     case 'status_board':
+      if (isSelfStatusBoard(block)) {
+        return <SelfStatusBoard block={block} value={value} readOnly={readOnly} onChange={(_id, next) => onChange(next)} />;
+      }
       return <StatusBoard block={block} />;
 
     case 'checklist':
