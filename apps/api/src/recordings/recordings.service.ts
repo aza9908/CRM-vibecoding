@@ -35,6 +35,8 @@ const DONE_KEEP_MS = 7 * 24 * 3600_000;
 const YT_UPLOAD = process.env.YOUTUBE_UPLOAD_URL ?? 'https://www.googleapis.com/upload/youtube/v3/videos';
 const DRIVE_API = process.env.DRIVE_API_URL ?? 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD = process.env.DRIVE_UPLOAD_URL ?? 'https://www.googleapis.com/upload/drive/v3';
+/** No pieces for this long → the recorder is gone (tests shorten it). */
+const STALE_MS = Number(process.env.RECORDINGS_STALE_MS ?? SERVER_RECORDING_STALE_MS);
 /** Google wants resumable chunks in multiples of 256 KiB. */
 const CHUNK = 64 * 256 * 1024; // 16 MiB
 /** WebM: the Cluster element id (a continuation file starts at a cluster). */
@@ -121,7 +123,7 @@ const baseType = (m: Meta) => m.mimeType.split(';')[0] || 'video/webm';
  * always be retried or the file downloaded.
  *
  * Handover: if the host disappears mid-lesson, the pieces stop; after
- * SERVER_RECORDING_STALE_MS the recording is marked ready so a colleague
+ * SERVER_RECORDING_STALE_MS (3 min) the recording is marked ready so a colleague
  * can send it, and a new recording of the same session is numbered
  * «часть 2». If the host comes back before anyone sent it, recording simply
  * continues in the same file; if it was already sent, the rest goes into a
@@ -175,7 +177,10 @@ export class RecordingsService implements OnModuleInit {
     const timer = setInterval(() => void this.cleanup(), 6 * 3600_000);
     timer.unref?.();
     void this.cleanup();
-    const staleTimer = setInterval(() => void this.markStale().catch(() => undefined), 30_000);
+    const staleTimer = setInterval(
+      () => void this.markStale().catch(() => undefined),
+      Math.min(30_000, Math.max(1000, STALE_MS / 4)),
+    );
     staleTimer.unref?.();
   }
 
@@ -238,7 +243,7 @@ export class RecordingsService implements OnModuleInit {
   }
   /** Pieces are still arriving (or did a moment ago). */
   private isLive(m: Meta): boolean {
-    return m.status === 'recording' && Date.now() - this.lastPiece(m) < SERVER_RECORDING_STALE_MS;
+    return m.status === 'recording' && Date.now() - this.lastPiece(m) < STALE_MS;
   }
 
   /** A link that downloads the server copy for 15 minutes, without a login header. */
