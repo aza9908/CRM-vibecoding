@@ -68,7 +68,7 @@ export function BackgroundPicker({
         disabled={disabled}
         onClick={() => pick(choice)}
         className={cn(
-          'relative flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+          'relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border-2 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
           on ? 'border-primary ring-2 ring-primary/40' : dark ? 'border-white/15 hover:border-white/40' : 'border-border hover:border-primary/50',
           dark ? 'bg-white/5 text-white' : 'bg-muted text-foreground',
         )}
