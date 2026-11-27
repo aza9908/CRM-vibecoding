@@ -39,6 +39,54 @@ export interface BlurPipeline {
 }
 
 const PREF_KEY = 'lms-bg-blur';
+const IMAGE_KEY = 'lms-bg-image';
+
+/**
+ * Virtual background picture (instead of the blurred room). Read every frame
+ * by a running pipeline, so switching between blur and pictures is instant.
+ */
+let bgImage: HTMLImageElement | null = null;
+let bgImageSrc: string | null = null;
+
+/** Picture behind the person, or null for blur. Remembered in this browser. */
+export function setBackgroundImage(src: string | null): void {
+  try {
+    if (src) window.localStorage.setItem(IMAGE_KEY, src);
+    else window.localStorage.removeItem(IMAGE_KEY);
+  } catch {
+    /* preference only */
+  }
+  bgImageSrc = src;
+  if (!src) {
+    bgImage = null;
+    return;
+  }
+  const img = new Image();
+  img.decoding = 'async';
+  img.onload = () => {
+    if (bgImageSrc === src) bgImage = img;
+  };
+  img.src = src;
+}
+
+if (typeof window !== 'undefined') {
+  const saved = (() => {
+    try {
+      return window.localStorage.getItem(IMAGE_KEY);
+    } catch {
+      return null;
+    }
+  })();
+  if (saved) setBackgroundImage(saved);
+}
+
+export function readBackgroundImage(): string | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage.getItem(IMAGE_KEY) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Remembered choice of «Размыть фон» (this browser). */
 export function readBlurPref(): boolean {
@@ -383,9 +431,12 @@ export async function startBackgroundBlur(
       result.close();
     }
 
-    // Blurred background.
+    // Background: the chosen picture (cover-fit), else the blurred room.
+    const pic = bgImage && bgImage.naturalWidth > 0 ? bgImage : null;
     bgCtx.globalCompositeOperation = 'copy';
-    if (useFilter) {
+    if (pic) {
+      /* drawn straight into the output at full size below */
+    } else if (useFilter) {
       bgCtx.filter = 'blur(3px)';
       bgCtx.drawImage(video, 0, 0, bgCanvas.width, bgCanvas.height);
       bgCtx.filter = 'none';
@@ -405,7 +456,16 @@ export async function startBackgroundBlur(
     outCtx.globalCompositeOperation = 'source-in';
     outCtx.drawImage(video, 0, 0, W, H);
     outCtx.globalCompositeOperation = 'destination-over';
-    outCtx.drawImage(bgCanvas, 0, 0, W, H);
+    if (pic) {
+      const iw = pic.naturalWidth;
+      const ih = pic.naturalHeight;
+      const scale = Math.max(W / iw, H / ih);
+      const sw = W / scale;
+      const sh = H / scale;
+      outCtx.drawImage(pic, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, W, H);
+    } else {
+      outCtx.drawImage(bgCanvas, 0, 0, W, H);
+    }
     outCtx.globalCompositeOperation = 'source-over';
     return performance.now() - start;
   };

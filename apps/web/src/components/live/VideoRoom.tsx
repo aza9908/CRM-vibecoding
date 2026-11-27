@@ -32,6 +32,8 @@ import {
   useVideoRoom,
   type RemotePeer,
 } from '@/lib/rtc/useVideoRoom';
+import { BackgroundPicker, currentBackground } from '@/components/live/BackgroundPicker';
+import { readBackgroundImage } from '@/lib/rtc/backgroundBlur';
 import { serverRecordings } from '@/lib/api/recordings';
 import { ServerRecordings, watchServerRecording } from '@/components/live/ServerRecordings';
 import {
@@ -427,20 +429,17 @@ function PreJoinDialog({
           </Button>
         </div>
 
-        {cam && preview ? (
-          <Button
-            type="button"
-            variant={blurOn ? 'secondary' : 'outline'}
-            className="w-full"
-            onClick={() => onBlurChange(!blur.on)}
-            aria-pressed={blurOn}
-            disabled={busy || !blur.supported || blurBroken}
-            title={!blur.supported || blurBroken ? t('blurUnsupported') : undefined}
-            data-testid="prejoin-blur"
-          >
-            {blurBusy ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
-            {blurBusy ? t('blurLoading') : t('blurLabel')}
-          </Button>
+        {cam && preview && blur.supported && !blurBroken ? (
+          <div className="space-y-1.5" data-testid="prejoin-blur">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              {t('bgTitle')} {blurBusy ? <Spinner className="h-3.5 w-3.5" /> : null}
+            </p>
+            <BackgroundPicker
+              value={blur.on ? (readBackgroundImage() ?? 'blur') : 'none'}
+              setEffect={onBlurChange}
+              disabled={busy}
+            />
+          </div>
         ) : null}
 
         {busy ? (
@@ -721,7 +720,10 @@ function CtrlButton({
   children,
   className,
   compact,
+  caption,
 }: {
+  /** Short visible word under the button (big bars only), e.g. «Камера». */
+  caption?: string;
   /** Active look (white) vs resting (translucent). */
   on?: boolean;
   danger?: boolean;
@@ -732,7 +734,7 @@ function CtrlButton({
   className?: string;
   compact?: boolean;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       onClick={onClick}
@@ -753,6 +755,13 @@ function CtrlButton({
     >
       {children}
     </button>
+  );
+  if (!caption || compact) return button;
+  return (
+    <span className="inline-flex shrink-0 flex-col items-center gap-1">
+      {button}
+      <span className="hidden text-[11px] leading-none text-white/75 sm:block">{caption}</span>
+    </span>
   );
 }
 
@@ -948,6 +957,23 @@ export function VideoRoom({
 
   // Emoji reactions picker — one per control bar (docked / full screen).
   const [reactMenu, setReactMenu] = React.useState<'dock' | 'full' | null>(null);
+  const [bgMenu, setBgMenu] = React.useState(false);
+  React.useEffect(() => {
+    if (!bgMenu) return;
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (!el?.closest?.('[data-bg-menu]')) setBgMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setBgMenu(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [bgMenu]);
   React.useEffect(() => {
     if (!reactMenu) return;
     const onDown = (e: PointerEvent) => {
@@ -1679,6 +1705,7 @@ export function VideoRoom({
   const micBtn = (compact = false) => (
     <CtrlButton
       compact={compact}
+      caption={t('capMic')}
       on={room.media.audio}
       danger={!room.media.audio}
       label={room.media.audio ? t('micOff') : t('micOn')}
@@ -1690,6 +1717,7 @@ export function VideoRoom({
   const camBtn = (compact = false) => (
     <CtrlButton
       compact={compact}
+      caption={t('capCam')}
       on={room.media.video}
       label={room.media.video ? t('camOff') : t('camOn')}
       onClick={() => void room.toggleVideo()}
@@ -1700,6 +1728,7 @@ export function VideoRoom({
   const handBtn = (compact = false) => (
     <CtrlButton
       compact={compact}
+      caption={t('capHand')}
       accent={room.media.hand}
       label={room.media.hand ? t('lowerMyHand') : t('raiseHand')}
       onClick={room.toggleHand}
@@ -1711,15 +1740,29 @@ export function VideoRoom({
   // browser that cannot do it gets a dimmed button that says so.
   const blurBtn = (compact = false) =>
     !room.media.video && !room.blur.on ? null : room.blur.supported ? (
-      <CtrlButton
-        compact={compact}
-        on={room.blur.on}
-        label={room.blur.busy ? t('blurLoading') : room.blur.on ? t('blurOff') : t('blurOn')}
-        onClick={() => room.setBlur(!room.blur.on)}
-        className={room.blur.busy ? 'animate-pulse' : undefined}
-      >
-        {room.blur.busy ? <Spinner className="h-4 w-4" /> : <Sparkles />}
-      </CtrlButton>
+      <span className="relative" data-bg-menu>
+        <CtrlButton
+          compact={compact}
+      caption={t('capBg')}
+          on={bgMenu}
+          label={room.blur.busy ? t('blurLoading') : t('bgTitle')}
+          onClick={() => setBgMenu((v) => !v)}
+          className={room.blur.busy ? 'animate-pulse' : undefined}
+        >
+          {room.blur.busy ? <Spinner className="h-4 w-4" /> : <Sparkles />}
+        </CtrlButton>
+        {bgMenu ? (
+          <span className="absolute bottom-full left-1/2 z-30 mb-2 w-[17rem] -translate-x-1/2 rounded-2xl border border-white/10 bg-neutral-900/95 p-3 shadow-2xl">
+            <span className="mb-2 block text-xs font-medium text-white/80">{t('bgTitle')}</span>
+            <BackgroundPicker
+              dark
+              value={currentBackground(room.blur.on)}
+              setEffect={room.setBlur}
+              onPicked={() => setBgMenu(false)}
+            />
+          </span>
+        ) : null}
+      </span>
     ) : (
       <CtrlButton
         compact={compact}
@@ -1760,6 +1803,7 @@ export function VideoRoom({
     canShare ? (
       <CtrlButton
         compact={compact}
+      caption={t('capShare')}
         on={room.media.screen}
         label={room.media.screen ? t('stopShare') : t('share')}
         onClick={() => void room.toggleScreen()}
@@ -1779,6 +1823,7 @@ export function VideoRoom({
   const reactBtn = (where: 'dock' | 'full') => (
     <span className="relative" data-react-menu>
       <CtrlButton
+        caption={t('capReact')}
         on={reactMenu === where}
         label={t('react')}
         onClick={() => setReactMenu((cur) => (cur === where ? null : where))}
@@ -1811,6 +1856,7 @@ export function VideoRoom({
   const fullBtn = (compact = false) => (
     <CtrlButton
       compact={compact}
+      caption={t('capFull')}
       on={expanded}
       label={expanded ? t('exitFullscreen') : t('fullscreen')}
       onClick={toggleExpanded}
