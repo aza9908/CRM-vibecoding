@@ -213,8 +213,8 @@ export function ServerRecordings({ className }: { className?: string }) {
             // Pieces still arrive: nobody may send or delete it yet.
             const live = r.status === 'recording' && !r.stale;
             return (
-            <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
-              <div className="min-w-0 flex-1">
+            <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+              <div className="min-w-[14rem] basis-full sm:basis-auto sm:flex-1">
                 <p className="flex min-w-0 items-center gap-1.5 font-medium">
                   {drive ? (
                     <HardDrive className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={t('srvTargetDrive')} />

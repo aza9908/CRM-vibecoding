@@ -14,6 +14,7 @@ import {
   LogOut,
   Ticket,
   Trophy,
+  Video,
   Wrench,
 } from 'lucide-react';
 import { Link, usePathname, useRouter } from '@/i18n/routing';
@@ -52,6 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const tt = useTranslations('tour');
   const tr = useTranslations('rating');
   const tcur = useTranslations('curator');
+  const tvr = useTranslations('videoRoom');
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -109,6 +111,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             tourText: isTeacher ? tr('tourStaff') : tr('tourStudent'),
           },
         ]),
+    // Lesson recordings (server copies, Drive/YouTube status): staff only.
+    ...(isTeacher
+      ? [
+          {
+            href: '/teacher/recordings',
+            label: tvr('recNav'),
+            icon: Video,
+            tourId: 'recordings',
+            tourText: tvr('recTour'),
+          },
+        ]
+      : []),
     // «ИИ-куратор»: staff only, next to the rating it is built on.
     ...(isTeacher
       ? [
