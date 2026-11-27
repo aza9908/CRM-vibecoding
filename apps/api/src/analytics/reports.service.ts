@@ -45,7 +45,12 @@ const INTERACTIVE_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
 ]);
 
 const isInteractive = (b: BlockRow): boolean =>
-  INTERACTIVE_BLOCK_TYPES.has(b.type as BlockType);
+  INTERACTIVE_BLOCK_TYPES.has(b.type as BlockType) ||
+  // Checklists the student ticks, and status tables each student fills in
+  // for themselves, are tasks too.
+  b.type === 'checklist' ||
+  (b.type === 'status_board' &&
+    (b.options as { self?: unknown } | null)?.self === true);
 
 /** One row of an export: one participant answer to one block. */
 export interface ExportRow {
@@ -442,6 +447,8 @@ export class ReportsService {
         progressPercent: interactive.length
           ? Math.round((done / interactive.length) * 100)
           : 0,
+        answered: done,
+        total: interactive.length,
         answers: mine.map((r) => ({
           blockId: r.blockId ?? '',
           answerText: r.answerText,

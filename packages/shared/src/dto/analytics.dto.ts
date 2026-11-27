@@ -30,6 +30,10 @@ export type SessionListItem = {
 export type SessionReportParticipant = {
   participant: { id: string; name: string };
   progressPercent: number;
+  /** Interactive blocks of the lesson this participant completed. */
+  answered?: number;
+  /** Interactive blocks in the lesson (the same for everyone). */
+  total?: number;
   answers: Array<{
     blockId: string;
     answerText: string | null;

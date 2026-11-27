@@ -214,8 +214,8 @@ export function SessionEndedReport({
                           </span>
                           <span className="text-sm text-muted-foreground">
                             {tr('answeredCount', {
-                              answered,
-                              total: p.answers.length,
+                              answered: p.answered ?? answered,
+                              total: p.total ?? p.answers.length,
                             })}
                           </span>
                           <Badge

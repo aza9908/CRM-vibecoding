@@ -68,8 +68,8 @@ function StudentsTab({
               <span className="font-medium">{p.participant.name}</span>
               <span className="text-sm text-muted-foreground">
                 {t('answeredCount', {
-                  answered,
-                  total: p.answers.length,
+                  answered: p.answered ?? answered,
+                  total: p.total ?? p.answers.length,
                 })}
               </span>
               <span className="ml-auto">
