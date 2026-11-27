@@ -60,6 +60,12 @@ const nextConfig: NextConfig = {
         source: '/workbook/orzu3/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
+      {
+        // Background-blur engine (MediaPipe WASM + model), in a folder named
+        // after its pinned version: a new version gets a new folder.
+        source: '/vendor/mediapipe/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
     ];
   },
   transpilePackages: ['@lms/shared'],

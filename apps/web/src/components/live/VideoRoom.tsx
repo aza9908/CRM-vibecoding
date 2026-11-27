@@ -17,6 +17,7 @@ import {
   PhoneOff,
   Pin,
   SmilePlus,
+  Sparkles,
   Square,
   Users,
   Video,
@@ -51,6 +52,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { createAnalysisAudioSink } from '@/lib/api/lesson-analysis';
+import { startBackgroundBlur, type BlurPipeline } from '@/lib/rtc/backgroundBlur';
+import { DiagChannel } from '@/lib/ws/diag-channel';
+import { CoachButton, CoachPanel, useCoachIssues } from '@/components/live/CoachPanel';
+
+/** Stand-in when the page gives no «Помощник тренера» channel (students). */
+const NO_DIAG = new DiagChannel();
 
 /** Plays a MediaStream in a <video>. Audio is played separately (see below). */
 function StreamVideo({
@@ -262,12 +269,17 @@ function PreJoinDialog({
   isHost,
   busy,
   errorText,
+  blur,
+  onBlurChange,
   onJoin,
   onClose,
 }: {
   isHost: boolean;
   busy: boolean;
   errorText: string | null;
+  /** «Размыть фон»: can this browser do it, and the remembered choice. */
+  blur: { supported: boolean; on: boolean };
+  onBlurChange: (on: boolean) => void;
   onJoin: (audio: boolean, video: boolean) => void;
   onClose: () => void;
 }) {
@@ -277,6 +289,44 @@ function PreJoinDialog({
   const [preview, setPreview] = React.useState<MediaStream | null>(null);
   const [previewError, setPreviewError] = React.useState(false);
   const previewRef = React.useRef<MediaStream | null>(null);
+  // The preview shows the blurred picture when blur is on.
+  const [blurred, setBlurred] = React.useState<MediaStream | null>(null);
+  const [blurBusy, setBlurBusy] = React.useState(false);
+  const [blurBroken, setBlurBroken] = React.useState(false);
+  const blurOn = blur.on && blur.supported && !blurBroken;
+  React.useEffect(() => {
+    const track = preview?.getVideoTracks()[0];
+    if (!track || !blurOn) {
+      setBlurred(null);
+      return;
+    }
+    let cancelled = false;
+    let pipe: BlurPipeline | null = null;
+    setBlurBusy(true);
+    startBackgroundBlur(track, () => {
+      if (!cancelled) setBlurred(null);
+    })
+      .then((p) => {
+        if (cancelled) {
+          p.stop();
+          return;
+        }
+        pipe = p;
+        setBlurred(new MediaStream([p.output]));
+      })
+      .catch(() => {
+        if (!cancelled) setBlurBroken(true);
+      })
+      .finally(() => {
+        if (!cancelled) setBlurBusy(false);
+      });
+    return () => {
+      cancelled = true;
+      pipe?.stop();
+      setBlurred(null);
+      setBlurBusy(false);
+    };
+  }, [preview, blurOn]);
 
   const stopPreview = React.useCallback(() => {
     previewRef.current?.getTracks().forEach((tr) => tr.stop());
@@ -345,7 +395,7 @@ function PreJoinDialog({
 
         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
           {cam && preview ? (
-            <StreamVideo stream={preview} mirror />
+            <StreamVideo stream={blurred ?? preview} mirror />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground">
               <VideoOff className="h-7 w-7" aria-hidden />
@@ -376,6 +426,22 @@ function PreJoinDialog({
             {cam ? t('camIsOn') : t('camIsOff')}
           </Button>
         </div>
+
+        {cam && preview ? (
+          <Button
+            type="button"
+            variant={blurOn ? 'secondary' : 'outline'}
+            className="w-full"
+            onClick={() => onBlurChange(!blur.on)}
+            aria-pressed={blurOn}
+            disabled={busy || !blur.supported || blurBroken}
+            title={!blur.supported || blurBroken ? t('blurUnsupported') : undefined}
+            data-testid="prejoin-blur"
+          >
+            {blurBusy ? <Spinner className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+            {blurBusy ? t('blurLoading') : t('blurLabel')}
+          </Button>
+        ) : null}
 
         {busy ? (
           <p className="flex items-center gap-2 rounded-md bg-primary/10 px-3 py-2 text-sm text-primary" role="status">
@@ -712,6 +778,7 @@ export function VideoRoom({
   callState,
   autoJoin,
   recordingTitle,
+  coach,
   className,
 }: {
   sessionId: string | undefined;
@@ -729,6 +796,8 @@ export function VideoRoom({
   recordingTitle?: string;
   /** Students: enter a running call automatically (listen-only). */
   autoJoin?: boolean;
+  /** Teacher page: «Помощник тренера» — participants' technical problems. */
+  coach?: DiagChannel;
   className?: string;
 }) {
   const t = useTranslations('videoRoom');
@@ -798,6 +867,84 @@ export function VideoRoom({
     }[room.screenError.code];
     showToast(t(key), 9000);
   }, [room.screenError, showToast, t]);
+
+  // Background blur stopped by itself (too slow / not supported / error).
+  React.useEffect(() => {
+    if (!room.blurError) return;
+    const key = {
+      slow: 'blurSlow',
+      unsupported: 'blurUnsupported',
+      failed: 'blurFailed',
+    }[room.blurError.code];
+    showToast(t(key), 8000);
+  }, [room.blurError, showToast, t]);
+
+  // A hint for me: a teacher sent a ready fix, or my own browser noticed
+  // something (e.g. talking with the mic off). Never someone else's problem.
+  const tc = useTranslations('videoRoom.coach');
+  React.useEffect(() => {
+    const h = room.diagHint;
+    if (!h) return;
+    const text = tc(`fix.${h.kind}`);
+    showToast(
+      h.from === null ? text : h.from ? tc('hintFrom', { name: h.from, text }) : tc('hintFromAnon', { text }),
+      12000,
+    );
+  }, [room.diagHint, showToast, tc]);
+
+  // «Помощник тренера» (teacher page only).
+  const coachIssues = useCoachIssues(coach ?? NO_DIAG, room.selfId);
+  const [coachOpen, setCoachOpen] = React.useState<'dock' | 'full' | null>(null);
+  React.useEffect(() => {
+    if (!coachOpen) return;
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (!el?.closest?.('[data-coach-menu]')) setCoachOpen(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setCoachOpen(null);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [coachOpen]);
+  // A quiet toast when new problems appear: grouped, at most one per 10 s.
+  const selfIdRef = React.useRef(room.selfId);
+  selfIdRef.current = room.selfId;
+  const coachOpenRef = React.useRef(coachOpen);
+  coachOpenRef.current = coachOpen;
+  React.useEffect(() => {
+    if (!coach) return;
+    let pending: { name: string; kind: string }[] = [];
+    let last = 0;
+    let timer: number | null = null;
+    const flush = () => {
+      timer = null;
+      const batch = pending;
+      pending = [];
+      if (!batch.length || coachOpenRef.current) return;
+      last = Date.now();
+      const first = batch[0]!;
+      showToast(
+        batch.length === 1
+          ? tc('newIssue', { name: first.name, problem: tc(`kinds.${first.kind}`) })
+          : tc('newIssues', { count: batch.length }),
+        6000,
+      );
+    };
+    const off = coach.onNewIssue((issue) => {
+      if (issue.peerId === selfIdRef.current) return;
+      pending.push({ name: issue.name, kind: issue.kind });
+      if (timer == null) timer = window.setTimeout(flush, Math.max(1500, last + 10_000 - Date.now()));
+    });
+    return () => {
+      off();
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, [coach, showToast, tc]);
 
   // Emoji reactions picker — one per control bar (docked / full screen).
   const [reactMenu, setReactMenu] = React.useState<'dock' | 'full' | null>(null);
@@ -876,6 +1023,19 @@ export function VideoRoom({
       .forEach((a) => void a.play().catch(() => undefined));
     setAudioBlocked(false);
   }, []);
+  // «Помощник тренера»: the teacher sees who cannot hear the lesson.
+  const { reportDiag } = room;
+  React.useEffect(() => {
+    if (!joined) return;
+    reportDiag('audio_blocked', audioBlocked);
+  }, [joined, audioBlocked, reportDiag]);
+  // Any click on the page counts as the gesture browsers want for sound.
+  React.useEffect(() => {
+    if (!audioBlocked) return;
+    const onDown = () => unblockAudio();
+    document.addEventListener('pointerdown', onDown, { once: true });
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [audioBlocked, unblockAudio]);
 
   // Watch the docked panel: when it leaves the viewport the call floats.
   React.useEffect(() => {
@@ -1505,6 +1665,8 @@ export function VideoRoom({
             isHost={!!isHost}
             busy={busy}
             errorText={errorText}
+            blur={{ supported: room.blur.supported, on: room.blur.on }}
+            onBlurChange={room.setBlur}
             onJoin={(audio, video) => void room.join({ audio, video })}
             onClose={() => setPreJoinOpen(false)}
           />
@@ -1545,6 +1707,52 @@ export function VideoRoom({
       <Hand />
     </CtrlButton>
   );
+  // «Размыть фон»: shown while the camera is on (or blur is wanted). A
+  // browser that cannot do it gets a dimmed button that says so.
+  const blurBtn = (compact = false) =>
+    !room.media.video && !room.blur.on ? null : room.blur.supported ? (
+      <CtrlButton
+        compact={compact}
+        on={room.blur.on}
+        label={room.blur.busy ? t('blurLoading') : room.blur.on ? t('blurOff') : t('blurOn')}
+        onClick={() => room.setBlur(!room.blur.on)}
+        className={room.blur.busy ? 'animate-pulse' : undefined}
+      >
+        {room.blur.busy ? <Spinner className="h-4 w-4" /> : <Sparkles />}
+      </CtrlButton>
+    ) : (
+      <CtrlButton
+        compact={compact}
+        label={t('blurUnsupported')}
+        onClick={() => showToast(t('blurUnsupported'), 8000)}
+        className="opacity-50"
+      >
+        <Sparkles />
+      </CtrlButton>
+    );
+  const coachBtn = (where: 'dock' | 'full') =>
+    coach ? (
+      <span className="relative" data-coach-menu>
+        <CoachButton
+          count={coachIssues.length}
+          open={coachOpen === where}
+          onClick={() => setCoachOpen((cur) => (cur === where ? null : where))}
+        />
+        {coachOpen === where ? (
+          <CoachPanel
+            diag={coach}
+            issues={coachIssues}
+            onClose={() => setCoachOpen(null)}
+            className={cn(
+              'absolute right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2',
+              // Docked bar: open downwards (above it are the sticky page
+              // header and the stage); full screen: upwards from the bottom bar.
+              where === 'dock' ? 'top-full mt-2' : 'bottom-full mb-2',
+            )}
+          />
+        ) : null}
+      </span>
+    ) : null;
   // Offered wherever getDisplayMedia exists (no UA sniffing). Phones and old
   // browsers get a dimmed button that explains where sharing works.
   const canShare = screenShareSupported();
@@ -1928,9 +2136,11 @@ export function VideoRoom({
             <div className="flex flex-wrap items-center justify-center gap-2 bg-neutral-950 px-3 py-3 sm:gap-3">
               {micBtn()}
               {camBtn()}
+              {blurBtn()}
               {shareBtn()}
               {handBtn()}
               {reactBtn('full')}
+              {coachBtn('full')}
               {fullBtn()}
               {leaveBtn()}
             </div>
@@ -1964,9 +2174,11 @@ export function VideoRoom({
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {micBtn()}
           {camBtn()}
+          {blurBtn()}
           {shareBtn()}
           {handBtn()}
           {reactBtn('dock')}
+          {coachBtn('dock')}
           {amHost ? (
             <button
               type="button"

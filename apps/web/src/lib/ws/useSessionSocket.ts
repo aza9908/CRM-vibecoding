@@ -23,10 +23,14 @@ import {
   type PulseStatePayload,
   type TimerStatePayload,
   type ParticipantRemovedPayload,
+  type RtcAck,
+  type RtcDiagListPayload,
+  type RtcDiagUpdatePayload,
 } from '@lms/shared';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocket } from './url';
 import { PulseChannel } from './pulse-channel';
+import { DiagChannel } from './diag-channel';
 
 
 type LiveSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -83,6 +87,9 @@ export interface UseSessionSocketResult {
   timer: TimerStatePayload | null;
   /** «Пульс класса» — a stable object; subscribe with `usePulse(pulse)`. */
   pulse: PulseChannel;
+  /** «Помощник тренера» (teachers only: the server sends it to the teachers'
+   * room) — a stable object; subscribe with `useDiag(diag)`. */
+  diag: DiagChannel;
 }
 
 function responseKey(participantId: string, blockId: string): string {
@@ -114,6 +121,9 @@ export function useSessionSocket(
   const pulseRef = useRef<PulseChannel | null>(null);
   if (!pulseRef.current) pulseRef.current = new PulseChannel();
   const pulse = pulseRef.current;
+  const diagRef = useRef<DiagChannel | null>(null);
+  if (!diagRef.current) diagRef.current = new DiagChannel();
+  const diag = diagRef.current;
 
   const socketRef = useRef<LiveSocket | null>(null);
   const sessionIdRef = useRef(sessionId);
@@ -297,6 +307,27 @@ export function useSessionSocket(
       close: () => pulseEmit((ack) => socket.emit(WS_EVENTS.pulseClose, { sessionId }, ack)),
     };
 
+    socket.on(WS_EVENTS.rtcDiagList, (payload: RtcDiagListPayload) => {
+      if (payload.sessionId === sessionId) diag.pushList(payload);
+    });
+    socket.on(WS_EVENTS.rtcDiagUpdate, (payload: RtcDiagUpdatePayload) => {
+      if (payload.sessionId === sessionId) diag.pushUpdate(payload);
+    });
+    diag.send = {
+      hint: (peerId, kind) =>
+        new Promise<RtcAck>((resolve) => {
+          if (!socket.connected) {
+            resolve({ ok: false, error: 'offline' });
+            return;
+          }
+          const timer = setTimeout(() => resolve({ ok: false, error: 'timeout' }), 8000);
+          socket.emit(WS_EVENTS.rtcDiagHint, { sessionId, peerId, kind }, (res) => {
+            clearTimeout(timer);
+            resolve(res ?? { ok: false });
+          });
+        }),
+    };
+
     socket.on(WS_EVENTS.qaFloor, (payload: QaFloorPayload) => {
       if (payload.sessionId !== sessionId) return;
       setFloor({ ...payload, at: Date.now() });
@@ -330,6 +361,7 @@ export function useSessionSocket(
       socket.disconnect();
       socketRef.current = null;
       pulse.reset();
+      diag.reset();
       setStatus('idle');
     };
     // Only reconnect when the session changes — not on every 15m token rotate.
@@ -483,5 +515,6 @@ export function useSessionSocket(
     sectionsUnlocked,
     timer,
     pulse,
+    diag,
   };
 }

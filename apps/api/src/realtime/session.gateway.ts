@@ -60,6 +60,13 @@ import {
   type RtcReactionPayload,
   RTC_REACTION_LIMIT,
   isRtcReaction,
+  RTC_DIAG_DETAIL_MAX,
+  RTC_DIAG_LIMIT,
+  isRtcDiagKind,
+  type RtcDiagHintPayload,
+  type RtcDiagIssue,
+  type RtcDiagKind,
+  type RtcDiagPayload,
   type RtcStatePayload,
   type ServerToClientEvents,
   type SessionJoinPayload,
@@ -82,6 +89,10 @@ interface LiveSocketData {
   identity?: SocketIdentity;
   /** Times (ms) of this socket's recent call reactions — rate limit. */
   reactionTimes?: number[];
+  /** Times (ms) of this socket's recent `rtc:diag` reports — rate limit. */
+  diagTimes?: number[];
+  /** Times (ms) of this socket's recent `rtc:diag-hint` sends — rate limit. */
+  hintTimes?: number[];
 }
 
 type LiveSocket = Socket<
@@ -115,6 +126,16 @@ const CHAT_MAX_LEN = 500;
 const QA_MAX_LEN = 300;
 const QA_CAP = 100;
 const CHAT_HISTORY_CAP = 100;
+/** Most problems one sync may carry (= size of the allow-list). */
+const RTC_DIAG_KINDS_MAX = 32;
+/** A dropped connection becomes a «reconnecting» problem after this long. */
+const DIAG_RECONNECT_AFTER_MS = 10_000;
+
+/** One person's open technical problems («Помощник тренера»). */
+interface DiagPeer {
+  name: string;
+  issues: Map<RtcDiagKind, { since: number; detail?: string }>;
+}
 
 /** One «Пульс класса» check — running, or the last closed one. */
 interface PulseRun {
@@ -170,6 +191,11 @@ export class SessionGateway
   /** «Пульс класса»: the running (or last closed) check per session. */
   private readonly pulseBySession = new Map<string, PulseRun>();
   private readonly pulseRate = new Map<string, number>();
+  /** «Помощник тренера»: open problems per session, then per peer. In
+   * memory (single API instance, like the Q&A queue). */
+  private readonly diagBySession = new Map<string, Map<string, DiagPeer>>();
+  /** `${sessionId}:${peerId}` → timer that marks a dropped peer «reconnecting». */
+  private readonly diagAwayTimers = new Map<string, NodeJS.Timeout>();
 
   constructor(
     private readonly auth: AuthService,
@@ -348,6 +374,7 @@ export class SessionGateway
     this.leaveVideo(socket, { silent: true });
     // Back after a dropped connection: take the reserved place again.
     this.clearAway(sessionId, peerId);
+    this.cancelDiagAway(sessionId, peerId);
     const returning = !!this.video.peer(sessionId, peerId);
     if (!returning && this.video.size(sessionId) >= VIDEO_ROOM_MAX_PEERS) {
       return { ok: false, error: 'room_full' };
@@ -417,6 +444,7 @@ export class SessionGateway
 
   private endCall(sessionId: string): void {
     this.clearAway(sessionId);
+    this.clearDiag(sessionId);
     this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcCallEnded, { sessionId });
     this.video.close(sessionId);
     this.io?.in(rtcRoom(sessionId)).socketsLeave(rtcRoom(sessionId));
@@ -655,6 +683,234 @@ export class SessionGateway
     });
   }
 
+  // ── «Помощник тренера» ─────────────────────────────────────────────────
+  // Each browser detects its own technical problems (mic blocked, camera
+  // busy, bad network…) and reports them here. Only teachers ever see them:
+  // updates go to teachersRoom, never to the session room or the call.
+
+  /**
+   * A participant's own problem appeared / was resolved, or a full sync of
+   * what is open. Only a peer currently in this session's video room may
+   * report, only allow-listed kinds, at most 10 reports / 10 s per socket.
+   */
+  @SubscribeMessage(WS_EVENTS.rtcDiag)
+  onRtcDiag(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcDiagPayload,
+  ): void {
+    const me = this.video.peerOfSocket(socket.id);
+    if (!me || body?.sessionId !== me.sessionId) return;
+    const now = Date.now();
+    const recent = (socket.data.diagTimes ?? []).filter(
+      (at) => now - at < RTC_DIAG_LIMIT.windowMs,
+    );
+    if (recent.length >= RTC_DIAG_LIMIT.max) {
+      socket.data.diagTimes = recent;
+      return;
+    }
+    recent.push(now);
+    socket.data.diagTimes = recent;
+    const { sessionId } = me;
+    const peerId = me.info.peerId;
+    const cleanDetail = (d: unknown): string | undefined =>
+      typeof d === 'string' && d.trim()
+        ? d.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, RTC_DIAG_DETAIL_MAX)
+        : undefined;
+
+    if (Array.isArray(body.open)) {
+      // Full sync: exactly these are open now (kept `since` for old ones).
+      const prev = this.diagBySession.get(sessionId)?.get(peerId);
+      const issues: DiagPeer['issues'] = new Map();
+      for (const entry of body.open.slice(0, RTC_DIAG_KINDS_MAX)) {
+        if (!isRtcDiagKind(entry?.kind) || issues.has(entry.kind)) continue;
+        issues.set(entry.kind, {
+          since: prev?.issues.get(entry.kind)?.since ?? now,
+          detail: cleanDetail(entry.detail),
+        });
+      }
+      const same =
+        (prev?.issues.size ?? 0) === issues.size &&
+        [...issues].every(([k, v]) => {
+          const old = prev?.issues.get(k);
+          return !!old && old.detail === v.detail;
+        });
+      this.setDiagPeer(sessionId, peerId, me.info.name, issues);
+      if (!same) this.broadcastDiagList(sessionId);
+      return;
+    }
+
+    if (!isRtcDiagKind(body.kind)) return;
+    const kind = body.kind;
+    if (body.resolved === true) {
+      const entry = this.diagBySession.get(sessionId)?.get(peerId);
+      const open = entry?.issues.get(kind);
+      if (!entry || !open) return;
+      entry.issues.delete(kind);
+      if (entry.issues.size === 0) this.setDiagPeer(sessionId, peerId, entry.name, entry.issues);
+      this.emitDiagUpdate(sessionId, peerId, entry.name, kind, open, true);
+      return;
+    }
+    this.raiseDiag(sessionId, peerId, me.info.name, kind, cleanDetail(body.detail));
+  }
+
+  /**
+   * A teacher sends a ready fix to one person: it goes ONLY to that
+   * person's call connection (shown there as a toast in their language).
+   */
+  @SubscribeMessage(WS_EVENTS.rtcDiagHint)
+  async onRtcDiagHint(
+    @ConnectedSocket() socket: LiveSocket,
+    @MessageBody() body: RtcDiagHintPayload,
+  ): Promise<RtcAck> {
+    const identity = socket.data.identity;
+    const sessionId = body?.sessionId;
+    if (
+      !identity ||
+      isParticipant(identity) ||
+      !isStaffRole(identity.role) ||
+      typeof sessionId !== 'string' ||
+      typeof body.peerId !== 'string' ||
+      !isRtcDiagKind(body.kind)
+    ) {
+      return { ok: false, error: 'bad_request' };
+    }
+    const now = Date.now();
+    const recent = (socket.data.hintTimes ?? []).filter((at) => now - at < 10_000);
+    if (recent.length >= 20) return { ok: false, error: 'too_fast' };
+    recent.push(now);
+    socket.data.hintTimes = recent;
+    // Tenant isolation: the session must belong to the teacher's org.
+    if (!socket.rooms.has(teachersRoom(sessionId))) {
+      try {
+        await this.sessions.assertSessionInOrg(sessionId, identity.orgId);
+      } catch {
+        return { ok: false, error: 'forbidden' };
+      }
+    }
+    const target = this.video.peer(sessionId, body.peerId);
+    if (!target) return { ok: false, error: 'not_in_call' };
+    const from = (await this.sessions.getUserName(identity.sub)) ?? 'Преподаватель';
+    this.io.to(target.socketId).emit(WS_EVENTS.rtcDiagHint, { kind: body.kind, from });
+    return { ok: true };
+  }
+
+  private raiseDiag(
+    sessionId: string,
+    peerId: string,
+    name: string,
+    kind: RtcDiagKind,
+    detail?: string,
+  ): void {
+    let byPeer = this.diagBySession.get(sessionId);
+    if (!byPeer) this.diagBySession.set(sessionId, (byPeer = new Map()));
+    let entry = byPeer.get(peerId);
+    if (!entry) byPeer.set(peerId, (entry = { name, issues: new Map() }));
+    entry.name = name;
+    const old = entry.issues.get(kind);
+    if (old && old.detail === detail) return; // nothing new for teachers
+    const next = { since: old?.since ?? Date.now(), detail };
+    entry.issues.set(kind, next);
+    this.emitDiagUpdate(sessionId, peerId, name, kind, next, false);
+  }
+
+  private setDiagPeer(
+    sessionId: string,
+    peerId: string,
+    name: string,
+    issues: DiagPeer['issues'],
+  ): void {
+    let byPeer = this.diagBySession.get(sessionId);
+    if (issues.size === 0) {
+      byPeer?.delete(peerId);
+      if (byPeer?.size === 0) this.diagBySession.delete(sessionId);
+      return;
+    }
+    if (!byPeer) this.diagBySession.set(sessionId, (byPeer = new Map()));
+    byPeer.set(peerId, { name, issues });
+  }
+
+  private emitDiagUpdate(
+    sessionId: string,
+    peerId: string,
+    name: string,
+    kind: RtcDiagKind,
+    issue: { since: number; detail?: string },
+    resolved: boolean,
+  ): void {
+    this.io?.to(teachersRoom(sessionId)).emit(WS_EVENTS.rtcDiagUpdate, {
+      sessionId,
+      peerId,
+      name,
+      kind,
+      since: new Date(issue.since).toISOString(),
+      ...(issue.detail ? { detail: issue.detail } : {}),
+      ...(resolved ? { resolved: true } : {}),
+    });
+  }
+
+  private diagIssues(sessionId: string): RtcDiagIssue[] {
+    const out: RtcDiagIssue[] = [];
+    for (const [peerId, entry] of this.diagBySession.get(sessionId) ?? []) {
+      for (const [kind, issue] of entry.issues) {
+        out.push({
+          peerId,
+          name: entry.name,
+          kind,
+          since: new Date(issue.since).toISOString(),
+          ...(issue.detail ? { detail: issue.detail } : {}),
+        });
+      }
+    }
+    return out;
+  }
+
+  private broadcastDiagList(sessionId: string): void {
+    this.io
+      ?.to(teachersRoom(sessionId))
+      .emit(WS_EVENTS.rtcDiagList, { sessionId, issues: this.diagIssues(sessionId) });
+  }
+
+  /** The person left the call for good (or was removed): forget their problems. */
+  private dropDiagPeer(sessionId: string, peerId: string): void {
+    this.cancelDiagAway(sessionId, peerId);
+    const byPeer = this.diagBySession.get(sessionId);
+    if (!byPeer?.delete(peerId)) return;
+    if (byPeer.size === 0) this.diagBySession.delete(sessionId);
+    this.broadcastDiagList(sessionId);
+  }
+
+  private clearDiag(sessionId: string): void {
+    for (const [key, timer] of this.diagAwayTimers) {
+      if (!key.startsWith(`${sessionId}:`)) continue;
+      clearTimeout(timer);
+      this.diagAwayTimers.delete(key);
+    }
+    if (this.diagBySession.delete(sessionId)) this.broadcastDiagList(sessionId);
+  }
+
+  /** A dropped connection that does not come back within 10 s is shown to
+   * teachers as «reconnecting» (the browser cannot report it itself). */
+  private scheduleDiagAway(sessionId: string, peerId: string, name: string): void {
+    this.cancelDiagAway(sessionId, peerId);
+    const key = `${sessionId}:${peerId}`;
+    const timer = setTimeout(() => {
+      this.diagAwayTimers.delete(key);
+      if (this.video.peer(sessionId, peerId)) return;
+      if (!this.awayPeers.get(sessionId)?.has(peerId)) return;
+      this.raiseDiag(sessionId, peerId, name, 'reconnecting');
+    }, DIAG_RECONNECT_AFTER_MS);
+    timer.unref?.();
+    this.diagAwayTimers.set(key, timer);
+  }
+
+  private cancelDiagAway(sessionId: string, peerId: string): void {
+    const key = `${sessionId}:${peerId}`;
+    const timer = this.diagAwayTimers.get(key);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.diagAwayTimers.delete(key);
+  }
+
   /**
    * The socket's peer leaves the room. The call itself keeps running — it
    * ends only when a host ends it or the session ends.
@@ -691,6 +947,7 @@ export class SessionGateway
         map.delete(peerId);
         if (map.size === 0) this.awayPeers.delete(sessionId);
         if (this.video.peer(sessionId, peerId)) return;
+        this.dropDiagPeer(sessionId, peerId);
         this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerLeft, { peerId });
         this.broadcastRoomState(sessionId);
       }, PEER_AWAY_GRACE_MS);
@@ -698,10 +955,12 @@ export class SessionGateway
       let map = this.awayPeers.get(sessionId);
       if (!map) this.awayPeers.set(sessionId, (map = new Map()));
       map.set(peerId, { info, sub: socket.data.identity?.sub ?? null, timer });
+      this.scheduleDiagAway(sessionId, peerId, peer.info.name);
       // Everyone keeps the tile, now marked «reconnecting».
       this.io?.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerJoined, info);
       return;
     }
+    this.dropDiagPeer(peer.sessionId, peer.info.peerId);
     this.io
       ?.to(rtcRoom(peer.sessionId))
       .emit(WS_EVENTS.rtcPeerLeft, { peerId: peer.info.peerId });
@@ -766,6 +1025,10 @@ export class SessionGateway
     // Joined in the middle of a «Пульс класса» check → show it right away.
     const timer = this.timerState(sessionId);
     if (timer.endsAt) socket.emit(WS_EVENTS.timerState, timer);
+    // Teachers (re)loading the page get the open technical problems.
+    if (!isParticipant(identity) && isStaffRole(identity.role)) {
+      socket.emit(WS_EVENTS.rtcDiagList, { sessionId, issues: this.diagIssues(sessionId) });
+    }
     const pulse = this.pulseBySession.get(sessionId);
     if (pulse && !pulse.closed) {
       socket.emit(WS_EVENTS.pulseState, this.pulsePublic(pulse));
@@ -803,6 +1066,7 @@ export class SessionGateway
     for (const [peerId, entry] of this.awayPeers.get(sessionId) ?? []) {
       if (entry.sub !== participantId) continue;
       this.clearAway(sessionId, peerId);
+      this.dropDiagPeer(sessionId, peerId);
       this.io.to(rtcRoom(sessionId)).emit(WS_EVENTS.rtcPeerLeft, { peerId });
     }
     const sockets = await this.io.in(room(sessionId)).fetchSockets();

@@ -90,6 +90,17 @@ export const WS_EVENTS = {
   /** client → server: a quick emoji reaction in the call; server → rtc room:
    * who reacted with what (RtcReactionPayload / RtcReactionRelay) */
   rtcReaction: 'rtc:reaction',
+  /** client → server: a technical problem of mine appeared / was resolved
+   * («Помощник тренера», RtcDiagPayload) */
+  rtcDiag: 'rtc:diag',
+  /** server → teachers only: one participant's problem appeared / resolved */
+  rtcDiagUpdate: 'rtc:diag-update',
+  /** server → teachers only: every open problem of the session (on
+   * session:join of staff, and after bulk changes) */
+  rtcDiagList: 'rtc:diag-list',
+  /** teacher → server: send a ready fix to one participant (ack: RtcAck);
+   * server → that participant's call socket only (RtcDiagHintRelay) */
+  rtcDiagHint: 'rtc:diag-hint',
 
   // ── Q&A queue ────────────────────────────────────────────────────────────
   /** client → server: ask a question */
@@ -461,6 +472,103 @@ export interface RtcReactionRelay {
   emoji: RtcReactionEmoji;
 }
 
+// ── «Помощник тренера»: participants' technical problems ────────────────────
+
+/**
+ * Problems a participant's browser can detect by itself. Fixed allow-list:
+ * the server drops anything else. Each kind has a plain-language title and a
+ * one-line fix in the web messages (`coach.kinds.<kind>` / `coach.fix.<kind>`).
+ */
+export const RTC_DIAG_KINDS = [
+  'mic_denied',
+  'mic_missing',
+  'mic_busy',
+  'muted_speaking',
+  'cam_denied',
+  'cam_busy',
+  'cam_missing',
+  'screen_unsupported',
+  'screen_os_denied',
+  'screen_denied',
+  'screen_failed',
+  'reconnecting',
+  'ice_failed',
+  'poor_network',
+  'audio_blocked',
+  'browser_unsupported',
+  'hand_waiting',
+] as const;
+export type RtcDiagKind = (typeof RTC_DIAG_KINDS)[number];
+
+export function isRtcDiagKind(value: unknown): value is RtcDiagKind {
+  return (
+    typeof value === 'string' && (RTC_DIAG_KINDS as readonly string[]).includes(value)
+  );
+}
+
+/** Per-socket limit for `rtc:diag` reports; extras are dropped silently. */
+export const RTC_DIAG_LIMIT = { windowMs: 10_000, max: 10 } as const;
+/** Max length of a report's free-form detail (e.g. «потери 14%, 720 мс»). */
+export const RTC_DIAG_DETAIL_MAX = 80;
+
+/** One open problem as reported by the browser. */
+export interface RtcDiagEntry {
+  kind: RtcDiagKind;
+  detail?: string;
+}
+
+/**
+ * `rtc:diag` (client → server). Either one change (`kind` + optional
+ * `resolved`), or a full sync (`open`: exactly these are open now — sent
+ * after every (re)join so the server never keeps stale problems).
+ */
+export interface RtcDiagPayload {
+  sessionId: string;
+  kind?: RtcDiagKind;
+  resolved?: boolean;
+  detail?: string;
+  open?: RtcDiagEntry[];
+}
+
+/** An open problem as teachers see it. */
+export interface RtcDiagIssue {
+  /** Video-room peer id of the person. */
+  peerId: string;
+  name: string;
+  kind: RtcDiagKind;
+  /** ISO time the problem appeared. */
+  since: string;
+  detail?: string;
+}
+
+/** `rtc:diag-update` (server → teachers). */
+export interface RtcDiagUpdatePayload extends RtcDiagIssue {
+  sessionId: string;
+  /** true = the problem is gone. */
+  resolved?: boolean;
+}
+
+/** `rtc:diag-list` (server → teachers). */
+export interface RtcDiagListPayload {
+  sessionId: string;
+  issues: RtcDiagIssue[];
+}
+
+/** `rtc:diag-hint` (teacher → server). */
+export interface RtcDiagHintPayload {
+  sessionId: string;
+  peerId: string;
+  kind: RtcDiagKind;
+}
+
+/** `rtc:diag-hint` (server → the one participant). The text of the fix is
+ * localized on the participant's side from `kind`. */
+export interface RtcDiagHintRelay {
+  kind: RtcDiagKind;
+  /** Name of the teacher who sent it. */
+  from: string;
+}
+
 // ── Q&A payloads ─────────────────────────────────────────────────────────────
 
 export type QaStatus = 'open' | 'live' | 'answered';
@@ -636,6 +744,9 @@ export interface ServerToClientEvents {
   [WS_EVENTS.rtcCallEnded]: (payload: RtcCallEndPayload) => void;
   [WS_EVENTS.rtcReset]: () => void;
   [WS_EVENTS.rtcReaction]: (payload: RtcReactionRelay) => void;
+  [WS_EVENTS.rtcDiagUpdate]: (payload: RtcDiagUpdatePayload) => void;
+  [WS_EVENTS.rtcDiagList]: (payload: RtcDiagListPayload) => void;
+  [WS_EVENTS.rtcDiagHint]: (payload: RtcDiagHintRelay) => void;
   [WS_EVENTS.qaList]: (payload: QaListPayload) => void;
   [WS_EVENTS.qaFloor]: (payload: QaFloorPayload) => void;
   [WS_EVENTS.pulseState]: (payload: PulseStatePayload) => void;
@@ -686,6 +797,11 @@ export interface ClientToServerEvents {
   [WS_EVENTS.rtcConsumerLayers]: (payload: RtcConsumerLayersPayload) => void;
   [WS_EVENTS.rtcModerate]: (payload: RtcModeratePayload) => void;
   [WS_EVENTS.rtcReaction]: (payload: RtcReactionPayload) => void;
+  [WS_EVENTS.rtcDiag]: (payload: RtcDiagPayload) => void;
+  [WS_EVENTS.rtcDiagHint]: (
+    payload: RtcDiagHintPayload,
+    ack?: (res: RtcAck) => void,
+  ) => void;
   [WS_EVENTS.qaAsk]: (payload: QaAskPayload) => void;
   [WS_EVENTS.qaVote]: (payload: QaVotePayload) => void;
   [WS_EVENTS.qaStatus]: (payload: QaStatusPayload) => void;

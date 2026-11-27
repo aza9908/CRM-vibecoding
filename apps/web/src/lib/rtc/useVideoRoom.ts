@@ -15,9 +15,21 @@ import {
   type RtcReactionRelay,
   type RtcSource,
   type ServerToClientEvents,
+  type RtcDiagKind,
+  RTC_DIAG_LIMIT,
   RTC_REACTION_LIMIT,
 } from '@lms/shared';
 import { LIVE_SOCKET_TRANSPORTS, resolveLiveSocket } from '@/lib/ws/url';
+import {
+  BlurError,
+  blurSupported,
+  readBlurPref,
+  startBackgroundBlur,
+  writeBlurPref,
+  type BlurFailure,
+  type BlurPipeline,
+} from './backgroundBlur';
+import { MutedSpeechDetector, NetQuality, mediaErrorKind } from './diagnostics';
 
 /**
  * Video room for a live session — our own meeting room inside the LMS.
@@ -90,6 +102,24 @@ export interface UseVideoRoomResult {
    * A listener instead of state, so a burst of reactions does not re-render
    * the whole room. */
   subscribeReactions: (cb: (r: RtcReactionRelay) => void) => () => void;
+  /** «Размыть фон» for my camera. */
+  blur: {
+    /** The browser can do it (false after the segmenter failed to start). */
+    supported: boolean;
+    /** The remembered choice (applies whenever the camera is on). */
+    on: boolean;
+    /** The blurred picture is what is being sent right now. */
+    active: boolean;
+    /** Starting (loading the model / first frame). */
+    busy: boolean;
+  };
+  setBlur: (on: boolean) => void;
+  /** Blur stopped by itself (too slow / failed / unsupported) — for a toast. */
+  blurError: { code: BlurFailure; at: number } | null;
+  /** «Помощник тренера»: report / clear one of my problems (e.g. autoplay). */
+  reportDiag: (kind: RtcDiagKind, on: boolean, detail?: string) => void;
+  /** A hint for me: from a teacher (`from` = name) or local (`from` = null). */
+  diagHint: { kind: RtcDiagKind; from: string | null; at: number } | null;
 }
 
 /**
@@ -217,6 +247,22 @@ const SCREEN_ENCODINGS: RTCRtpEncodingParameters[] = [
   { maxBitrate: 2_000_000, maxFramerate: 15 },
 ];
 
+/** Screen-share failures as «Помощник тренера» problems (one-off: they
+ * clear by themselves after a while or on a successful share). */
+const SCREEN_DIAG: Record<ScreenShareError, RtcDiagKind> = {
+  unsupported: 'screen_unsupported',
+  os_denied_mac: 'screen_os_denied',
+  denied: 'screen_denied',
+  failed: 'screen_failed',
+};
+const SCREEN_DIAG_TTL_MS = 2 * 60_000;
+/** Connection checks (getStats) every this often while in the call. */
+const NET_CHECK_MS = 4_000;
+/** Bad / good checks in a row before reporting / clearing «poor network». */
+const NET_BAD_CHECKS = 3;
+const NET_LOSS_BAD = 0.1;
+const NET_RTT_BAD_MS = 600;
+
 // ── reload survival ─────────────────────────────────────────────────────────
 
 interface CallResume {
@@ -292,6 +338,12 @@ export function useVideoRoom(
   const [endedAt, setEndedAt] = useState<number | null>(null);
   const [screenError, setScreenError] =
     useState<UseVideoRoomResult['screenError']>(null);
+  const [blurOn, setBlurOn] = useState(false);
+  const [blurActive, setBlurActive] = useState(false);
+  const [blurBusy, setBlurBusy] = useState(false);
+  const [blurOk, setBlurOk] = useState(true);
+  const [blurError, setBlurError] = useState<UseVideoRoomResult['blurError']>(null);
+  const [diagHint, setDiagHint] = useState<UseVideoRoomResult['diagHint']>(null);
   const reactionListenersRef = useRef(new Set<(r: RtcReactionRelay) => void>());
   const reactionTimesRef = useRef<number[]>([]);
 
@@ -320,6 +372,26 @@ export function useVideoRoom(
   const wantJoinedRef = useRef(false);
   const everJoinedRef = useRef(false);
   const joinSeqRef = useRef(0);
+  /** Running blur pipeline (input = the raw camera in tracksRef). */
+  const blurRef = useRef<BlurPipeline | null>(null);
+  const blurWantRef = useRef(false);
+  const blurOkRef = useRef(true);
+  const blurQueueRef = useRef<Promise<void>>(Promise.resolve());
+  /** Late-bound `syncBlur` for callbacks declared before it. */
+  const syncBlurRef = useRef<() => Promise<void>>(async () => undefined);
+  /** «Помощник тренера»: my open problems (kind → detail). */
+  const diagOpenRef = useRef(new Map<RtcDiagKind, string | undefined>());
+  const diagTimersRef = useRef(new Map<RtcDiagKind, number>());
+
+  // Remembered blur choice; feature check only in the browser.
+  useEffect(() => {
+    const ok = blurSupported();
+    blurOkRef.current = ok;
+    setBlurOk(ok);
+    const want = ok && readBlurPref();
+    blurWantRef.current = want;
+    setBlurOn(want);
+  }, []);
 
   // ── small helpers ────────────────────────────────────────────────────────
 
@@ -345,6 +417,98 @@ export function useVideoRoom(
       }),
     [],
   );
+
+  /** What actually goes out for a raw camera track: the blurred copy when
+   * blur runs on exactly this track, else the track itself. */
+  const sendTrackFor = useCallback((raw: MediaStreamTrack): MediaStreamTrack => {
+    const b = blurRef.current;
+    return b && b.input === raw && b.output.readyState === 'live' ? b.output : raw;
+  }, []);
+
+  // ── «Помощник тренера»: my own problems, reported diff-only ─────────────
+  const diagSentRef = useRef<number[]>([]);
+  const diagResyncRef = useRef<number | null>(null);
+  const syncDiagRef = useRef<() => void>(() => undefined);
+  const emitDiag = useCallback(
+    (payload: { kind: RtcDiagKind; resolved?: boolean; detail?: string }) => {
+      const sid = sessionIdRef.current;
+      const socket = socketRef.current;
+      // Offline / not in the room yet: the full sync after (re)join covers it.
+      if (!sid || !socket?.connected || !selfIdRef.current) return;
+      // Stay under the server's limit (it drops extras silently): when a
+      // burst would exceed it, send one full sync a little later instead.
+      const now = Date.now();
+      const recent = diagSentRef.current.filter((at) => now - at < RTC_DIAG_LIMIT.windowMs);
+      if (recent.length >= RTC_DIAG_LIMIT.max - 2) {
+        diagSentRef.current = recent;
+        if (diagResyncRef.current == null) {
+          diagResyncRef.current = window.setTimeout(() => {
+            diagResyncRef.current = null;
+            syncDiagRef.current();
+          }, RTC_DIAG_LIMIT.windowMs);
+        }
+        return;
+      }
+      recent.push(now);
+      diagSentRef.current = recent;
+      socket.emit(WS_EVENTS.rtcDiag, { sessionId: sid, ...payload });
+    },
+    [],
+  );
+
+  const syncDiag = useCallback(() => {
+    const sid = sessionIdRef.current;
+    const socket = socketRef.current;
+    if (!sid || !socket?.connected || !selfIdRef.current) return;
+    diagSentRef.current.push(Date.now());
+    socket.emit(WS_EVENTS.rtcDiag, {
+      sessionId: sid,
+      open: [...diagOpenRef.current].map(([kind, detail]) =>
+        detail ? { kind, detail } : { kind },
+      ),
+    });
+  }, []);
+
+  syncDiagRef.current = syncDiag;
+
+  /** Open (`on`) or resolve a problem. `ttlMs`: resolve by itself later
+   * (one-off failures like a refused screen share). */
+  const setDiag = useCallback(
+    (kind: RtcDiagKind, on: boolean, detail?: string, ttlMs?: number) => {
+      const open = diagOpenRef.current;
+      const timers = diagTimersRef.current;
+      const old = timers.get(kind);
+      if (old) {
+        window.clearTimeout(old);
+        timers.delete(kind);
+      }
+      if (on) {
+        if (ttlMs) {
+          timers.set(
+            kind,
+            window.setTimeout(() => {
+              timers.delete(kind);
+              if (open.delete(kind)) emitDiag({ kind, resolved: true });
+            }, ttlMs),
+          );
+        }
+        if (open.has(kind)) return; // already reported (details may drift)
+        open.set(kind, detail);
+        emitDiag(detail ? { kind, detail } : { kind });
+      } else if (open.delete(kind)) {
+        emitDiag({ kind, resolved: true });
+      }
+    },
+    [emitDiag],
+  );
+
+  const resetDiag = useCallback(() => {
+    if (diagResyncRef.current != null) window.clearTimeout(diagResyncRef.current);
+    diagResyncRef.current = null;
+    for (const t of diagTimersRef.current.values()) window.clearTimeout(t);
+    diagTimersRef.current.clear();
+    diagOpenRef.current.clear();
+  }, []);
 
   const saveResume = useCallback(() => {
     const m = mediaRef.current;
@@ -503,8 +667,12 @@ export function useVideoRoom(
           window.clearTimeout(timer);
           timer = null;
         }
+        if (state === 'connected') setDiag('ice_failed', false);
         if (state === 'connected' || state === 'closed') return;
-        if (state === 'failed') void restart();
+        if (state === 'failed') {
+          setDiag('ice_failed', true);
+          void restart();
+        }
         if (state === 'disconnected' || state === 'failed') {
           // A short blip heals by itself; otherwise restart ICE, and if the
           // path is still dead after that, rebuild the whole connection.
@@ -519,7 +687,7 @@ export function useVideoRoom(
         }
       });
     },
-    [request],
+    [request, setDiag],
   );
 
   const createTransport = useCallback(
@@ -567,9 +735,11 @@ export function useVideoRoom(
       tracksRef.current[source] = track;
       const device = deviceRef.current;
       if (!device || !selfIdRef.current) return; // sent on (re)join
+      // The camera may go out blurred; tracksRef keeps the raw track.
+      const out = source === 'camera' ? sendTrackFor(track) : track;
       const old = producersRef.current.get(source);
       if (old && !old.closed) {
-        await old.replaceTrack({ track });
+        await old.replaceTrack({ track: out });
         if (old.paused) {
           old.resume();
           socketRef.current?.emit(WS_EVENTS.rtcProducerPause, {
@@ -587,7 +757,7 @@ export function useVideoRoom(
       let producer: msc.Producer;
       if (!video) {
         producer = await transport.produce({
-          track,
+          track: out,
           stopTracks: false,
           appData: { source },
           codecOptions: { opusDtx: true, opusFec: true, opusStereo: false },
@@ -610,10 +780,10 @@ export function useVideoRoom(
         let lastErr: unknown = null;
         let made: msc.Producer | null = null;
         for (const variant of variants) {
-          if (transport.closed || track.readyState !== 'live') break;
+          if (transport.closed || out.readyState !== 'live') break;
           try {
             made = await transport.produce({
-              track,
+              track: out,
               stopTracks: false,
               appData: { source },
               ...variant,
@@ -634,7 +804,7 @@ export function useVideoRoom(
         }
       });
     },
-    [createTransport],
+    [createTransport, sendTrackFor],
   );
 
   const unpublish = useCallback((source: RtcSource) => {
@@ -661,6 +831,10 @@ export function useVideoRoom(
   }, []);
 
   const stopLocal = useCallback(() => {
+    const blur = blurRef.current;
+    blurRef.current = null;
+    blur?.stop();
+    setBlurActive(false);
     for (const track of Object.values(tracksRef.current)) track?.stop();
     tracksRef.current = {};
     setLocalCamera(null);
@@ -713,6 +887,8 @@ export function useVideoRoom(
           }));
           selfIdRef.current = ack.selfId;
           callIdRef.current = ack.startedAt ?? null;
+          // The server forgets my problems with the old connection.
+          syncDiag();
           peersRef.current = roster;
           setSelfId(ack.selfId);
           setRole(ack.role ?? 'participant');
@@ -762,6 +938,9 @@ export function useVideoRoom(
           } catch (err) {
             console.warn('[video] join failed', err);
             if (seq !== joinSeqRef.current) return;
+            if (err instanceof Error && err.name === 'UnsupportedError') {
+              setDiag('browser_unsupported', true);
+            }
             if (everJoinedRef.current) {
               window.setTimeout(() => rejoinRef.current(), 2_000);
             } else {
@@ -772,7 +951,7 @@ export function useVideoRoom(
         })();
       },
     );
-  }, [createTransport, publish, saveResume, syncConsumers, teardown]);
+  }, [createTransport, publish, saveResume, setDiag, syncConsumers, syncDiag, teardown]);
 
   rejoinRef.current = () => {
     if (!wantJoinedRef.current) return;
@@ -791,6 +970,7 @@ export function useVideoRoom(
       if (!opts.keepResume) writeCallResume(sid, null);
       teardown();
       stopLocal();
+      resetDiag();
       mediaRef.current = NO_MEDIA;
       setMedia(NO_MEDIA);
       setPeers([]);
@@ -806,7 +986,7 @@ export function useVideoRoom(
       setRole(null);
       setStatus('idle');
     },
-    [stopLocal, teardown],
+    [resetDiag, stopLocal, teardown],
   );
 
   const leave = useCallback(() => leaveInternal(), [leaveInternal]);
@@ -914,6 +1094,7 @@ export function useVideoRoom(
         unpublish('camera');
         setLocalCamera(null);
         publishState({ ...cur, video: false });
+        void syncBlurRef.current();
       } else if (action === 'lower-hand' && cur.hand) {
         publishState({ ...cur, hand: false });
       }
@@ -928,6 +1109,10 @@ export function useVideoRoom(
     });
     socket.on(WS_EVENTS.rtcReaction, (r) => {
       for (const cb of reactionListenersRef.current) cb(r);
+    });
+    // A teacher sent me a ready fix («Помощник тренера») — only to me.
+    socket.on(WS_EVENTS.rtcDiagHint, ({ kind, from }) => {
+      setDiagHint({ kind, from: typeof from === 'string' ? from : '', at: Date.now() });
     });
     return socket;
   }, [doJoin, leaveInternal, publishState, rebuildStreams, syncConsumers, unpublish]);
@@ -961,11 +1146,138 @@ export function useVideoRoom(
 
   const refreshLocalCamera = useCallback(() => {
     const t = tracksRef.current;
-    const tracks = [t.camera, t.mic].filter(
+    const tracks = [t.camera ? sendTrackFor(t.camera) : undefined, t.mic].filter(
       (x): x is MediaStreamTrack => !!x && x.readyState === 'live',
     );
     setLocalCamera(tracks.length ? new MediaStream(tracks) : null);
-  }, []);
+  }, [sendTrackFor]);
+
+  // ── background blur ──────────────────────────────────────────────────────
+
+  /** Point the camera producer and the local preview at the current send
+   * track (blurred or raw). Never throws. */
+  const swapCamera = useCallback(async () => {
+    const raw = tracksRef.current.camera;
+    const producer = producersRef.current.get('camera');
+    if (raw && producer && !producer.closed) {
+      try {
+        await producer.replaceTrack({ track: sendTrackFor(raw) });
+      } catch (err) {
+        console.warn('[video] camera track swap failed', err);
+        // Blurred track refused → make sure the raw one is what goes out.
+        const b = blurRef.current;
+        if (b) {
+          blurRef.current = null;
+          b.stop();
+          setBlurActive(false);
+          await producer.replaceTrack({ track: raw }).catch(() => undefined);
+        }
+      }
+    }
+    refreshLocalCamera();
+  }, [refreshLocalCamera, sendTrackFor]);
+
+  /** Blur stopped by itself: back to the raw camera at once. */
+  const onBlurFail = useCallback(
+    (pipeline: () => BlurPipeline | null) => (code: BlurFailure) => {
+      const p = pipeline();
+      if (!p || blurRef.current !== p) return;
+      blurRef.current = null;
+      setBlurActive(false);
+      void swapCamera();
+      setBlurError({ code, at: Date.now() });
+      // A computer that cannot keep up will not do better next time.
+      blurWantRef.current = false;
+      setBlurOn(false);
+      if (code === 'slow') writeBlurPref(false);
+    },
+    [swapCamera],
+  );
+
+  /**
+   * Make the blur pipeline match the wish + the camera: start it on the
+   * current raw camera track, or stop it. Serialized; any failure leaves the
+   * raw camera in place. `timeoutMs` bounds the wait for the first frame.
+   */
+  const syncBlur = useCallback(
+    (timeoutMs = 60_000): Promise<void> => {
+      const run = async () => {
+        const raw = tracksRef.current.camera;
+        const want =
+          blurWantRef.current && blurOkRef.current && !!raw && raw.readyState === 'live';
+        const cur = blurRef.current;
+        if (cur && (!want || cur.input !== raw)) {
+          blurRef.current = null;
+          setBlurActive(false);
+          await swapCamera();
+          cur.stop();
+        }
+        if (!want || blurRef.current || !raw) return;
+        setBlurBusy(true);
+        let made: BlurPipeline | null = null;
+        try {
+          let timedOut = false;
+          const started = startBackgroundBlur(raw, onBlurFail(() => made));
+          const timeout = new Promise<never>((_, reject) =>
+            window.setTimeout(() => {
+              timedOut = true;
+              reject(new BlurError('failed', 'start timeout'));
+            }, timeoutMs),
+          );
+          // A late start after the timeout must not leak.
+          started.then(
+            (p) => {
+              if (timedOut) p.stop();
+            },
+            () => undefined,
+          );
+          made = await Promise.race([started, timeout]);
+        } catch (err) {
+          const code: BlurFailure = err instanceof BlurError ? err.code : 'failed';
+          console.warn('[video] background blur unavailable', err);
+          if (code === 'unsupported') {
+            blurOkRef.current = false;
+            setBlurOk(false);
+          }
+          blurWantRef.current = false;
+          setBlurOn(false);
+          setBlurError({ code, at: Date.now() });
+          return;
+        } finally {
+          setBlurBusy(false);
+        }
+        const pipeline = made;
+        // The camera changed or blur was switched off while starting.
+        if (tracksRef.current.camera !== raw || !blurWantRef.current || raw.readyState !== 'live') {
+          pipeline.stop();
+          return;
+        }
+        blurRef.current = pipeline;
+        setBlurActive(true);
+        await swapCamera();
+      };
+      const next = blurQueueRef.current.then(run, run).catch((err) => {
+        console.warn('[video] blur sync failed', err);
+      });
+      blurQueueRef.current = next;
+      return next;
+    },
+    [onBlurFail, swapCamera],
+  );
+
+  syncBlurRef.current = syncBlur;
+
+  const setBlur = useCallback(
+    (on: boolean) => {
+      if (on && !blurOkRef.current) return;
+      blurWantRef.current = on;
+      setBlurOn(on);
+      writeBlurPref(on);
+      if (!on) setBlurError(null);
+      void syncBlur();
+    },
+    [syncBlur],
+  );
 
   const enableAudio = useCallback(async (): Promise<boolean> => {
     const existing = tracksRef.current.mic;
@@ -974,33 +1286,61 @@ export function useVideoRoom(
       await publish('mic', existing);
       return true;
     }
-    const s = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
+    let s: MediaStream;
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new DOMException('no mediaDevices', 'NotFoundError');
+      }
+      s = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+    } catch (err) {
+      const kind = mediaErrorKind(err, 'mic');
+      for (const k of ['mic_denied', 'mic_missing', 'mic_busy'] as const) setDiag(k, k === kind);
+      throw err;
+    }
+    for (const k of ['mic_denied', 'mic_missing', 'mic_busy'] as const) setDiag(k, false);
     const track = s.getAudioTracks()[0];
     if (!track) return false;
     await publish('mic', track);
     refreshLocalCamera();
     return true;
-  }, [publish, refreshLocalCamera]);
+  }, [publish, refreshLocalCamera, setDiag]);
 
   const enableVideo = useCallback(async (): Promise<boolean> => {
-    const s = await navigator.mediaDevices.getUserMedia({
-      video: {
-        // HD capture: the recording and the local picture use it in full;
-        // what goes to the others is shaped by CAMERA_ENCODINGS.
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        frameRate: { ideal: 30, max: 30 },
-      },
-    });
+    let s: MediaStream;
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new DOMException('no mediaDevices', 'NotFoundError');
+      }
+      s = await navigator.mediaDevices.getUserMedia({
+        video: {
+          // HD capture: the recording and the local picture use it in full;
+          // what goes to the others is shaped by CAMERA_ENCODINGS.
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30, max: 30 },
+        },
+      });
+    } catch (err) {
+      const kind = mediaErrorKind(err, 'cam');
+      for (const k of ['cam_denied', 'cam_missing', 'cam_busy'] as const) setDiag(k, k === kind);
+      throw err;
+    }
+    for (const k of ['cam_denied', 'cam_missing', 'cam_busy'] as const) setDiag(k, false);
     const track = s.getVideoTracks()[0];
     if (!track) return false;
     tracksRef.current.camera?.stop();
+    tracksRef.current.camera = track;
+    // Blur on: the first thing anyone sees is already blurred (bounded
+    // wait — on any trouble the raw camera goes out).
+    if (blurWantRef.current && blurOkRef.current) {
+      await Promise.race([syncBlur(), new Promise((r) => window.setTimeout(r, 6_000))]);
+    }
     await publish('camera', track);
     refreshLocalCamera();
     return true;
-  }, [publish, refreshLocalCamera]);
+  }, [publish, refreshLocalCamera, setDiag, syncBlur]);
 
   const join = useCallback(
     async (opts: { audio?: boolean; video?: boolean } = {}) => {
@@ -1073,6 +1413,7 @@ export function useVideoRoom(
       unpublish('camera');
       refreshLocalCamera();
       publishState({ ...cur, video: false });
+      void syncBlur();
       return;
     }
     try {
@@ -1081,7 +1422,7 @@ export function useVideoRoom(
     } catch {
       setError('media_denied');
     }
-  }, [enableVideo, publishState, refreshLocalCamera, unpublish]);
+  }, [enableVideo, publishState, refreshLocalCamera, syncBlur, unpublish]);
 
   const stopScreen = useCallback(() => {
     const hadScreen = !!tracksRef.current.screen || mediaRef.current.screen;
@@ -1108,6 +1449,7 @@ export function useVideoRoom(
       screenBusyRef.current = false;
       if (err instanceof ScreenShareFailed) {
         setScreenError({ code: err.code, at: Date.now() });
+        setDiag(SCREEN_DIAG[err.code], true, undefined, SCREEN_DIAG_TTL_MS);
       }
       return; // cancelled → silently
     }
@@ -1117,6 +1459,7 @@ export function useVideoRoom(
       for (const x of s.getTracks()) x.stop();
       screenBusyRef.current = false;
       setScreenError({ code: 'failed', at: Date.now() });
+      setDiag('screen_failed', true, undefined, SCREEN_DIAG_TTL_MS);
       return;
     }
     // The browser's own «Stop sharing» bar (or the shared window closing)
@@ -1140,11 +1483,15 @@ export function useVideoRoom(
       track.stop();
       audio?.stop();
       stopScreen();
-      if (!stoppedByUser) setScreenError({ code: 'failed', at: Date.now() });
+      if (!stoppedByUser) {
+        setScreenError({ code: 'failed', at: Date.now() });
+        setDiag('screen_failed', true, undefined, SCREEN_DIAG_TTL_MS);
+      }
       screenBusyRef.current = false;
       return;
     }
     screenBusyRef.current = false;
+    for (const k of Object.values(SCREEN_DIAG)) setDiag(k, false);
     if (tracksRef.current.screen !== track) {
       // Stopped from the browser bar while it was being sent: drop the
       // producer that finished after the cleanup.
@@ -1164,7 +1511,122 @@ export function useVideoRoom(
     } else {
       audio?.stop();
     }
-  }, [publish, publishState, stopScreen, unpublish]);
+  }, [publish, publishState, setDiag, stopScreen, unpublish]);
+
+  // ── «Помощник тренера»: local detectors ─────────────────────────────────
+
+  const reportDiag = useCallback(
+    (kind: RtcDiagKind, on: boolean, detail?: string) => setDiag(kind, on, detail),
+    [setDiag],
+  );
+
+  // Talking with the mic off for > 3 s → a hint to me (and to teachers).
+  // Listens to a clone of the muted mic; never unmutes.
+  const speechRef = useRef<MutedSpeechDetector | null>(null);
+  if (!speechRef.current && typeof window !== 'undefined') {
+    speechRef.current = new MutedSpeechDetector((talking) => {
+      setDiag('muted_speaking', talking);
+      if (talking) setDiagHint({ kind: 'muted_speaking', from: null, at: Date.now() });
+    });
+  }
+  const joinedNow = status === 'joined' || status === 'reconnecting';
+  const micTrack = localCamera?.getAudioTracks()[0] ?? null;
+  useEffect(() => {
+    const det = speechRef.current;
+    if (!det) return;
+    if (joinedNow && !media.audio && micTrack && micTrack.readyState === 'live') {
+      det.start(micTrack);
+    } else {
+      det.stop();
+    }
+  }, [joinedNow, media.audio, micTrack]);
+  useEffect(() => () => speechRef.current?.stop(), []);
+
+  // The call keeps reconnecting for > 10 s.
+  useEffect(() => {
+    if (status !== 'reconnecting') {
+      setDiag('reconnecting', false);
+      return;
+    }
+    const timer = window.setTimeout(() => setDiag('reconnecting', true), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [status, setDiag]);
+
+  // A raised hand nobody answered for 2 minutes.
+  useEffect(() => {
+    if (!joinedNow || !media.hand) {
+      setDiag('hand_waiting', false);
+      return;
+    }
+    const timer = window.setTimeout(() => setDiag('hand_waiting', true), 2 * 60_000);
+    return () => window.clearTimeout(timer);
+  }, [joinedNow, media.hand, setDiag]);
+
+  // Microphone blocked in the browser settings (seen without asking).
+  useEffect(() => {
+    if (!joinedNow || typeof navigator === 'undefined' || !navigator.permissions?.query) return;
+    let perm: PermissionStatus | null = null;
+    let alive = true;
+    const apply = () => {
+      if (!perm || !alive) return;
+      setDiag('mic_denied', perm.state === 'denied');
+    };
+    navigator.permissions
+      .query({ name: 'microphone' as PermissionName })
+      .then((p) => {
+        if (!alive) return;
+        perm = p;
+        // Only report a block, never «not asked yet».
+        if (p.state === 'denied') apply();
+        p.onchange = apply;
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+      if (perm) perm.onchange = null;
+    };
+  }, [joinedNow, setDiag]);
+
+  // Very poor connection: loss > 10% or RTT > 600 ms for ~10 s (getStats
+  // every 4 s on the send transport, or the receive one when listen-only).
+  useEffect(() => {
+    if (status !== 'joined') return;
+    const quality = new NetQuality();
+    let bad = 0;
+    let good = 0;
+    let lastTransport: msc.Transport | null = null;
+    const id = window.setInterval(() => {
+      const send = sendRef.current;
+      const transport = send && !send.closed && producersRef.current.size > 0 ? send : recvRef.current;
+      if (!transport || transport.closed) return;
+      if (transport !== lastTransport) {
+        quality.reset();
+        lastTransport = transport;
+      }
+      void transport
+        .getStats()
+        .then((report) => {
+          const { loss, rtt } = quality.sample(report);
+          const poor = (loss != null && loss > NET_LOSS_BAD) || (rtt != null && rtt > NET_RTT_BAD_MS);
+          if (poor) {
+            good = 0;
+            bad += 1;
+            if (bad >= NET_BAD_CHECKS) {
+              const parts: string[] = [];
+              if (loss != null) parts.push(`${Math.round(loss * 100)}%`);
+              if (rtt != null) parts.push(`${Math.round(rtt)} ms`);
+              setDiag('poor_network', true, parts.join(' · '));
+            }
+          } else {
+            bad = 0;
+            good += 1;
+            if (good >= NET_BAD_CHECKS) setDiag('poor_network', false);
+          }
+        })
+        .catch(() => undefined);
+    }, NET_CHECK_MS);
+    return () => window.clearInterval(id);
+  }, [status, setDiag]);
 
   const sendReaction = useCallback((emoji: RtcReactionEmoji) => {
     const sid = sessionIdRef.current;
@@ -1247,5 +1709,10 @@ export function useVideoRoom(
     screenError,
     sendReaction,
     subscribeReactions,
+    blur: { supported: blurOk, on: blurOn, active: blurActive, busy: blurBusy },
+    setBlur,
+    blurError,
+    reportDiag,
+    diagHint,
   };
 }

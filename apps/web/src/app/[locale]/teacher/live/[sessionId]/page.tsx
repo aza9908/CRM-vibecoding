@@ -101,6 +101,7 @@ export default function TeacherLivePage() {
     setQuestionStatus,
     callState,
     pulse,
+    diag,
     sectionsUnlocked,
     timer: wsTimer,
   } = useSessionSocket(sessionId, { token: accessToken });
@@ -421,6 +422,7 @@ export default function TeacherLivePage() {
           isHost
           callState={callState}
           recordingTitle={lessonQuery.data?.title}
+          coach={diag}
         />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
           {/* Workbook preview — click a block to focus it for students. */}
